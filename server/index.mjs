@@ -1,3 +1,4 @@
+import { clerkMiddleware, getAuth } from '@clerk/express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import express from 'express';
@@ -26,9 +27,13 @@ const TRANSLATION_MODEL =
 const OPENAI_TRANSCRIPTION_MODEL =
   process.env.OPENAI_TRANSCRIPTION_MODEL || 'gpt-4o-mini-transcribe';
 const ASR_TIMEOUT_MS = Number(process.env.DARIJA_ASR_TIMEOUT_MS || 900000);
+const CLERK_PUBLISHABLE_KEY = process.env.CLERK_PUBLISHABLE_KEY;
+const CLERK_SECRET_KEY = process.env.CLERK_SECRET_KEY;
+const CLERK_CONFIGURED = Boolean(CLERK_PUBLISHABLE_KEY && CLERK_SECRET_KEY);
 
 const app = express();
 
+app.use(CLERK_CONFIGURED ? clerkMiddleware() : (_req, _res, next) => next());
 app.use(cors());
 app.use(express.json({ limit: BODY_LIMIT }));
 
@@ -100,6 +105,30 @@ function validatePayload(body) {
   }
 
   return { filename, audioBase64 };
+}
+
+function requireClerkSession(req, res, next) {
+  if (!CLERK_CONFIGURED) {
+    return next(
+      httpError(
+        500,
+        'Clerk auth is not configured. Set CLERK_PUBLISHABLE_KEY and CLERK_SECRET_KEY.',
+      ),
+    );
+  }
+
+  const auth = getAuth(req);
+
+  if (!auth.userId) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+
+  req.clerkAuth = {
+    userId: auth.userId,
+    sessionId: auth.sessionId,
+  };
+
+  return next();
 }
 
 function decodeAudioBase64(audioBase64) {
@@ -359,6 +388,7 @@ app.get('/health', (req, res) => {
     ok: true,
     service: 'darija-to-english-api',
     dependencies: {
+      clerk: CLERK_CONFIGURED,
       darija_asr: Boolean(ASR_BASE_URL && ASR_API_KEY),
       openai: Boolean(OPENAI_API_KEY),
     },
@@ -374,12 +404,13 @@ app.get('/health', (req, res) => {
     userAgent: req.get('User-Agent'),
     responseShape: Object.keys(payload),
     models: payload.models,
+    clerkConfigured: CLERK_CONFIGURED,
   });
 
   res.json(payload);
 });
 
-app.post('/translate-audio', async (req, res, next) => {
+async function handleTranslateAudio(req, res, next) {
   const traceId = traceFromRequest(req);
   const startedAt = Date.now();
 
@@ -388,6 +419,7 @@ app.post('/translate-audio', async (req, res, next) => {
 
     logTrace(traceId, 'Translate audio request received', {
       ip: req.ip,
+      userId: req.clerkAuth?.userId,
       filename: payload.filename,
       base64Chars: payload.audioBase64.length,
       approxAudioBytes: Math.round((payload.audioBase64.length * 3) / 4),
@@ -479,7 +511,10 @@ app.post('/translate-audio', async (req, res, next) => {
     error.traceId = traceId;
     next(error);
   }
-});
+}
+
+app.post('/v1/translate-audio', requireClerkSession, handleTranslateAudio);
+app.post('/translate-audio', requireClerkSession, handleTranslateAudio);
 
 app.use((error, _req, res, _next) => {
   const status = Number(error.status || 500);

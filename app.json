@@ -6,15 +6,16 @@
     "orientation": "portrait",
     "scheme": "darijaenglish",
     "userInterfaceStyle": "automatic",
-    "newArchEnabled": true,
     "splash": {
       "backgroundColor": "#0E1116"
     },
     "ios": {
+      "bundleIdentifier": "com.samisabiridrissi.darijatoenglish",
+      "appleTeamId": "57JWLP426D",
       "supportsTablet": true
     },
     "android": {
-      "edgeToEdgeEnabled": true,
+      "package": "com.samisabiridrissi.darijatoenglish",
       "predictiveBackGestureEnabled": false
     },
     "web": {
@@ -31,7 +32,11 @@
           "enableBackgroundRecording": false
         }
       ],
-      "expo-asset"
+      "expo-asset",
+      "expo-font",
+      "expo-secure-store",
+      "expo-web-browser",
+      "@clerk/expo"
     ],
     "experiments": {
       "typedRoutes": true

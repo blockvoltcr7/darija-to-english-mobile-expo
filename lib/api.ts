@@ -4,6 +4,7 @@ import type { TranslationResult } from '@/lib/types';
 interface TranslateAudioParams {
   filename: string;
   audioBase64: string;
+  accessToken: string;
   traceId?: string;
   onTrace?: (message: string) => void;
 }
@@ -25,10 +26,11 @@ async function readError(res: Response) {
 export async function translateAudioFile({
   filename,
   audioBase64,
+  accessToken,
   traceId,
   onTrace,
 }: TranslateAudioParams): Promise<TranslationResult> {
-  const endpoint = `${CONFIG.API_BASE_URL}/translate-audio`;
+  const endpoint = `${CONFIG.API_BASE_URL}/v1/translate-audio`;
   const startedAt = Date.now();
 
   onTrace?.(
@@ -41,6 +43,7 @@ export async function translateAudioFile({
     res = await fetch(endpoint, {
       method: 'POST',
       headers: {
+        Authorization: `Bearer ${accessToken}`,
         'Content-Type': 'application/json',
         ...(traceId ? { 'X-Trace-Id': traceId } : {}),
       },

@@ -1,3 +1,4 @@
+import { useAuth, useUser } from '@clerk/expo';
 import { Ionicons } from '@expo/vector-icons';
 import {
   AudioModule,
@@ -9,6 +10,8 @@ import {
 import * as DocumentPicker from 'expo-document-picker';
 import type { DocumentPickerAsset } from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system/legacy';
+import { useRouter } from 'expo-router';
+import type { Href } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useMemo, useState } from 'react';
 import {
@@ -120,6 +123,9 @@ async function readSelectedAudioAsBase64(asset: DocumentPickerAsset) {
 }
 
 export default function HomeScreen() {
+  const { getToken } = useAuth({ treatPendingAsSignedOut: false });
+  const { user } = useUser();
+  const router = useRouter();
   const audioRecorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY);
   const recorderState = useAudioRecorderState(audioRecorder, 250);
   const [permissionGranted, setPermissionGranted] = useState<boolean | null>(null);
@@ -138,6 +144,8 @@ export default function HomeScreen() {
     () => formatDuration(recorderState.durationMillis),
     [recorderState.durationMillis],
   );
+  const userLabel =
+    user?.primaryEmailAddress?.emailAddress || user?.username || user?.id || 'Account';
 
   function appendDiagnostic(message: string, traceId?: string) {
     const timestamp = new Date().toLocaleTimeString();
@@ -182,6 +190,19 @@ export default function HomeScreen() {
       );
       throw new Error(`Cannot reach API from app at ${endpoint}: ${message}`);
     }
+  }
+
+  async function getApiAccessToken(traceId: string) {
+    appendDiagnostic('Loading Clerk session token', traceId);
+
+    const accessToken = await getToken();
+
+    if (!accessToken) {
+      throw new Error('Sign in is required before translating audio.');
+    }
+
+    appendDiagnostic('Clerk session token ready', traceId);
+    return accessToken;
   }
 
   useEffect(() => {
@@ -267,6 +288,7 @@ export default function HomeScreen() {
 
       appendDiagnostic(`Recording URI ${recordingUri}`, traceId);
       await checkApiHealth(traceId);
+      const accessToken = await getApiAccessToken(traceId);
 
       const audioBase64 = await FileSystem.readAsStringAsync(recordingUri, {
         encoding: FileSystem.EncodingType.Base64,
@@ -276,6 +298,7 @@ export default function HomeScreen() {
       const translationResult = await translateAudioFile({
         filename: filenameFromUri(recordingUri),
         audioBase64,
+        accessToken,
         traceId,
         onTrace: (message) => appendDiagnostic(message, traceId),
       });
@@ -328,6 +351,7 @@ export default function HomeScreen() {
       );
 
       await checkApiHealth(traceId);
+      const accessToken = await getApiAccessToken(traceId);
 
       const audioBase64 = await readSelectedAudioAsBase64(selectedAudio);
       appendDiagnostic(`Read upload base64 chars=${audioBase64.length}`, traceId);
@@ -335,6 +359,7 @@ export default function HomeScreen() {
       const translationResult = await translateAudioFile({
         filename: selectedAudio.name || filenameFromUri(selectedAudio.uri),
         audioBase64,
+        accessToken,
         traceId,
         onTrace: (message) => appendDiagnostic(message, traceId),
       });
@@ -390,9 +415,28 @@ export default function HomeScreen() {
               <Ionicons name="grid-outline" size={13} color={palette.stone} />
               <Text style={styles.brandPillText}>Darija Mission Control</Text>
             </View>
-            <View style={styles.statusPill}>
-              <View style={[styles.statusDot, { backgroundColor: activeStatusColor }]} />
-              <Text style={styles.statusText}>{statusLabel(status, isRecording)}</Text>
+            <View style={styles.headerActions}>
+              <Pressable
+                accessibilityRole="button"
+                onPress={() => router.push('/account' as Href)}
+                style={({ pressed }) => [
+                  styles.accountButton,
+                  pressed ? styles.pressedSoftButton : null,
+                ]}
+              >
+                <Ionicons name="person-circle-outline" size={16} color={palette.text} />
+                <Text numberOfLines={1} style={styles.accountButtonText}>
+                  {userLabel}
+                </Text>
+              </Pressable>
+              <View style={styles.statusPill}>
+                <View
+                  style={[styles.statusDot, { backgroundColor: activeStatusColor }]}
+                />
+                <Text style={styles.statusText}>
+                  {statusLabel(status, isRecording)}
+                </Text>
+              </View>
             </View>
           </View>
 
@@ -691,6 +735,32 @@ const styles = StyleSheet.create({
     gap: 8,
     paddingHorizontal: 10,
     paddingVertical: 8,
+  },
+  headerActions: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    flexShrink: 1,
+    gap: 8,
+    justifyContent: 'flex-end',
+  },
+  accountButton: {
+    alignItems: 'center',
+    backgroundColor: palette.cardRaised,
+    borderColor: palette.border,
+    borderRadius: 10,
+    borderWidth: 1,
+    flexDirection: 'row',
+    gap: 7,
+    maxWidth: 150,
+    minHeight: 35,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+  },
+  accountButtonText: {
+    color: palette.text,
+    flexShrink: 1,
+    fontSize: 11,
+    fontWeight: '800',
   },
   statusDot: {
     borderRadius: 4,
