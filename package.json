@@ -14,7 +14,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@clerk/expo": "^3.2.9",
+    "@clerk/expo": "3.2.8",
     "@clerk/express": "^2.1.14",
     "@expo/vector-icons": "^15.0.3",
     "@react-navigation/native": "^7.1.8",
