@@ -1,0 +1,19 @@
+[mcp_servers.supabase]
+url = "https://mcp.supabase.com/mcp?project_ref=npjsersrmvltoxmqdkzd"
+
+sandbox_mode = "danger-full-access"
+
+[sandbox_workspace_write]
+network_access = true
+
+memories = true 
+
+multi_agent = true 
+
+personality = true 
+
+
+[profiles.deep-review]
+model = "gpt-5-pro"
+model_reasoning_effort = "high"
+approval_policy = "never"
