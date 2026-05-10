@@ -69,6 +69,10 @@ Not done:
 - [04-next-action-items.md](04-next-action-items.md): immediate task backlog ordered by dependency.
 - [05-clerk-supabase-auth-solidification-plan.md](05-clerk-supabase-auth-solidification-plan.md): Clerk identity, Supabase DB/storage, webhook sync, and Postgres trigger boundary.
 
+## Epic Package
+
+- [../epics/clerk-supabase-triggerdev-foundation/README.md](../epics/clerk-supabase-triggerdev-foundation/README.md): implementation epics and tasks for Clerk-native Supabase persistence, buckets, Trigger.dev workflow, and usage controls.
+
 ## External References Checked
 
 - Expo EAS build/store docs: https://docs.expo.dev/deploy/build-project/

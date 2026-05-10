@@ -1,10 +1,10 @@
 # Type Inference Rules
 
-Infers the `## Type` value for a task stub based on keywords in the task name and description from the PRD roadmap.
+Infers the `## Type` value for a task stub based on keywords in the task name and description from a PRD roadmap or current-session context.
 
 ## Inference Table
 
-Scan the task name and description (from the PRD table row). Apply the **first matching rule** (rules are ordered by specificity):
+Scan the task name and description. If seeding from a PRD, use the PRD table row. If seeding from current-session context, use the inferred task title plus the supporting conversation summary. Apply the **first matching rule** (rules are ordered by specificity):
 
 | Priority | Keywords in Name/Description | Inferred Type | Rationale |
 |----------|------------------------------|---------------|-----------|
@@ -27,7 +27,7 @@ Scan the task name and description (from the PRD table row). Apply the **first m
 
 1. **Case-insensitive** — `RLS` matches `rls`, `Rls`, etc.
 2. **Word boundary aware** — `env` matches `env validation` but not `environment` (use both keywords)
-3. **Combine name + description** — Check both the task name column and description column from the PRD table
+3. **Combine name + description** — Check both the task name and description, whether sourced from a PRD or inferred from session context
 4. **First match wins** — Stop at the first matching rule (ordered by priority)
 
 ## Examples

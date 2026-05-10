@@ -1,40 +1,92 @@
 ---
 name: seed-epic
-description: Parse a local PRD into local epic and task markdown files for review before anything is finalized. Use when the user asks to seed an epic from a PRD, break a PRD into tasks, or generate local epic files from an implementation roadmap.
+description: Seed local epic/task folders from a PRD, implementation roadmap, or current conversation context for review before anything is finalized. Use when the user asks to seed an epic, break work into tasks, or generate local epic files.
 ---
 
 # Seed Epic
 
-Read a PRD and create local `epics/` markdown artifacts that can be reviewed before the epic is finalized.
+Create local `epics/` artifacts that can be reviewed before the epic is finalized.
+
+The source can be either:
+- a local PRD directory, or
+- the current session context when the user has already provided enough implementation detail in conversation.
 
 ## Input
 
-Parse one argument:
+Parse optional arguments:
 - `prd_path`: path to the PRD directory
+- `epic_root_path`: path where the generated epic package should be written
+- `epic_name`: explicit epic package name
 
-If it is missing, ask for it.
+If `prd_path` is missing, do not automatically ask for it. First decide whether the current conversation contains enough source material to seed the epic safely.
+
+Use current-session context when:
+- the user explicitly asks to seed/create epics from what was discussed,
+- the conversation includes the goal, architecture decisions, task boundaries, and acceptance criteria, and
+- the output location can be inferred or reasonably chosen.
+
+Ask for a PRD path only when the context is insufficient or the user specifically asks to seed from a PRD.
+
+Default output location:
+- If `prd_path` is provided: `{prd_path}/epics/`
+- If using session context: `ai_docs/epics/<epic_name>/`
 
 ## Output
 
 Write:
-- `{prd_path}/epics/epic-overview.md`
+- one epic package folder
+- one `README.md` for the epic package when multiple epic folders are created
 - one subfolder per epic or phase
 - one `epic-overview.md` per epic folder
-- numbered task markdown files in each epic folder
+- one folder per task in each epic folder
+- one canonical `task.md` file in each task folder
+- support folders in each task folder:
+  - `artifacts/`
+  - `references/`
+  - `resources/`
+  - `notes/`
 
 Nothing is finalized in this stage — `finalize-epic` handles that next.
 
+Preferred folder shape:
+
+```text
+ai_docs/epics/<epic-package>/
+  README.md
+  00-<epic-slug>/
+    epic-overview.md
+    01-<task-slug>/
+      task.md
+      artifacts/
+      references/
+      resources/
+      notes/
+```
+
+Compatibility note: older epics may use flat task files like `<NN>-<slug>.md`. New seeded epics should use task folders.
+
 ## Workflow
 
-### 1. Read the full PRD
+### 1. Gather source context
 
-Read `README.md`, the implementation phases page, and the other relevant PRD pages needed to understand:
+If `prd_path` is provided, read `README.md`, the implementation phases page, and the other relevant PRD pages needed to understand:
 - scope
 - task boundaries
 - dependencies
 - acceptance criteria
 
-Do not treat the roadmap as final truth. Evaluate it critically.
+If no `prd_path` is provided, use current-session context as the source. Extract:
+- explicit user goals
+- architecture decisions
+- implementation constraints
+- known file paths
+- task boundaries
+- acceptance criteria
+- unresolved assumptions
+
+When using session context, write a `README.md` in the epic package with a short `## Source Context` section that says the package was seeded from conversation context rather than a PRD.
+
+Do not treat any roadmap as final truth. Evaluate it critically.
 
 ### 2. Restructure for execution
 
@@ -52,26 +104,57 @@ Use `references/type-inference.md` to infer task types.
 ### 3. Present a creation plan
 
 Before writing files, show:
+- source mode: `PRD` or `current-session`
+- output folder
 - epic folders to be created
 - tasks per epic
-- major changes from the PRD roadmap
+- major changes from the source roadmap or conversation outline
+- if using session context, major assumptions and missing information
 - cross-epic dependencies
 
 Wait for confirmation before writing.
 
-### 4. Write local epic files
+### 4. Write local epic folders
 
-Each task file should be self-contained enough for later enrichment and execution. Include these sections:
+Each task folder should be self-contained enough for later enrichment and execution.
+
+The canonical task spec is:
+
+```text
+<NN>-<slug>/task.md
+```
+
+Create these support folders even if empty:
+
+```text
+<NN>-<slug>/artifacts/
+<NN>-<slug>/references/
+<NN>-<slug>/resources/
+<NN>-<slug>/notes/
+```
+
+`task.md` must include these sections:
 - `## Type`
 - `## Context`
 - `## Implementation`
 - `## Acceptance Criteria`
 - `## Dependencies`
 - `## Technical Notes`
+- `## Artifact Slots`
 
 The task should contain actionable guidance, not just a stub.
 
-For `## Dependencies`, use slug-based references — the task slug is the filename without the numeric prefix. Cross-epic refs use `<epic-folder>/<slug>`:
+Use `## Artifact Slots` to list the kinds of supporting material expected for that task, for example:
+
+```markdown
+## Artifact Slots
+- `artifacts/`: generated diagrams, screenshots, SQL drafts, API examples
+- `references/`: copied source snippets, docs excerpts, design inputs
+- `resources/`: helper scripts, fixtures, curl commands, sample payloads
+- `notes/`: implementation notes, QA notes, blockers, decisions
+```
+
+For `## Dependencies`, use slug-based references. Cross-epic refs use `<epic-folder>/<slug>`:
 
 ```
 ## Dependencies
@@ -79,10 +162,17 @@ For `## Dependencies`, use slug-based references — the task slug is the filena
 - Depends On: shared-infra-epic/provision-redis
 ```
 
+For task folders, the slug is the task folder name without the numeric prefix:
+
+```text
+01-setup-auth/task.md -> setup-auth
+```
+
 ### 5. Handoff
 
 After writing files, report:
-- epic folder path
+- source mode: `PRD` or `current-session`
+- epic package path
 - epics created
 - task count
 - next step: `finalize-epic <epic_folder>`

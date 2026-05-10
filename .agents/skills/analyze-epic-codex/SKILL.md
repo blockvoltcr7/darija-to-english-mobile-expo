@@ -5,7 +5,23 @@ description: Analyze a local epic folder to determine dependency phases, paralle
 
 # Analyze Epic
 
-Build the dependency graph for a local epic folder and write execution strategy plan files that describe safe execution order. Plan files are sidecars (`<NN>-<slug>.plan.md`) — they live next to spec files but never modify them.
+Build the dependency graph for a local epic folder and write execution strategy plan files that describe safe execution order.
+
+Preferred task shape:
+
+```text
+<epic_folder>/<NN>-<slug>/task.md
+<epic_folder>/<NN>-<slug>/plan.md
+```
+
+Legacy task shape is still accepted:
+
+```text
+<epic_folder>/<NN>-<slug>.md
+<epic_folder>/<NN>-<slug>.plan.md
+```
+
+Plan files never modify task specs.
 
 ## Input
 
@@ -20,7 +36,13 @@ Refuse to run if `status.log` is not present in the folder — that means the ep
 
 ### 1. Read and validate tasks
 
-Glob `<epic_folder_path>/*.md`, exclude `epic-overview.md` and `*.plan.md`. Read each spec file. Read `status.log` to identify completed tasks (last entry per slug == `done`) and skip them. Warn if any spec is missing critical sections such as `## Type` or `## Dependencies`.
+Discover tasks in this order:
+- Preferred: glob `<epic_folder_path>/<NN>-<slug>/task.md`
+- Legacy: glob `<epic_folder_path>/*.md`, excluding `epic-overview.md` and `*.plan.md`
+
+If both shapes exist for the same slug, use the folder task and warn about the legacy duplicate.
+
+Read each task spec. For folder tasks, also skim task-local `references/`, `resources/`, and `notes/` when they clarify dependencies or conflict risk. Read `status.log` to identify completed tasks (last entry per slug == `done`) and skip them. Warn if any spec is missing critical sections such as `## Type` or `## Dependencies`.
 
 ### 2. Build the DAG
 
@@ -56,7 +78,19 @@ Wait for confirmation before writing comments.
 
 ### 6. Write execution strategy plan files
 
-For each analyzed task, write a sidecar plan file at `<epic_folder_path>/<NN>-<slug>.plan.md`. Use `Write` (overwrite-safe) — this skill is the only writer for `*.plan.md` files, so re-running cleanly replaces previous plans without touching specs.
+For each analyzed folder-shaped task, write the plan file at:
+
+```text
+<epic_folder_path>/<NN>-<slug>/plan.md
+```
+
+For each legacy flat task, write the sidecar plan file at:
+
+```text
+<epic_folder_path>/<NN>-<slug>.plan.md
+```
+
+Use overwrite-safe writes. This skill is the only writer for plan files, so re-running cleanly replaces previous plans without touching specs or support folders.
 
 Plan file format — YAML frontmatter for the structured fields run-epic reads, then a free-text body for human-readable rationale:
 

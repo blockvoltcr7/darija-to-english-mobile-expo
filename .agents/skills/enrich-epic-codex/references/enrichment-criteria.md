@@ -1,6 +1,18 @@
 # Task Enrichment Criteria
 
-Scoring rubric and analysis patterns for evaluating and enriching local task file descriptions.
+Scoring rubric and analysis patterns for evaluating and enriching local task specs.
+
+Preferred task shape:
+
+```text
+<epic_folder>/<NN>-<slug>/task.md
+```
+
+Legacy task shape:
+
+```text
+<epic_folder>/<NN>-<slug>.md
+```
 
 ## Scoring Rubric
 
@@ -99,7 +111,7 @@ When enriching a task, map it to PRD content:
 4. **Match by data model**: If the task involves tables, cross-reference with the PRD's Data Model section
 5. **Match by architecture**: If the task involves services, cross-reference with the System Architecture section
 
-Always cite the specific PRD section in the enriched `## Context`.
+When a PRD exists, cite the specific PRD section in the enriched `## Context`. When the epic was seeded from current-session context, cite the epic package `README.md`, `epic-overview.md`, or task-local `references/` and `notes/` material instead.
 
 ---
 

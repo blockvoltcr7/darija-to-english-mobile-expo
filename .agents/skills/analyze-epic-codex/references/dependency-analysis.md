@@ -6,7 +6,21 @@ Detailed rules for building the dependency graph, detecting file overlap, and de
 
 ### Extracting Dependencies from Spec Files
 
-Parse the `## Dependencies` section of each task's spec file (`<NN>-<slug>.md`). Expected format:
+Parse the `## Dependencies` section of each task spec.
+
+Preferred task shape:
+
+```text
+<epic_folder>/<NN>-<slug>/task.md
+```
+
+Legacy task shape:
+
+```text
+<epic_folder>/<NN>-<slug>.md
+```
+
+Expected dependency format:
 
 ```markdown
 ## Dependencies
@@ -20,11 +34,22 @@ Parse the `## Dependencies` section of each task's spec file (`<NN>-<slug>.md`).
 1. Look for lines containing `Depends On:` or `depends on:` (case-insensitive)
 2. Extract slugs: match the token after the colon. A slug is `[a-z0-9-]+`. A cross-epic slug has the form `<epic-folder>/<slug>`.
 3. Look for `Blocks:` lines and extract the same way — these provide reverse-edge validation
-4. The slug is the spec filename without the `^\d+-` numeric prefix (e.g., `02-add-login.md` → `add-login`). The numeric prefix is sort-only and is not part of the identity.
+4. The slug is the task folder name without the `^\d+-` numeric prefix for folder-shaped tasks (e.g., `02-add-login/task.md` → `add-login`), or the spec filename without the numeric prefix and `.md` suffix for legacy flat tasks (e.g., `02-add-login.md` → `add-login`). The numeric prefix is sort-only and is not part of the identity.
 
 ### Resolving References
 
-Build a slug index by globbing `<epic_folder_path>/*.md` (excluding `epic-overview.md` and `*.plan.md`) and computing each file's slug.
+Build a slug index by discovering task specs.
+
+Preferred:
+- glob `<epic_folder_path>/<NN>-<slug>/task.md`
+- compute slug from the task folder name by stripping the numeric prefix
+
+Legacy:
+- glob `<epic_folder_path>/*.md`
+- exclude `epic-overview.md` and `*.plan.md`
+- compute slug from the filename by stripping the numeric prefix and `.md` suffix
+
+If both shapes exist for the same slug, prefer the folder task and warn about the legacy duplicate.
 
 | Reference Type | Resolution Strategy |
 |---|---|

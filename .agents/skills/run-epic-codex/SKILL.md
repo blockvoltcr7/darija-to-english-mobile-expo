@@ -1,11 +1,29 @@
 ---
 name: run-epic-codex
-description: Execute an analyzed local epic folder phase by phase in Codex using spec files, plan sidecars, status.log, and explicit Codex subagent spawning for parallel-safe work. Use when the user asks Codex to run or execute an epic pipeline with subagents.
+description: Execute an analyzed local epic folder phase by phase in Codex using task specs, plan files, status.log, and explicit Codex subagent spawning for parallel-safe work. Use when the user asks Codex to run or execute an epic pipeline with subagents.
 ---
 
 # Run Epic Codex
 
-Execute an analyzed local epic folder using task spec files (`<NN>-<slug>.md`) and execution strategy sidecars (`<NN>-<slug>.plan.md`) produced by `enrich-epic` and `analyze-epic`. The epic's append-only `status.log` is the source of truth, and the parent Codex session is the only writer.
+Execute an analyzed local epic folder using task specs and execution strategy plans produced by `enrich-epic` and `analyze-epic`. The epic's append-only `status.log` is the source of truth, and the parent Codex session is the only writer.
+
+Preferred task shape:
+
+```text
+<epic_folder>/<NN>-<slug>/task.md
+<epic_folder>/<NN>-<slug>/plan.md
+<epic_folder>/<NN>-<slug>/artifacts/
+<epic_folder>/<NN>-<slug>/references/
+<epic_folder>/<NN>-<slug>/resources/
+<epic_folder>/<NN>-<slug>/notes/
+```
+
+Legacy task shape is still accepted:
+
+```text
+<epic_folder>/<NN>-<slug>.md
+<epic_folder>/<NN>-<slug>.plan.md
+```
 
 This is the Codex-native execution entrypoint for the epic pipeline. It keeps the workflow skill-first: custom agents may help later, but this skill remains the source of truth.
 
@@ -36,11 +54,22 @@ Use Codex's parent-session orchestration model.
 
 ### 1. Read and parse the epic
 
-Glob `<epic_folder_path>/*.md`, excluding `epic-overview.md` and `*.plan.md`. For each spec file, also read the sibling `<NN>-<slug>.plan.md` if present.
+Discover tasks in this order:
+- Preferred: glob `<epic_folder_path>/<NN>-<slug>/task.md`
+- Legacy: glob `<epic_folder_path>/*.md`, excluding `epic-overview.md` and `*.plan.md`
+
+If both shapes exist for the same slug, use the folder task and warn about the legacy duplicate.
+
+For each folder-shaped task, read:
+- `task.md`
+- sibling `plan.md` if present
+- task-local `references/`, `resources/`, and `notes/` when needed for implementation context
+
+For each legacy flat task, read the spec file and sibling `<NN>-<slug>.plan.md` if present.
 
 Read `status.log`. Sort entries by timestamp. For each slug, take the last entry as current status. Skip slugs whose current status is `done`.
 
-If `*.plan.md` files are missing, warn and fall back to conservative sequential execution.
+If plan files are missing, warn and fall back to conservative sequential execution.
 
 Crash recovery: detect any slug whose current status is `in_progress` with no terminal entry. For each such slug:
 
@@ -54,6 +83,7 @@ Crash recovery: detect any slug whose current status is `in_progress` with no te
 Group tasks by phase from the plan sidecars. For each task determine:
 
 - slug and spec path
+- task folder path when applicable
 - current status
 - phase
 - `worktree_mode`

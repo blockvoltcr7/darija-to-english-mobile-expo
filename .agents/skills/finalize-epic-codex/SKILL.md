@@ -1,11 +1,23 @@
 ---
 name: finalize-epic
-description: Validate a local epic folder, initialize its status log, and freeze it for execution. Use when the user is ready to lock in a drafted epic before enrichment and analysis.
+description: Validate a local epic folder, initialize its status log, and freeze it for analysis/execution. Use after task specs have been drafted or enriched and the user is ready to lock the task set.
 ---
 
 # Finalize Epic
 
-Validate a local epic folder produced by `seed-epic`, initialize its `status.log`, regenerate the `epic-overview.md` status table, and create a checkpoint commit. This is the "freeze the spec" step that gates downstream enrichment, analysis, and execution.
+Validate a local epic folder produced by `seed-epic` and optionally refined by `enrich-epic`, initialize its `status.log`, regenerate the `epic-overview.md` status table, and create a checkpoint commit. This is the "freeze the task set" step that gates downstream analysis and execution.
+
+Preferred task shape:
+
+```text
+<epic_folder>/<NN>-<slug>/task.md
+```
+
+Legacy task shape is still accepted:
+
+```text
+<epic_folder>/<NN>-<slug>.md
+```
 
 ## Input
 
@@ -18,11 +30,20 @@ If it is missing, ask for it.
 
 ### 1. Read the epic
 
-Read `epic-overview.md` and every `<NN>-<slug>.md` task file in the folder. Skip `*.plan.md` files (analyze-epic owns those) and `status.log` (read separately in step 5).
+Read `epic-overview.md` and every task spec in the folder.
+
+Preferred discovery:
+- glob `<epic_folder>/<NN>-<slug>/task.md`
+
+Legacy discovery:
+- glob `<epic_folder>/<NN>-<slug>.md`
+- skip `epic-overview.md`, `*.plan.md`, and `status.log`
+
+If both shapes exist for the same slug, prefer the folder task and warn about the legacy duplicate.
 
 ### 2. Validate structure
 
-For each task file, confirm these sections exist:
+For each task spec, confirm these sections exist:
 - `## Type`
 - `## Context`
 - `## Acceptance Criteria`
@@ -34,15 +55,25 @@ If a required section is missing, hard fail with the file path and the missing s
 
 ### 3. Validate slugs
 
-Compute each task's slug by stripping the `^\d+-` prefix from its filename (e.g., `01-add-login.md` → `add-login`).
+Compute each task's slug by stripping the `^\d+-` prefix from the task folder name for folder tasks:
 
-If two task files in this epic resolve to the same slug, hard fail and show both file paths. The user must rename one before re-running.
+```text
+01-add-login/task.md -> add-login
+```
+
+For legacy flat tasks, strip the prefix and `.md` suffix:
+
+```text
+01-add-login.md -> add-login
+```
+
+If two task specs in this epic resolve to the same slug, hard fail unless one is a legacy flat duplicate of a folder task. In that case, prefer the folder task and warn that the legacy file should be removed or migrated.
 
 ### 4. Validate dependencies
 
 Parse the `## Dependencies` section of each task. Each `Depends On: <slug>` must resolve to:
-- An existing task file in this epic (slug match), OR
-- A `<other-epic>/<slug>` reference where the other epic folder exists at the same parent path and contains a matching slug
+- An existing task spec in this epic (slug match), OR
+- A `<other-epic>/<slug>` reference where the other epic folder exists at the same parent path and contains a matching slug in either task-folder or legacy flat shape
 
 Detect cycles in the seed-time dependency graph using DFS coloring (WHITE/GRAY/BLACK). Hard fail on any dangling reference or cycle, showing the offending task and the unresolved or cyclic reference.
 
@@ -58,7 +89,7 @@ Check whether `status.log` exists in the epic folder:
   2026-04-14T12:00:00Z add-logout nil->open
   ```
 
-- **If present:** parse it. For each task file in the epic, check whether its slug appears in the log. If not, append a new `nil->open` line for it (this handles re-runs after new tasks are added to the epic).
+- **If present:** parse it. For each task spec in the epic, check whether its slug appears in the log. If not, append a new `nil->open` line for it (this handles re-runs after new tasks are added to the epic).
 
 Never delete or modify existing log entries. The log is append-only.
 
@@ -99,7 +130,7 @@ Report:
 - validation results (sections checked, deps resolved, cycles checked)
 - task count
 - new vs existing log entries
-- next step: `enrich-epic <epic_folder_path>`
+- next step: `analyze-epic <epic_folder_path>`
 
 ## Re-run behavior
 

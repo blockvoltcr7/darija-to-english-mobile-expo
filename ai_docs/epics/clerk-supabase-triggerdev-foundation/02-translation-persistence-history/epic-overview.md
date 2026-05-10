@@ -1,0 +1,37 @@
+# Epic 02: Translation Persistence And History
+
+## Objective
+
+Persist current synchronous translations before moving audio processing to async jobs.
+
+## Scope
+
+- Add translation job/result/provider tables.
+- Add DB writers for the existing provider pipeline.
+- Persist sync translation results without breaking the mobile response.
+- Add history endpoints and minimal mobile history UI.
+
+## Out Of Scope
+
+- Trigger.dev async execution.
+- Supabase bucket storage.
+- Usage quotas and billing.
+
+## Tasks
+
+| # | Task | Type | Depends On |
+|---|---|---|---|
+| 01 | `create-translation-schema` | Migration | `01-clerk-profile-sync/verify-profile-sync-end-to-end` |
+| 02 | `create-translation-db-writers` | Code | `create-translation-schema` |
+| 03 | `persist-sync-translation-results` | Code | `create-translation-db-writers` |
+| 04 | `add-history-api-endpoints` | Code | `persist-sync-translation-results` |
+| 05 | `add-mobile-history-surface` | UI | `add-history-api-endpoints` |
+| 06 | `verify-history-access-controls` | Code | `add-history-api-endpoints` |
+
+## Verification
+
+- `node --check server/index.mjs`
+- `npm run typecheck`
+- `npm run lint`
+- `npx expo-doctor`
+- Manual authenticated/unauthenticated history checks.

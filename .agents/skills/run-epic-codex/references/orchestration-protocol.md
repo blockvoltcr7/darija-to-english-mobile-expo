@@ -10,7 +10,9 @@ The parent Codex session is the orchestrator. It may execute work directly or sp
 
 Parse the local epic folder to extract:
 
-- phase number and mode from each `<NN>-<slug>.plan.md`
+- phase number and mode from each task plan file:
+  - preferred: `<NN>-<slug>/plan.md`
+  - legacy: `<NN>-<slug>.plan.md`
 - task slug, task name, spec path, and plan path
 - `worktree_mode`, branch/worktree suggestion, and likely write scope
 - full task body and `## Acceptance Criteria`
