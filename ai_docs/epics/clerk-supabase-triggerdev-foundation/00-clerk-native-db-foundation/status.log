@@ -1,0 +1,7 @@
+2026-05-10T02:46:36Z establish-migration-convention nil->open
+2026-05-10T02:46:36Z retire-supabase-auth-profile-shape nil->open
+2026-05-10T02:46:36Z create-clerk-native-profiles-migration nil->open
+2026-05-10T02:46:36Z add-db-local-updated-at-trigger nil->open
+2026-05-10T02:46:36Z add-server-env-contract nil->open
+2026-05-10T02:46:36Z add-server-supabase-db-client nil->open
+2026-05-10T02:46:36Z add-foundation-verification-docs nil->open
