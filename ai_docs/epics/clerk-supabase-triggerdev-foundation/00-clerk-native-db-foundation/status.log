@@ -7,3 +7,7 @@
 2026-05-10T02:46:36Z add-foundation-verification-docs nil->open
 2026-05-10T03:09:55Z establish-migration-convention open->in_progress
 2026-05-10T03:10:36Z establish-migration-convention in_progress->done
+2026-05-10T03:11:07Z retire-supabase-auth-profile-shape open->in_progress
+2026-05-10T03:11:07Z add-server-env-contract open->in_progress
+2026-05-10T03:15:51Z retire-supabase-auth-profile-shape in_progress->done
+2026-05-10T03:17:24Z add-server-env-contract in_progress->done

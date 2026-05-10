@@ -1,0 +1,169 @@
+import dotenv from 'dotenv';
+
+dotenv.config({ path: ['.env.local', '.env'] });
+
+class ServerEnvError extends Error {
+  constructor(messages) {
+    super(
+      [
+        'Server environment configuration error.',
+        ...messages.map((message) => `- ${message}`),
+      ].join('\n'),
+    );
+    this.name = 'ServerEnvError';
+  }
+}
+
+function readString(rawEnv, name, defaultValue = undefined) {
+  const value = rawEnv[name]?.trim();
+  return value || defaultValue;
+}
+
+function readNumber(rawEnv, name, defaultValue, errors, options = {}) {
+  const rawValue = readString(rawEnv, name);
+  const value = rawValue === undefined ? defaultValue : Number(rawValue);
+
+  if (!Number.isFinite(value)) {
+    errors.push(`${name} must be a number.`);
+    return defaultValue;
+  }
+
+  if (options.integer && !Number.isInteger(value)) {
+    errors.push(`${name} must be an integer.`);
+  }
+
+  if (options.min !== undefined && value < options.min) {
+    errors.push(`${name} must be greater than or equal to ${options.min}.`);
+  }
+
+  if (options.max !== undefined && value > options.max) {
+    errors.push(`${name} must be less than or equal to ${options.max}.`);
+  }
+
+  return value;
+}
+
+function findPublicSupabaseSecretEnv(rawEnv) {
+  const publicEnvPrefix = ['EXPO', 'PUBLIC'].join('_');
+  const publicSupabasePrefix = `${publicEnvPrefix}_SUPABASE_`;
+
+  return Object.keys(rawEnv)
+    .filter((name) => name.startsWith(publicSupabasePrefix))
+    .filter((name) => /(?:SECRET|SERVICE_ROLE|SERVICE|JWT|PASSWORD|PRIVATE)/.test(name))
+    .sort();
+}
+
+function buildTranscribeUrl(asrBaseUrl) {
+  if (!asrBaseUrl) {
+    return undefined;
+  }
+
+  return asrBaseUrl.endsWith('/transcribe')
+    ? asrBaseUrl
+    : `${asrBaseUrl}/transcribe`;
+}
+
+function validateSupabaseUrl(value, errors) {
+  if (!value) {
+    errors.push('SUPABASE_URL is required.');
+    return;
+  }
+
+  try {
+    const url = new URL(value);
+
+    if (!['http:', 'https:'].includes(url.protocol)) {
+      errors.push('SUPABASE_URL must use http or https.');
+    }
+  } catch {
+    errors.push('SUPABASE_URL must be a valid URL.');
+  }
+}
+
+function loadEnv(rawEnv = process.env) {
+  const errors = [];
+  const forbiddenPublicSecretVars = findPublicSupabaseSecretEnv(rawEnv);
+  const port = readNumber(rawEnv, 'PORT', 8787, errors, {
+    integer: true,
+    min: 0,
+    max: 65535,
+  });
+  const darijaAsrTimeoutMs = readNumber(
+    rawEnv,
+    'DARIJA_ASR_TIMEOUT_MS',
+    900000,
+    errors,
+    { integer: true, min: 1 },
+  );
+  const asrBaseUrl = readString(
+    rawEnv,
+    'DARIJA_ASR_BASE_URL',
+    readString(rawEnv, 'DARIJA_ASR_URL'),
+  )?.replace(/\/+$/, '');
+  const supabaseUrl = readString(rawEnv, 'SUPABASE_URL');
+  const supabaseSecretKey = readString(rawEnv, 'SUPABASE_SECRET_KEY');
+  const supabaseServiceRoleKey = readString(rawEnv, 'SUPABASE_SERVICE_ROLE_KEY');
+
+  if (forbiddenPublicSecretVars.length > 0) {
+    errors.push(
+      `Supabase server secrets must not use EXPO_PUBLIC_* env names: ${forbiddenPublicSecretVars.join(
+        ', ',
+      )}.`,
+    );
+  }
+
+  validateSupabaseUrl(supabaseUrl, errors);
+
+  if (!supabaseSecretKey && !supabaseServiceRoleKey) {
+    errors.push(
+      'SUPABASE_SECRET_KEY is required. SUPABASE_SERVICE_ROLE_KEY is accepted only as a legacy fallback.',
+    );
+  }
+
+  if (errors.length > 0) {
+    throw new ServerEnvError(errors);
+  }
+
+  return Object.freeze({
+    PORT: port,
+    HOST: readString(rawEnv, 'HOST', '0.0.0.0'),
+    MAX_JSON_BODY_SIZE: readString(rawEnv, 'MAX_JSON_BODY_SIZE', '70mb'),
+    CLERK_PUBLISHABLE_KEY: readString(rawEnv, 'CLERK_PUBLISHABLE_KEY'),
+    CLERK_SECRET_KEY: readString(rawEnv, 'CLERK_SECRET_KEY'),
+    CLERK_CONFIGURED: Boolean(
+      readString(rawEnv, 'CLERK_PUBLISHABLE_KEY') &&
+        readString(rawEnv, 'CLERK_SECRET_KEY'),
+    ),
+    DARIJA_ASR_BASE_URL: asrBaseUrl,
+    DARIJA_ASR_TRANSCRIBE_URL: buildTranscribeUrl(asrBaseUrl),
+    DARIJA_ASR_API_KEY: readString(rawEnv, 'DARIJA_ASR_API_KEY'),
+    DARIJA_ASR_TIMEOUT_MS: darijaAsrTimeoutMs,
+    OPENAI_API_KEY: readString(rawEnv, 'OPENAI_API_KEY'),
+    OPENAI_TRANSCRIPTION_MODEL: readString(
+      rawEnv,
+      'OPENAI_TRANSCRIPTION_MODEL',
+      'gpt-4o-mini-transcribe',
+    ),
+    OPENAI_CONSOLIDATION_MODEL: readString(
+      rawEnv,
+      'OPENAI_CONSOLIDATION_MODEL',
+      readString(rawEnv, 'CONSOLIDATION_MODEL', 'gpt-5.5'),
+    ),
+    OPENAI_TRANSLATION_MODEL: readString(
+      rawEnv,
+      'OPENAI_TRANSLATION_MODEL',
+      readString(rawEnv, 'TRANSLATION_MODEL', 'gpt-5.5'),
+    ),
+    SUPABASE_URL: supabaseUrl,
+    SUPABASE_SECRET_KEY: supabaseSecretKey || supabaseServiceRoleKey,
+    SUPABASE_SECRET_KEY_SOURCE: supabaseSecretKey
+      ? 'SUPABASE_SECRET_KEY'
+      : 'SUPABASE_SERVICE_ROLE_KEY',
+    SUPABASE_CONFIGURED: Boolean(
+      supabaseUrl && (supabaseSecretKey || supabaseServiceRoleKey),
+    ),
+  });
+}
+
+export const env = loadEnv();
+export { ServerEnvError, loadEnv };

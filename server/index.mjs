@@ -1,35 +1,24 @@
 import { clerkMiddleware, getAuth } from '@clerk/express';
 import cors from 'cors';
-import dotenv from 'dotenv';
 import express from 'express';
 import OpenAI, { toFile } from 'openai';
+import { env } from './env.mjs';
 
-dotenv.config({ path: ['.env.local', '.env'] });
-
-const PORT = Number(process.env.PORT || 8787);
-const HOST = process.env.HOST || '0.0.0.0';
-const BODY_LIMIT = process.env.MAX_JSON_BODY_SIZE || '70mb';
-const ASR_BASE_URL = (process.env.DARIJA_ASR_BASE_URL || process.env.DARIJA_ASR_URL)?.replace(
-  /\/+$/,
-  '',
-);
-const ASR_TRANSCRIBE_URL = ASR_BASE_URL
-  ? ASR_BASE_URL.endsWith('/transcribe')
-    ? ASR_BASE_URL
-    : `${ASR_BASE_URL}/transcribe`
-  : undefined;
-const ASR_API_KEY = process.env.DARIJA_ASR_API_KEY;
-const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
-const CONSOLIDATION_MODEL =
-  process.env.OPENAI_CONSOLIDATION_MODEL || process.env.CONSOLIDATION_MODEL || 'gpt-5.5';
-const TRANSLATION_MODEL =
-  process.env.OPENAI_TRANSLATION_MODEL || process.env.TRANSLATION_MODEL || 'gpt-5.5';
-const OPENAI_TRANSCRIPTION_MODEL =
-  process.env.OPENAI_TRANSCRIPTION_MODEL || 'gpt-4o-mini-transcribe';
-const ASR_TIMEOUT_MS = Number(process.env.DARIJA_ASR_TIMEOUT_MS || 900000);
-const CLERK_PUBLISHABLE_KEY = process.env.CLERK_PUBLISHABLE_KEY;
-const CLERK_SECRET_KEY = process.env.CLERK_SECRET_KEY;
-const CLERK_CONFIGURED = Boolean(CLERK_PUBLISHABLE_KEY && CLERK_SECRET_KEY);
+const {
+  PORT,
+  HOST,
+  MAX_JSON_BODY_SIZE: BODY_LIMIT,
+  CLERK_CONFIGURED,
+  DARIJA_ASR_BASE_URL: ASR_BASE_URL,
+  DARIJA_ASR_TRANSCRIBE_URL: ASR_TRANSCRIBE_URL,
+  DARIJA_ASR_API_KEY: ASR_API_KEY,
+  DARIJA_ASR_TIMEOUT_MS: ASR_TIMEOUT_MS,
+  OPENAI_API_KEY,
+  OPENAI_CONSOLIDATION_MODEL: CONSOLIDATION_MODEL,
+  OPENAI_TRANSLATION_MODEL: TRANSLATION_MODEL,
+  OPENAI_TRANSCRIPTION_MODEL,
+  SUPABASE_CONFIGURED,
+} = env;
 
 const app = express();
 
@@ -128,7 +117,7 @@ function requireClerkSession(req, res, next) {
     sessionId: auth.sessionId,
   };
 
-  return next();
+  next();
 }
 
 function decodeAudioBase64(audioBase64) {
@@ -391,6 +380,7 @@ app.get('/health', (req, res) => {
       clerk: CLERK_CONFIGURED,
       darija_asr: Boolean(ASR_BASE_URL && ASR_API_KEY),
       openai: Boolean(OPENAI_API_KEY),
+      supabase: SUPABASE_CONFIGURED,
     },
     models: {
       openai_transcription: OPENAI_TRANSCRIPTION_MODEL,
@@ -405,6 +395,7 @@ app.get('/health', (req, res) => {
     responseShape: Object.keys(payload),
     models: payload.models,
     clerkConfigured: CLERK_CONFIGURED,
+    supabaseConfigured: SUPABASE_CONFIGURED,
   });
 
   res.json(payload);
@@ -537,6 +528,7 @@ app.listen(PORT, HOST, () => {
     darijaConfigured: Boolean(ASR_BASE_URL && ASR_API_KEY),
     darijaEndpoint: ASR_TRANSCRIBE_URL || null,
     openaiConfigured: Boolean(OPENAI_API_KEY),
+    supabaseConfigured: SUPABASE_CONFIGURED,
     models: {
       openai_transcription: OPENAI_TRANSCRIPTION_MODEL,
       consolidation: CONSOLIDATION_MODEL,
