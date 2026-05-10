@@ -6,3 +6,5 @@
 2026-05-10T22:03:29Z dispatch-triggerdev-from-api nil->open
 2026-05-10T22:03:29Z add-mobile-job-polling nil->open
 2026-05-10T22:03:29Z verify-async-job-flow nil->open
+2026-05-10T22:23:48Z create-private-storage-buckets open->in_progress
+2026-05-10T22:24:45Z create-private-storage-buckets in_progress->done
