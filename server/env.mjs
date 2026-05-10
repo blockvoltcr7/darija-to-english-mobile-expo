@@ -53,6 +53,16 @@ function findPublicSupabaseSecretEnv(rawEnv) {
     .sort();
 }
 
+function findPublicTriggerSecretEnv(rawEnv) {
+  const publicEnvPrefix = ['EXPO', 'PUBLIC'].join('_');
+  const publicTriggerPrefix = `${publicEnvPrefix}_TRIGGER_`;
+
+  return Object.keys(rawEnv)
+    .filter((name) => name.startsWith(publicTriggerPrefix))
+    .filter((name) => /(?:SECRET|TOKEN|API[_-]?KEY|PRIVATE)/.test(name))
+    .sort();
+}
+
 function buildTranscribeUrl(asrBaseUrl) {
   if (!asrBaseUrl) {
     return undefined;
@@ -83,6 +93,7 @@ function validateSupabaseUrl(value, errors) {
 function loadEnv(rawEnv = process.env) {
   const errors = [];
   const forbiddenPublicSecretVars = findPublicSupabaseSecretEnv(rawEnv);
+  const forbiddenPublicTriggerSecretVars = findPublicTriggerSecretEnv(rawEnv);
   const port = readNumber(rawEnv, 'PORT', 8787, errors, {
     integer: true,
     min: 0,
@@ -125,6 +136,14 @@ function loadEnv(rawEnv = process.env) {
   if (forbiddenPublicSecretVars.length > 0) {
     errors.push(
       `Supabase server secrets must not use EXPO_PUBLIC_* env names: ${forbiddenPublicSecretVars.join(
+        ', ',
+      )}.`,
+    );
+  }
+
+  if (forbiddenPublicTriggerSecretVars.length > 0) {
+    errors.push(
+      `Trigger.dev server secrets must not use EXPO_PUBLIC_* env names: ${forbiddenPublicTriggerSecretVars.join(
         ', ',
       )}.`,
     );
@@ -194,6 +213,14 @@ function loadEnv(rawEnv = process.env) {
     SUPABASE_CONFIGURED: Boolean(
       supabaseUrl && (supabaseSecretKey || supabaseServiceRoleKey),
     ),
+    TRIGGER_PROJECT_REF: readString(
+      rawEnv,
+      'TRIGGER_PROJECT_REF',
+      'proj_tehveeweadzwantwpvpr',
+    ),
+    TRIGGER_SECRET_KEY: readString(rawEnv, 'TRIGGER_SECRET_KEY'),
+    TRIGGER_ENVIRONMENT: readString(rawEnv, 'TRIGGER_ENVIRONMENT', 'dev'),
+    TRIGGER_CONFIGURED: Boolean(readString(rawEnv, 'TRIGGER_SECRET_KEY')),
   });
 }
 

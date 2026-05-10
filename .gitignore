@@ -28,3 +28,4 @@ android/
 ios/
 build/
 coverage/
+.trigger/
