@@ -16,6 +16,8 @@ import {
 } from './profiles.mjs';
 import {
   createTranslationJob,
+  getTranslationForUser,
+  listTranslationsForUser,
   markTranslationJobFailed,
   markTranslationJobRunning,
   markTranslationJobSucceeded,
@@ -170,6 +172,115 @@ async function recordProviderOperation({
   });
 
   return result;
+}
+
+function firstRelatedRow(row, relationName) {
+  const related = row?.[relationName];
+
+  if (Array.isArray(related)) {
+    return related[0] || null;
+  }
+
+  return related || null;
+}
+
+function previewText(value, maxLength = 160) {
+  if (typeof value !== 'string') {
+    return null;
+  }
+
+  const normalized = value.trim().replace(/\s+/g, ' ');
+
+  if (!normalized) {
+    return null;
+  }
+
+  return normalized.length > maxLength
+    ? `${normalized.slice(0, maxLength - 3)}...`
+    : normalized;
+}
+
+function modelsFromResult(result) {
+  const models = result?.model_metadata?.models;
+
+  if (!models || typeof models !== 'object' || Array.isArray(models)) {
+    return {};
+  }
+
+  return {
+    openaiTranscription: models.openaiTranscription || null,
+    darija: models.darija || null,
+    consolidation: models.consolidation || null,
+    translation: models.translation || null,
+  };
+}
+
+function toTranslationListItem(row) {
+  const result = firstRelatedRow(row, 'translation_results');
+
+  return {
+    id: row.id,
+    status: row.status,
+    filename: row.source_filename,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+    startedAt: row.started_at,
+    completedAt: row.completed_at,
+    consolidatedArabicPreview: previewText(result?.consolidated_arabic_text),
+    englishPreview: previewText(result?.english_text),
+    models: modelsFromResult(result),
+  };
+}
+
+function toProviderRunSummary(providerRun) {
+  return {
+    id: providerRun.id,
+    provider: providerRun.provider,
+    operation: providerRun.operation,
+    model: providerRun.model,
+    status: providerRun.status,
+    latencyMs: providerRun.latency_ms,
+    errorCode: providerRun.error_code,
+    errorMessage: providerRun.error_message,
+    startedAt: providerRun.started_at,
+    completedAt: providerRun.completed_at,
+    createdAt: providerRun.created_at,
+  };
+}
+
+function toTranslationDetail(row) {
+  const result = firstRelatedRow(row, 'translation_results');
+  const providerRuns = Array.isArray(row.provider_runs)
+    ? [...row.provider_runs].sort((a, b) =>
+        String(a.created_at).localeCompare(String(b.created_at)),
+      )
+    : [];
+
+  return {
+    id: row.id,
+    status: row.status,
+    filename: row.source_filename,
+    sourceAudioBytes: row.source_audio_bytes,
+    traceId: row.trace_id,
+    errorCode: row.error_code,
+    errorMessage: row.error_message,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+    startedAt: row.started_at,
+    completedAt: row.completed_at,
+    result: result
+      ? {
+          openaiArabicText: result.openai_arabic_text,
+          darijaArabicText: result.darija_arabic_text,
+          consolidatedArabicText: result.consolidated_arabic_text,
+          englishText: result.english_text,
+          modelMetadata: result.model_metadata || {},
+          createdAt: result.created_at,
+          updatedAt: result.updated_at,
+        }
+      : null,
+    providerRuns: providerRuns.map(toProviderRunSummary),
+  };
 }
 
 let openaiClient;
@@ -744,6 +855,62 @@ app.get('/health/supabase', async (req, res) => {
 
   res.status(payload.ok ? 200 : 503).json(payload);
 });
+
+async function handleListTranslations(req, res, next) {
+  const traceId = traceFromRequest(req);
+
+  try {
+    const { items, nextCursor } = await listTranslationsForUser({
+      clerkUserId: req.clerkAuth.userId,
+      limit: req.query.limit,
+      cursor: req.query.cursor,
+    });
+    const payload = {
+      items: items.map(toTranslationListItem),
+      nextCursor,
+    };
+
+    logTrace(traceId, 'Translation history list returned', {
+      userId: req.clerkAuth.userId,
+      itemCount: payload.items.length,
+      nextCursor: payload.nextCursor,
+    });
+
+    res.json(payload);
+  } catch (error) {
+    error.traceId = traceId;
+    next(error);
+  }
+}
+
+async function handleGetTranslation(req, res, next) {
+  const traceId = traceFromRequest(req);
+
+  try {
+    const translation = await getTranslationForUser({
+      clerkUserId: req.clerkAuth.userId,
+      translationId: req.params.id,
+    });
+
+    if (!translation) {
+      return res.status(404).json({ error: 'Translation not found.' });
+    }
+
+    logTrace(traceId, 'Translation history detail returned', {
+      userId: req.clerkAuth.userId,
+      translationId: translation.id,
+      status: translation.status,
+    });
+
+    res.json(toTranslationDetail(translation));
+  } catch (error) {
+    error.traceId = traceId;
+    next(error);
+  }
+}
+
+app.get('/v1/translations', requireClerkSession, handleListTranslations);
+app.get('/v1/translations/:id', requireClerkSession, handleGetTranslation);
 
 async function handleTranslateAudio(req, res, next) {
   const traceId = traceFromRequest(req);

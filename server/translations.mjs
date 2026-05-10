@@ -48,6 +48,20 @@ const PROVIDER_RUN_COLUMNS = [
   'created_at',
 ].join(', ');
 
+const TRANSLATION_WITH_RESULT_COLUMNS = `
+  ${JOB_COLUMNS},
+  translation_results (${RESULT_COLUMNS})
+`;
+
+const TRANSLATION_DETAIL_COLUMNS = `
+  ${JOB_COLUMNS},
+  translation_results (${RESULT_COLUMNS}),
+  provider_runs (${PROVIDER_RUN_COLUMNS})
+`;
+
+const DEFAULT_HISTORY_LIMIT = 20;
+const MAX_HISTORY_LIMIT = 50;
+
 export const TRANSLATION_JOB_STATUS = Object.freeze({
   QUEUED: 'queued',
   RUNNING: 'running',
@@ -136,6 +150,24 @@ function normalizeOptionalTimestamp(value, fieldName) {
   }
 
   throw new TypeError(`${fieldName} must be a valid timestamp.`);
+}
+
+function normalizeHistoryLimit(value) {
+  const parsed = Number.parseInt(String(value ?? DEFAULT_HISTORY_LIMIT), 10);
+
+  if (Number.isNaN(parsed) || parsed < 1) {
+    return DEFAULT_HISTORY_LIMIT;
+  }
+
+  return Math.min(parsed, MAX_HISTORY_LIMIT);
+}
+
+function normalizeCursor(value) {
+  if (value === undefined || value === null || value === '') {
+    return null;
+  }
+
+  return normalizeOptionalTimestamp(value, 'cursor');
 }
 
 function sanitizeMetadata(value) {
@@ -382,6 +414,55 @@ export async function writeTranslationResult({
 
   if (error) {
     throw createTranslationRepositoryError('write_translation_result', error);
+  }
+
+  return data;
+}
+
+export async function listTranslationsForUser({
+  clerkUserId,
+  limit,
+  cursor,
+}) {
+  const normalizedLimit = normalizeHistoryLimit(limit);
+  const normalizedCursor = normalizeCursor(cursor);
+  let query = getSupabaseAdminClient()
+    .from('translation_jobs')
+    .select(TRANSLATION_WITH_RESULT_COLUMNS)
+    .eq('clerk_user_id', normalizeRequiredString(clerkUserId, 'clerkUserId'))
+    .is('deleted_at', null)
+    .order('created_at', { ascending: false })
+    .limit(normalizedLimit + 1);
+
+  if (normalizedCursor) {
+    query = query.lt('created_at', normalizedCursor);
+  }
+
+  const { data, error } = await query;
+
+  if (error) {
+    throw createTranslationRepositoryError('list_translations_for_user', error);
+  }
+
+  const rows = Array.isArray(data) ? data : [];
+  const items = rows.slice(0, normalizedLimit);
+  const nextCursor =
+    rows.length > normalizedLimit ? items.at(-1)?.created_at || null : null;
+
+  return { items, nextCursor };
+}
+
+export async function getTranslationForUser({ clerkUserId, translationId }) {
+  const { data, error } = await getSupabaseAdminClient()
+    .from('translation_jobs')
+    .select(TRANSLATION_DETAIL_COLUMNS)
+    .eq('id', normalizeRequiredString(translationId, 'translationId'))
+    .eq('clerk_user_id', normalizeRequiredString(clerkUserId, 'clerkUserId'))
+    .is('deleted_at', null)
+    .maybeSingle();
+
+  if (error) {
+    throw createTranslationRepositoryError('get_translation_for_user', error);
   }
 
   return data;
