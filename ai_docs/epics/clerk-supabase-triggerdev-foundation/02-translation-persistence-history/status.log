@@ -1,0 +1,6 @@
+2026-05-10T20:10:38Z create-translation-schema nil->open
+2026-05-10T20:10:38Z create-translation-db-writers nil->open
+2026-05-10T20:10:38Z persist-sync-translation-results nil->open
+2026-05-10T20:10:38Z add-history-api-endpoints nil->open
+2026-05-10T20:10:38Z add-mobile-history-surface nil->open
+2026-05-10T20:10:38Z verify-history-access-controls nil->open
