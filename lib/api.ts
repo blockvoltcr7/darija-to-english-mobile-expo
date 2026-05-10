@@ -1,5 +1,9 @@
 import { CONFIG } from '@/lib/config';
-import type { TranslationResult } from '@/lib/types';
+import type {
+  TranslationHistoryDetail,
+  TranslationHistoryListResponse,
+  TranslationResult,
+} from '@/lib/types';
 
 interface TranslateAudioParams {
   filename: string;
@@ -12,6 +16,19 @@ interface TranslateAudioParams {
 interface ApiErrorBody {
   error?: string;
   detail?: string;
+}
+
+interface HistoryListParams {
+  accessToken: string;
+  limit?: number;
+  cursor?: string | null;
+  onTrace?: (message: string) => void;
+}
+
+interface HistoryDetailParams {
+  accessToken: string;
+  id: string;
+  onTrace?: (message: string) => void;
 }
 
 async function readError(res: Response) {
@@ -73,4 +90,66 @@ export async function translateAudioFile({
   );
 
   return result;
+}
+
+export async function listTranslations({
+  accessToken,
+  limit,
+  cursor,
+  onTrace,
+}: HistoryListParams): Promise<TranslationHistoryListResponse> {
+  const params = new URLSearchParams();
+
+  if (limit) {
+    params.set('limit', String(limit));
+  }
+
+  if (cursor) {
+    params.set('cursor', cursor);
+  }
+
+  const query = params.toString();
+  const endpoint = `${CONFIG.API_BASE_URL}/v1/translations${query ? `?${query}` : ''}`;
+  const startedAt = Date.now();
+
+  onTrace?.(`GET ${endpoint}`);
+
+  const res = await fetch(endpoint, {
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+
+  onTrace?.(`History response ${res.status} after ${Date.now() - startedAt}ms`);
+
+  if (!res.ok) {
+    throw new Error(await readError(res));
+  }
+
+  return (await res.json()) as TranslationHistoryListResponse;
+}
+
+export async function getTranslation({
+  accessToken,
+  id,
+  onTrace,
+}: HistoryDetailParams): Promise<TranslationHistoryDetail> {
+  const endpoint = `${CONFIG.API_BASE_URL}/v1/translations/${encodeURIComponent(id)}`;
+  const startedAt = Date.now();
+
+  onTrace?.(`GET ${endpoint}`);
+
+  const res = await fetch(endpoint, {
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+
+  onTrace?.(`History detail response ${res.status} after ${Date.now() - startedAt}ms`);
+
+  if (!res.ok) {
+    throw new Error(await readError(res));
+  }
+
+  return (await res.json()) as TranslationHistoryDetail;
 }

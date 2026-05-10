@@ -43,6 +43,6 @@ Persist current synchronous translations before moving audio processing to async
 | 02 | create-translation-db-writers    | Code      | done   | 2026-05-10T20:33:55Z |
 | 03 | persist-sync-translation-results | Code      | done   | 2026-05-10T20:37:12Z |
 | 04 | add-history-api-endpoints        | Code      | done   | 2026-05-10T20:40:00Z |
-| 05 | add-mobile-history-surface       | UI        | open   | 2026-05-10T20:10:38Z |
+| 05 | add-mobile-history-surface       | UI        | done   | 2026-05-10T20:43:33Z |
 | 06 | verify-history-access-controls   | Code      | open   | 2026-05-10T20:10:38Z |
 <!-- STATUS-TABLE-END -->

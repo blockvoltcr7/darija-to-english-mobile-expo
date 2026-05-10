@@ -417,6 +417,17 @@ export default function HomeScreen() {
             </View>
             <View style={styles.headerActions}>
               <Pressable
+                accessibilityLabel="Translation history"
+                accessibilityRole="button"
+                onPress={() => router.push('/history' as Href)}
+                style={({ pressed }) => [
+                  styles.iconButton,
+                  pressed ? styles.pressedSoftButton : null,
+                ]}
+              >
+                <Ionicons name="time-outline" size={18} color={palette.text} />
+              </Pressable>
+              <Pressable
                 accessibilityRole="button"
                 onPress={() => router.push('/account' as Href)}
                 style={({ pressed }) => [
@@ -742,6 +753,16 @@ const styles = StyleSheet.create({
     flexShrink: 1,
     gap: 8,
     justifyContent: 'flex-end',
+  },
+  iconButton: {
+    alignItems: 'center',
+    backgroundColor: palette.cardRaised,
+    borderColor: palette.border,
+    borderRadius: 10,
+    borderWidth: 1,
+    height: 35,
+    justifyContent: 'center',
+    width: 35,
   },
   accountButton: {
     alignItems: 'center',

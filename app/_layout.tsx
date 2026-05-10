@@ -43,6 +43,14 @@ function RootStack() {
               headerTitle: 'Account',
             }}
           />
+          <Stack.Screen
+            name="history"
+            options={{
+              headerStyle: { backgroundColor: '#111111' },
+              headerTintColor: '#F4F1EA',
+              headerTitle: 'History',
+            }}
+          />
         </Stack.Protected>
       </Stack>
     </ThemeProvider>
