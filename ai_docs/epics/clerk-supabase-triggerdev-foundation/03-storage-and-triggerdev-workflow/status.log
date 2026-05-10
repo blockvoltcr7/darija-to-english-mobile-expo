@@ -20,3 +20,5 @@
 2026-05-10T22:42:41Z dispatch-triggerdev-from-api in_progress->done
 2026-05-10T22:43:06Z add-mobile-job-polling open->in_progress
 2026-05-10T22:45:36Z add-mobile-job-polling in_progress->done
+2026-05-10T22:45:54Z verify-async-job-flow open->in_progress
+2026-05-10T22:47:20Z verify-async-job-flow in_progress->in_progress # blocker: runtime authenticated Trigger.dev end-to-end QA needs TRIGGER_SECRET_KEY, Clerk session token, and explicit deployment/dev-worker decision for shared Trigger project
