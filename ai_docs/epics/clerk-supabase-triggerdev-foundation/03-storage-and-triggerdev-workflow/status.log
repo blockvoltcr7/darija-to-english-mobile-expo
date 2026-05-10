@@ -8,3 +8,5 @@
 2026-05-10T22:03:29Z verify-async-job-flow nil->open
 2026-05-10T22:23:48Z create-private-storage-buckets open->in_progress
 2026-05-10T22:24:45Z create-private-storage-buckets in_progress->done
+2026-05-10T22:25:09Z add-storage-metadata-to-jobs open->in_progress
+2026-05-10T22:28:57Z add-storage-metadata-to-jobs in_progress->done

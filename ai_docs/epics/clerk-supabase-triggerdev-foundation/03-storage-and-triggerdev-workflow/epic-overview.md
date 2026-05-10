@@ -43,7 +43,7 @@ Move audio from synchronous base64 processing toward private Supabase bucket sto
 | #  | Slug                          | Type           | Status | Updated              |
 |----|-------------------------------|----------------|--------|----------------------|
 | 01 | create-private-storage-buckets | Infrastructure | done   | 2026-05-10T22:24:45Z |
-| 02 | add-storage-metadata-to-jobs   | Migration      | open   | 2026-05-10T22:03:29Z |
+| 02 | add-storage-metadata-to-jobs   | Migration      | done   | 2026-05-10T22:28:57Z |
 | 03 | add-server-side-audio-storage-flow | Code           | open   | 2026-05-10T22:03:29Z |
 | 04 | add-triggerdev-project-config  | Infrastructure | open   | 2026-05-10T22:03:29Z |
 | 05 | add-triggerdev-translation-task | Code           | open   | 2026-05-10T22:03:29Z |

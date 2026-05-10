@@ -7,6 +7,16 @@ const JOB_COLUMNS = [
   'status',
   'source_filename',
   'source_audio_bytes',
+  'audio_bucket',
+  'audio_object_key',
+  'audio_size_bytes',
+  'audio_mime_type',
+  'audio_retention_expires_at',
+  'audio_deleted_at',
+  'artifact_bucket',
+  'artifact_prefix',
+  'artifacts_deleted_at',
+  'trigger_run_id',
   'trace_id',
   'error_code',
   'error_message',
@@ -291,6 +301,66 @@ export async function createTranslationJob({
   }
 
   return data;
+}
+
+export async function updateTranslationJobStorageMetadata({
+  jobId,
+  clerkUserId,
+  audioBucket,
+  audioObjectKey,
+  audioSizeBytes,
+  audioMimeType,
+  audioRetentionExpiresAt,
+  artifactBucket,
+  artifactPrefix,
+}) {
+  return updateTranslationJob({
+    jobId,
+    clerkUserId,
+    payload: {
+      audio_bucket: normalizeOptionalString(audioBucket),
+      audio_object_key: normalizeOptionalString(audioObjectKey),
+      audio_size_bytes: normalizeOptionalInteger(audioSizeBytes, 'audioSizeBytes'),
+      audio_mime_type: normalizeOptionalString(audioMimeType),
+      audio_retention_expires_at: normalizeOptionalTimestamp(
+        audioRetentionExpiresAt,
+        'audioRetentionExpiresAt',
+      ),
+      artifact_bucket: normalizeOptionalString(artifactBucket),
+      artifact_prefix: normalizeOptionalString(artifactPrefix),
+    },
+    operation: 'update_translation_job_storage_metadata',
+  });
+}
+
+export async function markTranslationJobAudioDeleted({
+  jobId,
+  clerkUserId,
+  deletedAt = new Date(),
+}) {
+  return updateTranslationJob({
+    jobId,
+    clerkUserId,
+    payload: {
+      audio_deleted_at: normalizeOptionalTimestamp(deletedAt, 'deletedAt'),
+    },
+    operation: 'mark_translation_job_audio_deleted',
+  });
+}
+
+export async function updateTranslationJobTriggerRunId({
+  jobId,
+  clerkUserId,
+  triggerRunId,
+}) {
+  return updateTranslationJob({
+    jobId,
+    clerkUserId,
+    payload: {
+      trigger_run_id: normalizeOptionalString(triggerRunId),
+    },
+    operation: 'update_translation_job_trigger_run_id',
+  });
 }
 
 export async function markTranslationJobRunning({ jobId, clerkUserId }) {
