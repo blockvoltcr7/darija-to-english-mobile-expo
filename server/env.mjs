@@ -95,6 +95,20 @@ function loadEnv(rawEnv = process.env) {
     errors,
     { integer: true, min: 1 },
   );
+  const audioUploadMaxBytes = readNumber(
+    rawEnv,
+    'AUDIO_UPLOAD_MAX_BYTES',
+    50000000,
+    errors,
+    { integer: true, min: 1 },
+  );
+  const audioRetentionDays = readNumber(
+    rawEnv,
+    'AUDIO_RETENTION_DAYS',
+    30,
+    errors,
+    { integer: true, min: 1 },
+  );
   const asrBaseUrl = readString(
     rawEnv,
     'DARIJA_ASR_BASE_URL',
@@ -144,6 +158,8 @@ function loadEnv(rawEnv = process.env) {
     DARIJA_ASR_TRANSCRIBE_URL: buildTranscribeUrl(asrBaseUrl),
     DARIJA_ASR_API_KEY: readString(rawEnv, 'DARIJA_ASR_API_KEY'),
     DARIJA_ASR_TIMEOUT_MS: darijaAsrTimeoutMs,
+    AUDIO_UPLOAD_MAX_BYTES: audioUploadMaxBytes,
+    AUDIO_RETENTION_DAYS: audioRetentionDays,
     OPENAI_API_KEY: readString(rawEnv, 'OPENAI_API_KEY'),
     OPENAI_TRANSCRIPTION_MODEL: readString(
       rawEnv,
@@ -162,6 +178,16 @@ function loadEnv(rawEnv = process.env) {
     ),
     SUPABASE_URL: supabaseUrl,
     SUPABASE_SECRET_KEY: supabaseSecretKey || supabaseServiceRoleKey,
+    SUPABASE_AUDIO_ORIGINALS_BUCKET: readString(
+      rawEnv,
+      'SUPABASE_AUDIO_ORIGINALS_BUCKET',
+      'audio-originals',
+    ),
+    SUPABASE_TRANSLATION_ARTIFACTS_BUCKET: readString(
+      rawEnv,
+      'SUPABASE_TRANSLATION_ARTIFACTS_BUCKET',
+      'translation-artifacts',
+    ),
     SUPABASE_SECRET_KEY_SOURCE: supabaseSecretKey
       ? 'SUPABASE_SECRET_KEY'
       : 'SUPABASE_SERVICE_ROLE_KEY',

@@ -15,6 +15,11 @@ import {
   upsertProfileFromClerkUser,
 } from './profiles.mjs';
 import {
+  prepareAudioForStorage,
+  removeStoredObject,
+  uploadOriginalAudioForJob,
+} from './storage.mjs';
+import {
   createTranslationJob,
   getTranslationForUser,
   listTranslationsForUser,
@@ -25,6 +30,7 @@ import {
   PROVIDER_RUN_STATUS,
   PROVIDERS,
   recordProviderRun,
+  updateTranslationJobStorageMetadata,
   writeTranslationResult,
 } from './translations.mjs';
 
@@ -76,13 +82,6 @@ function transcriptLengths(payload) {
 
 function base64Payload(audioBase64) {
   return audioBase64.includes(',') ? audioBase64.split(',', 2)[1] : audioBase64;
-}
-
-function estimateAudioBytes(audioBase64) {
-  const payload = base64Payload(audioBase64);
-  const paddingChars = payload.endsWith('==') ? 2 : payload.endsWith('=') ? 1 : 0;
-
-  return Math.max(0, Math.floor((payload.length * 3) / 4) - paddingChars);
 }
 
 function safeErrorMessage(error) {
@@ -916,28 +915,70 @@ async function handleTranslateAudio(req, res, next) {
   const traceId = traceFromRequest(req);
   const startedAt = Date.now();
   let translationJob = null;
+  let storedAudio = null;
 
   try {
     const payload = validatePayload(req.body);
-    const audioBytes = estimateAudioBytes(payload.audioBase64);
+    const audio = prepareAudioForStorage(payload);
+    const providerPayload = {
+      filename: audio.filename,
+      audioBase64: audio.audioBase64,
+    };
+    const audioBytes = audio.sizeBytes;
     const clerkUserId = req.clerkAuth.userId;
 
     logTrace(traceId, 'Translate audio request received', {
       ip: req.ip,
       userId: clerkUserId,
-      filename: payload.filename,
-      base64Chars: payload.audioBase64.length,
-      approxAudioBytes: audioBytes,
+      filename: audio.filename,
+      base64Chars: audio.audioBase64.length,
+      audioBytes,
+      audioMimeType: audio.mimeType,
       contentLength: req.get('Content-Length'),
     });
 
     translationJob = await createTranslationJob({
       clerkUserId,
       profileId: req.profile?.id,
-      filename: payload.filename,
+      filename: audio.filename,
       audioBytes,
       traceId,
     });
+
+    storedAudio = await uploadOriginalAudioForJob({
+      clerkUserId,
+      jobId: translationJob.id,
+      audio,
+    });
+
+    try {
+      await updateTranslationJobStorageMetadata({
+        jobId: translationJob.id,
+        clerkUserId,
+        audioBucket: storedAudio.bucket,
+        audioObjectKey: storedAudio.objectKey,
+        audioSizeBytes: storedAudio.sizeBytes,
+        audioMimeType: storedAudio.mimeType,
+        audioRetentionExpiresAt: storedAudio.retentionExpiresAt,
+      });
+    } catch (metadataError) {
+      try {
+        await removeStoredObject({
+          bucket: storedAudio.bucket,
+          objectKey: storedAudio.objectKey,
+        });
+        storedAudio = null;
+      } catch (cleanupError) {
+        logTrace(traceId, 'Audio cleanup after metadata failure failed', {
+          jobId: translationJob.id,
+          bucket: storedAudio.bucket,
+          errorName: cleanupError?.name,
+          errorCode: cleanupError?.code,
+        });
+      }
+
+      throw metadataError;
+    }
 
     await markTranslationJobRunning({
       jobId: translationJob.id,
@@ -958,8 +999,11 @@ async function handleTranslateAudio(req, res, next) {
         operation: PROVIDER_OPERATIONS.MODAL_DARIJA_ASR,
         model: 'modal-darija-asr',
         inputMetadata: {
-          filename: payload.filename,
+          filename: providerPayload.filename,
           audioBytes,
+          audioBucket: storedAudio.bucket,
+          audioObjectKey: storedAudio.objectKey,
+          audioMimeType: storedAudio.mimeType,
         },
         outputMetadata: (result) => ({
           transcriptChars: result.text?.length || 0,
@@ -968,7 +1012,7 @@ async function handleTranslateAudio(req, res, next) {
           model: result.model,
           baseModel: result.base_model,
         }),
-        execute: () => transcribeAudio(payload, traceId),
+        execute: () => transcribeAudio(providerPayload, traceId),
       }),
       recordProviderOperation({
         traceId,
@@ -978,9 +1022,12 @@ async function handleTranslateAudio(req, res, next) {
         operation: PROVIDER_OPERATIONS.OPENAI_TRANSCRIPTION,
         model: OPENAI_TRANSCRIPTION_MODEL,
         inputMetadata: {
-          filename: payload.filename,
+          filename: providerPayload.filename,
           audioBytes,
           language: 'ar',
+          audioBucket: storedAudio.bucket,
+          audioObjectKey: storedAudio.objectKey,
+          audioMimeType: storedAudio.mimeType,
         },
         outputMetadata: (result) => ({
           transcriptChars: result.text?.length || 0,
@@ -988,7 +1035,7 @@ async function handleTranslateAudio(req, res, next) {
           durationSeconds: result.duration_seconds,
           model: result.model,
         }),
-        execute: () => transcribeAudioWithOpenAI(payload, traceId),
+        execute: () => transcribeAudioWithOpenAI(providerPayload, traceId),
       }),
     ]);
 
