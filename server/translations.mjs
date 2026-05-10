@@ -377,6 +377,53 @@ export async function markTranslationJobRunning({ jobId, clerkUserId }) {
   });
 }
 
+export async function getTranslationJobById({ jobId }) {
+  const { data, error } = await getSupabaseAdminClient()
+    .from('translation_jobs')
+    .select(JOB_COLUMNS)
+    .eq('id', normalizeRequiredString(jobId, 'jobId'))
+    .is('deleted_at', null)
+    .maybeSingle();
+
+  if (error) {
+    throw createTranslationRepositoryError('get_translation_job_by_id', error);
+  }
+
+  return data;
+}
+
+export async function claimTranslationJobForProcessing({ jobId }) {
+  const { data, error } = await getSupabaseAdminClient()
+    .from('translation_jobs')
+    .update({
+      status: TRANSLATION_JOB_STATUS.RUNNING,
+      started_at: new Date().toISOString(),
+      error_code: null,
+      error_message: null,
+    })
+    .eq('id', normalizeRequiredString(jobId, 'jobId'))
+    .eq('status', TRANSLATION_JOB_STATUS.QUEUED)
+    .is('deleted_at', null)
+    .select(JOB_COLUMNS)
+    .maybeSingle();
+
+  if (error) {
+    throw createTranslationRepositoryError('claim_translation_job_for_processing', error);
+  }
+
+  if (data) {
+    return {
+      claimed: true,
+      job: data,
+    };
+  }
+
+  return {
+    claimed: false,
+    job: await getTranslationJobById({ jobId }),
+  };
+}
+
 export async function markTranslationJobSucceeded({ jobId, clerkUserId }) {
   return updateTranslationJob({
     jobId,

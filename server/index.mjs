@@ -2,7 +2,6 @@ import { clerkMiddleware, getAuth } from '@clerk/express';
 import { verifyWebhook } from '@clerk/backend/webhooks';
 import cors from 'cors';
 import express from 'express';
-import OpenAI, { toFile } from 'openai';
 import {
   checkSupabaseConnection,
   getSupabaseAdminClient,
@@ -19,6 +18,7 @@ import {
   removeStoredObject,
   uploadOriginalAudioForJob,
 } from './storage.mjs';
+import { runTranslationProviderPipeline } from './translation-pipeline.mjs';
 import {
   createTranslationJob,
   getTranslationForUser,
@@ -26,12 +26,7 @@ import {
   markTranslationJobFailed,
   markTranslationJobRunning,
   markTranslationJobSucceeded,
-  PROVIDER_OPERATIONS,
-  PROVIDER_RUN_STATUS,
-  PROVIDERS,
-  recordProviderRun,
   updateTranslationJobStorageMetadata,
-  writeTranslationResult,
 } from './translations.mjs';
 
 const {
@@ -44,7 +39,6 @@ const {
   DARIJA_ASR_BASE_URL: ASR_BASE_URL,
   DARIJA_ASR_TRANSCRIBE_URL: ASR_TRANSCRIBE_URL,
   DARIJA_ASR_API_KEY: ASR_API_KEY,
-  DARIJA_ASR_TIMEOUT_MS: ASR_TIMEOUT_MS,
   OPENAI_API_KEY,
   OPENAI_CONSOLIDATION_MODEL: CONSOLIDATION_MODEL,
   OPENAI_TRANSLATION_MODEL: TRANSLATION_MODEL,
@@ -80,10 +74,6 @@ function transcriptLengths(payload) {
   };
 }
 
-function base64Payload(audioBase64) {
-  return audioBase64.includes(',') ? audioBase64.split(',', 2)[1] : audioBase64;
-}
-
 function safeErrorMessage(error) {
   if (typeof error?.message === 'string' && error.message.trim()) {
     return error.message.trim().slice(0, 500);
@@ -106,71 +96,6 @@ function safeErrorCode(error, fallback = 'provider_error') {
   }
 
   return fallback;
-}
-
-async function recordProviderOperation({
-  traceId,
-  jobId,
-  clerkUserId,
-  provider,
-  operation,
-  model,
-  inputMetadata,
-  outputMetadata,
-  execute,
-}) {
-  const startedAt = new Date();
-  const startedMs = Date.now();
-  let result;
-
-  try {
-    result = await execute();
-  } catch (error) {
-    const completedAt = new Date();
-
-    try {
-      await recordProviderRun({
-        jobId,
-        clerkUserId,
-        provider,
-        operation,
-        model,
-        status: PROVIDER_RUN_STATUS.FAILED,
-        latencyMs: Date.now() - startedMs,
-        inputMetadata,
-        errorCode: safeErrorCode(error),
-        errorMessage: safeErrorMessage(error),
-        startedAt,
-        completedAt,
-      });
-    } catch (recordError) {
-      logTrace(traceId, 'Provider failure recording failed', {
-        operation,
-        provider,
-        errorName: recordError?.name,
-        errorCode: recordError?.supabase?.code,
-      });
-    }
-
-    throw error;
-  }
-
-  await recordProviderRun({
-    jobId,
-    clerkUserId,
-    provider,
-    operation,
-    model,
-    status: PROVIDER_RUN_STATUS.SUCCEEDED,
-    latencyMs: Date.now() - startedMs,
-    inputMetadata,
-    outputMetadata:
-      typeof outputMetadata === 'function' ? outputMetadata(result) : outputMetadata,
-    startedAt,
-    completedAt: new Date(),
-  });
-
-  return result;
 }
 
 function firstRelatedRow(row, relationName) {
@@ -282,35 +207,11 @@ function toTranslationDetail(row) {
   };
 }
 
-let openaiClient;
-
-function getOpenAIClient() {
-  if (!OPENAI_API_KEY) {
-    throw httpError(500, 'OPENAI_API_KEY is not configured.');
-  }
-
-  if (!openaiClient) {
-    openaiClient = new OpenAI({ apiKey: OPENAI_API_KEY });
-  }
-
-  return openaiClient;
-}
-
 function httpError(status, message, cause) {
   const error = new Error(message);
   error.status = status;
   error.cause = cause;
   return error;
-}
-
-function requireAsrConfig() {
-  if (!ASR_BASE_URL) {
-    throw httpError(500, 'DARIJA_ASR_BASE_URL is not configured.');
-  }
-
-  if (!ASR_API_KEY) {
-    throw httpError(500, 'DARIJA_ASR_API_KEY is not configured.');
-  }
 }
 
 function validatePayload(body) {
@@ -539,259 +440,12 @@ async function handleClerkWebhook(req, res, next) {
   }
 }
 
-function decodeAudioBase64(audioBase64) {
-  return Buffer.from(base64Payload(audioBase64), 'base64');
-}
-
-async function transcribeAudio({ filename, audioBase64 }, traceId) {
-  requireAsrConfig();
-
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), ASR_TIMEOUT_MS);
-  const startedAt = Date.now();
-
-  try {
-    logTrace(traceId, 'ASR request start', {
-      filename,
-      base64Chars: audioBase64.length,
-      endpoint: ASR_TRANSCRIBE_URL,
-    });
-
-    const response = await fetch(ASR_TRANSCRIBE_URL, {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${ASR_API_KEY}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        filename,
-        audio_base64: audioBase64,
-      }),
-      signal: controller.signal,
-    });
-
-    const responseText = await response.text();
-    let payload;
-
-    try {
-      payload = JSON.parse(responseText);
-    } catch {
-      payload = null;
-    }
-
-    if (!response.ok) {
-      logTrace(traceId, 'ASR request failed', {
-        status: response.status,
-        durationMs: Date.now() - startedAt,
-        body: responseText.slice(0, 500),
-      });
-      throw httpError(
-        response.status,
-        payload?.detail || payload?.error || responseText || 'ASR request failed.',
-      );
-    }
-
-    if (!payload?.text) {
-      throw httpError(502, 'ASR response did not include transcript text.');
-    }
-
-    logTrace(traceId, 'ASR request complete', {
-      status: response.status,
-      durationMs: Date.now() - startedAt,
-      transcriptChars: payload.text.length,
-      audioBytes: payload.audio_bytes,
-    });
-
-    return payload;
-  } catch (error) {
-    if (error?.name === 'AbortError') {
-      throw httpError(504, 'ASR request timed out.', error);
-    }
-
-    throw error;
-  } finally {
-    clearTimeout(timeout);
-  }
-}
-
-async function transcribeAudioWithOpenAI({ filename, audioBase64 }, traceId) {
-  const client = getOpenAIClient();
-  const audioBytes = decodeAudioBase64(audioBase64);
-  const startedAt = Date.now();
-
-  logTrace(traceId, 'OpenAI transcription start', {
-    filename,
-    bytes: audioBytes.length,
-    model: OPENAI_TRANSCRIPTION_MODEL,
-  });
-
-  const response = await client.audio.transcriptions.create({
-    file: await toFile(audioBytes, filename),
-    model: OPENAI_TRANSCRIPTION_MODEL,
-    language: 'ar',
-    prompt:
-      'This audio is Moroccan Darija, sometimes mixed with Arabic and French. Preserve names, places, numbers, legal terms, and colloquial phrasing as accurately as possible.',
-    response_format: 'json',
-  });
-
-  const text = response.text?.trim();
-
-  if (!text) {
-    throw httpError(502, 'OpenAI transcription response did not include text.');
-  }
-
-  logTrace(traceId, 'OpenAI transcription complete', {
-    durationMs: Date.now() - startedAt,
-    transcriptChars: text.length,
-  });
-
-  return {
-    text,
-    model: OPENAI_TRANSCRIPTION_MODEL,
-    filename,
-    audio_bytes: audioBytes.length,
-    duration_seconds: Number(((Date.now() - startedAt) / 1000).toFixed(3)),
-  };
-}
-
-async function consolidateArabicTranscript(
-  { openaiTranscript, darijaTranscript },
-  traceId,
-) {
-  const client = getOpenAIClient();
-  const startedAt = Date.now();
-
-  logTrace(traceId, 'OpenAI consolidation start', {
-    openaiTranscriptChars: openaiTranscript.length,
-    darijaTranscriptChars: darijaTranscript.length,
-    model: CONSOLIDATION_MODEL,
-  });
-
-  const response = await client.responses.create({
-    model: CONSOLIDATION_MODEL,
-    input: [
-      {
-        role: 'system',
-        content: [
-          'You are a Moroccan Darija ASR consolidation specialist.',
-          '',
-          'Goal:',
-          'Produce one final consolidated Arabic/Darija transcript by reconciling multiple ASR hypotheses.',
-          '',
-          'Core principle:',
-          'The inputs are noisy ASR hypotheses, not guaranteed facts. Preserve only what is supported by the inputs. Do not invent missing words, names, document titles, places, numbers, dates, or legal terms.',
-          '',
-          'Rules:',
-          '1) Preserve the speaker\'s meaning exactly.',
-          '2) Prefer wording that is more coherent in Moroccan Darija context when hypotheses conflict.',
-          '3) Keep Moroccan Darija as spoken; do not convert it into formal MSA unless the speech clearly uses formal wording.',
-          '4) Keep French code-switched words naturally, for example: Donc en bref, bien sûr.',
-          '5) Correct obvious ASR noise, repetitions, and filler artifacts only when confidence is high.',
-          '6) Preserve legal and administrative terms carefully, especially: القايد/القائد، القيادة، وزارة الداخلية، ذوي الحقوق، المرفقات، كروكيات، الاستغلال.',
-          '7) Do not create or preserve a supposed name/title from a noisy span unless it is clearly supported by the hypotheses.',
-          '8) If a span is unclear in both hypotheses, use [غير واضح] rather than guessing.',
-          '9) If one hypothesis is clearly better for a span, rely on it. If both are noisy, choose the safest conservative wording.',
-          '10) Preserve ownership and roles accurately. Do not change the father\'s lands into their lands unless the input clearly says that.',
-          '11) Output only the final consolidated transcript text.',
-          '12) No explanations, no labels, no bullets, and no quotes.',
-        ].join('\n'),
-      },
-      {
-        role: 'user',
-        content: [
-          'Consolidate these two Arabic transcription hypotheses into one final Arabic/Darija transcript.',
-          'Important:',
-          '- Do not invent content.',
-          '- Do not force unclear sounds into names or document titles.',
-          '- Use [غير واضح] for unclear spans.',
-          '- Prefer the hypothesis that better fits Moroccan Darija and the legal/administrative context.',
-          '',
-          'Hypothesis A (OpenAI):',
-          openaiTranscript,
-          '',
-          'Hypothesis B (Darija custom model):',
-          darijaTranscript,
-        ].join('\n'),
-      },
-    ],
-  });
-
-  const consolidatedTranscript = response.output_text?.trim() || openaiTranscript;
-
-  if (!consolidatedTranscript) {
-    throw httpError(502, 'OpenAI consolidation response did not include text.');
-  }
-
-  logTrace(traceId, 'OpenAI consolidation complete', {
-    durationMs: Date.now() - startedAt,
-    transcriptChars: consolidatedTranscript.length,
-    fallbackToOpenaiText: !response.output_text?.trim(),
-  });
-
-  return consolidatedTranscript;
-}
-
 app.post(
   '/v1/webhooks/clerk',
   express.raw({ type: 'application/json', limit: BODY_LIMIT }),
   handleClerkWebhook,
 );
 app.use(express.json({ limit: BODY_LIMIT }));
-
-async function translateConsolidatedTranscript(consolidatedTranscript, traceId) {
-  const client = getOpenAIClient();
-  const startedAt = Date.now();
-
-  logTrace(traceId, 'OpenAI translation start', {
-    transcriptChars: consolidatedTranscript.length,
-    model: TRANSLATION_MODEL,
-  });
-
-  const response = await client.responses.create({
-    model: TRANSLATION_MODEL,
-    input: [
-      {
-        role: 'system',
-        content: [
-          'You are a Moroccan Darija to English translator specializing in administrative and legal context.',
-          'Translate the consolidated Moroccan Darija transcript into clear English.',
-          'Rules:',
-          '1) Preserve the meaning exactly.',
-          '2) Do not add information not present in the transcript.',
-          '3) Do not invent names, document titles, dates, numbers, places, or legal details.',
-          '4) Translate unclear spans marked [غير واضح] as [unclear].',
-          '5) Keep culturally specific terms when needed and briefly clarify them in English, for example:',
-          '   - douar = village/community',
-          '   - caid = local administrative official',
-          '   - caidat/قيادة = local administrative authority',
-          '   - ذوي الحقوق = rights-holders/recognized beneficiaries',
-          '6) Preserve who owns what and who is submitting the request.',
-          '7) Output only the English translation.',
-        ].join('\n'),
-      },
-      {
-        role: 'user',
-        content: [
-          'Translate this consolidated Moroccan Darija transcript into English:',
-          consolidatedTranscript,
-        ].join('\n'),
-      },
-    ],
-  });
-
-  const translation = response.output_text?.trim();
-
-  if (!translation) {
-    throw httpError(502, 'OpenAI translation response did not include text.');
-  }
-
-  logTrace(traceId, 'OpenAI translation complete', {
-    durationMs: Date.now() - startedAt,
-    translationChars: translation.length,
-  });
-
-  return translation;
-}
 
 app.get('/health', (req, res) => {
   const traceId = traceFromRequest(req);
@@ -985,147 +639,27 @@ async function handleTranslateAudio(req, res, next) {
       clerkUserId,
     });
 
-    logTrace(traceId, 'STT parallel start', {
+    const pipelineResult = await runTranslationProviderPipeline({
       jobId: translationJob.id,
-      requirement: 'openai_and_darija_required_before_consolidation',
-    });
-
-    const [darijaAsrOutcome, openaiAsrOutcome] = await Promise.allSettled([
-      recordProviderOperation({
-        traceId,
-        jobId: translationJob.id,
-        clerkUserId,
-        provider: PROVIDERS.MODAL,
-        operation: PROVIDER_OPERATIONS.MODAL_DARIJA_ASR,
-        model: 'modal-darija-asr',
-        inputMetadata: {
-          filename: providerPayload.filename,
-          audioBytes,
-          audioBucket: storedAudio.bucket,
-          audioObjectKey: storedAudio.objectKey,
-          audioMimeType: storedAudio.mimeType,
-        },
-        outputMetadata: (result) => ({
-          transcriptChars: result.text?.length || 0,
-          audioBytes: result.audio_bytes,
-          durationSeconds: result.duration_seconds,
-          model: result.model,
-          baseModel: result.base_model,
-        }),
-        execute: () => transcribeAudio(providerPayload, traceId),
-      }),
-      recordProviderOperation({
-        traceId,
-        jobId: translationJob.id,
-        clerkUserId,
-        provider: PROVIDERS.OPENAI,
-        operation: PROVIDER_OPERATIONS.OPENAI_TRANSCRIPTION,
-        model: OPENAI_TRANSCRIPTION_MODEL,
-        inputMetadata: {
-          filename: providerPayload.filename,
-          audioBytes,
-          language: 'ar',
-          audioBucket: storedAudio.bucket,
-          audioObjectKey: storedAudio.objectKey,
-          audioMimeType: storedAudio.mimeType,
-        },
-        outputMetadata: (result) => ({
-          transcriptChars: result.text?.length || 0,
-          audioBytes: result.audio_bytes,
-          durationSeconds: result.duration_seconds,
-          model: result.model,
-        }),
-        execute: () => transcribeAudioWithOpenAI(providerPayload, traceId),
-      }),
-    ]);
-
-    if (darijaAsrOutcome.status === 'rejected') {
-      throw darijaAsrOutcome.reason;
-    }
-
-    if (openaiAsrOutcome.status === 'rejected') {
-      throw openaiAsrOutcome.reason;
-    }
-
-    const darijaAsr = darijaAsrOutcome.value;
-    const openaiAsr = openaiAsrOutcome.value;
-
-    if (!darijaAsr.text?.trim()) {
-      throw httpError(502, 'Darija transcription returned empty text.');
-    }
-
-    if (!openaiAsr.text?.trim()) {
-      throw httpError(502, 'OpenAI transcription returned empty text.');
-    }
-
-    const consolidatedArabicText = await recordProviderOperation({
       traceId,
-      jobId: translationJob.id,
       clerkUserId,
-      provider: PROVIDERS.OPENAI,
-      operation: PROVIDER_OPERATIONS.OPENAI_CONSOLIDATION,
-      model: CONSOLIDATION_MODEL,
-      inputMetadata: {
-        openaiTranscriptChars: openaiAsr.text.length,
-        darijaTranscriptChars: darijaAsr.text.length,
+      filename: providerPayload.filename,
+      audioBase64: providerPayload.audioBase64,
+      audioBytes,
+      audioStorageMetadata: {
+        audioBucket: storedAudio.bucket,
+        audioObjectKey: storedAudio.objectKey,
+        audioMimeType: storedAudio.mimeType,
       },
-      outputMetadata: (result) => ({
-        transcriptChars: result.length,
-      }),
-      execute: () =>
-        consolidateArabicTranscript(
-          {
-            openaiTranscript: openaiAsr.text,
-            darijaTranscript: darijaAsr.text,
-          },
-          traceId,
-        ),
+      logTrace,
     });
-    const englishText = await recordProviderOperation({
-      traceId,
-      jobId: translationJob.id,
-      clerkUserId,
-      provider: PROVIDERS.OPENAI,
-      operation: PROVIDER_OPERATIONS.OPENAI_TRANSLATION,
-      model: TRANSLATION_MODEL,
-      inputMetadata: {
-        consolidatedTranscriptChars: consolidatedArabicText.length,
-      },
-      outputMetadata: (result) => ({
-        translationChars: result.length,
-      }),
-      execute: () => translateConsolidatedTranscript(consolidatedArabicText, traceId),
-    });
-
-    const modelMetadata = {
-      models: {
-        openaiTranscription: openaiAsr.model,
-        darija: darijaAsr.model,
-        darijaBase: darijaAsr.base_model,
-        consolidation: CONSOLIDATION_MODEL,
-        translation: TRANSLATION_MODEL,
-      },
-      asr: {
-        openai: {
-          audioBytes: openaiAsr.audio_bytes,
-          durationSeconds: openaiAsr.duration_seconds,
-        },
-        darija: {
-          audioBytes: darijaAsr.audio_bytes,
-          durationSeconds: darijaAsr.duration_seconds,
-        },
-      },
-    };
-
-    await writeTranslationResult({
-      jobId: translationJob.id,
-      clerkUserId,
-      openaiArabicText: openaiAsr.text,
-      darijaArabicText: darijaAsr.text,
+    const {
+      openaiAsr,
+      darijaAsr,
       consolidatedArabicText,
       englishText,
-      modelMetadata,
-    });
+      models,
+    } = pipelineResult;
 
     await markTranslationJobSucceeded({
       jobId: translationJob.id,
@@ -1146,8 +680,8 @@ async function handleTranslateAudio(req, res, next) {
         openai: openaiAsr.text,
       },
       translation: englishText,
-      model: TRANSLATION_MODEL,
-      consolidation_model: CONSOLIDATION_MODEL,
+      model: models.translation,
+      consolidation_model: models.consolidation,
       asr: {
         model: darijaAsr.model,
         base_model: darijaAsr.base_model,
