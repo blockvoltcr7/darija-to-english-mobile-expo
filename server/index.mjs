@@ -1,15 +1,27 @@
 import { clerkMiddleware, getAuth } from '@clerk/express';
+import { verifyWebhook } from '@clerk/backend/webhooks';
 import cors from 'cors';
 import express from 'express';
 import OpenAI, { toFile } from 'openai';
-import { checkSupabaseConnection, SUPABASE_PROJECT_REF } from './db.mjs';
+import {
+  checkSupabaseConnection,
+  getSupabaseAdminClient,
+  SUPABASE_PROJECT_REF,
+} from './db.mjs';
 import { env } from './env.mjs';
+import {
+  getOrCreateProfile,
+  softDeleteProfile,
+  upsertProfileFromClerkUser,
+} from './profiles.mjs';
 
 const {
   PORT,
   HOST,
   MAX_JSON_BODY_SIZE: BODY_LIMIT,
   CLERK_CONFIGURED,
+  CLERK_WEBHOOK_SIGNING_SECRET,
+  CLERK_WEBHOOK_CONFIGURED,
   DARIJA_ASR_BASE_URL: ASR_BASE_URL,
   DARIJA_ASR_TRANSCRIBE_URL: ASR_TRANSCRIBE_URL,
   DARIJA_ASR_API_KEY: ASR_API_KEY,
@@ -25,7 +37,6 @@ const app = express();
 
 app.use(CLERK_CONFIGURED ? clerkMiddleware() : (_req, _res, next) => next());
 app.use(cors());
-app.use(express.json({ limit: BODY_LIMIT }));
 
 function nowIso() {
   return new Date().toISOString();
@@ -119,6 +130,192 @@ function requireClerkSession(req, res, next) {
   };
 
   next();
+}
+
+async function ensureProfileForRequest(req, res, next) {
+  try {
+    const traceId = traceFromRequest(req);
+    const profile = await getOrCreateProfile({
+      clerkUserId: req.clerkAuth.userId,
+    });
+
+    req.profile = {
+      id: profile.id,
+      clerkUserId: profile.clerk_user_id,
+    };
+
+    logTrace(traceId, 'Profile resolved for authenticated request', {
+      userId: req.clerkAuth.userId,
+      profileId: profile.id,
+    });
+
+    next();
+  } catch (error) {
+    error.traceId = traceFromRequest(req);
+    next(error);
+  }
+}
+
+function buildWebhookRequest(req) {
+  if (!Buffer.isBuffer(req.body)) {
+    throw httpError(400, 'Webhook body must be raw application/json.');
+  }
+
+  const headers = new Headers();
+
+  for (const [name, value] of Object.entries(req.headers)) {
+    if (Array.isArray(value)) {
+      for (const item of value) {
+        headers.append(name, item);
+      }
+    } else if (value !== undefined) {
+      headers.set(name, value);
+    }
+  }
+
+  return new Request(`${req.protocol}://${req.get('host')}${req.originalUrl}`, {
+    method: req.method,
+    headers,
+    body: req.body,
+  });
+}
+
+function getClerkWebhookUserId(event) {
+  return typeof event?.data?.id === 'string' ? event.data.id : null;
+}
+
+function wrapWebhookDatabaseError(operation, error) {
+  return httpError(500, `Clerk webhook database operation failed: ${operation}.`, {
+    code: error?.code,
+    name: error?.name,
+    status: error?.status,
+  });
+}
+
+async function recordClerkWebhookEvent({ eventId, event }) {
+  const row = {
+    event_id: eventId,
+    event_type: event.type,
+    clerk_user_id: getClerkWebhookUserId(event),
+    payload: event,
+  };
+
+  const { data, error } = await getSupabaseAdminClient()
+    .from('clerk_webhook_events')
+    .insert(row)
+    .select('id, processed_at')
+    .single();
+
+  if (!error) {
+    return { duplicate: false, processedAt: data.processed_at };
+  }
+
+  if (error.code !== '23505') {
+    throw wrapWebhookDatabaseError('record_clerk_webhook_event', error);
+  }
+
+  const { data: existingEvent, error: lookupError } =
+    await getSupabaseAdminClient()
+      .from('clerk_webhook_events')
+      .select('id, processed_at')
+      .eq('event_id', eventId)
+      .maybeSingle();
+
+  if (lookupError) {
+    throw wrapWebhookDatabaseError('lookup_duplicate_clerk_webhook_event', lookupError);
+  }
+
+  return {
+    duplicate: true,
+    processedAt: existingEvent?.processed_at || null,
+  };
+}
+
+async function markClerkWebhookEventProcessed(eventId) {
+  const { error } = await getSupabaseAdminClient()
+    .from('clerk_webhook_events')
+    .update({ processed_at: new Date().toISOString() })
+    .eq('event_id', eventId);
+
+  if (error) {
+    throw wrapWebhookDatabaseError('mark_clerk_webhook_event_processed', error);
+  }
+}
+
+async function processClerkWebhookEvent(event) {
+  switch (event.type) {
+    case 'user.created':
+    case 'user.updated':
+      return upsertProfileFromClerkUser(event.data);
+    case 'user.deleted':
+      return event.data?.id ? softDeleteProfile(event.data.id) : null;
+    default:
+      return null;
+  }
+}
+
+async function handleClerkWebhook(req, res, next) {
+  const traceId = traceFromRequest(req);
+  const eventId = req.get('svix-id');
+  let verified = false;
+
+  try {
+    if (!CLERK_WEBHOOK_CONFIGURED) {
+      throw httpError(500, 'CLERK_WEBHOOK_SIGNING_SECRET is not configured.');
+    }
+
+    const event = await verifyWebhook(buildWebhookRequest(req), {
+      signingSecret: CLERK_WEBHOOK_SIGNING_SECRET,
+    });
+    verified = true;
+    const clerkUserId = getClerkWebhookUserId(event);
+
+    logTrace(traceId, 'Clerk webhook verified', {
+      eventId,
+      eventType: event.type,
+      clerkUserId,
+    });
+
+    const eventRecord = await recordClerkWebhookEvent({ eventId, event });
+
+    if (eventRecord.duplicate && eventRecord.processedAt) {
+      logTrace(traceId, 'Clerk webhook duplicate already processed', {
+        eventId,
+        eventType: event.type,
+        clerkUserId,
+      });
+
+      return res.json({ ok: true, duplicate: true });
+    }
+
+    if (eventRecord.duplicate) {
+      logTrace(traceId, 'Clerk webhook duplicate pending processing', {
+        eventId,
+        eventType: event.type,
+        clerkUserId,
+      });
+    }
+
+    await processClerkWebhookEvent(event);
+    await markClerkWebhookEventProcessed(eventId);
+
+    logTrace(traceId, 'Clerk webhook processed', {
+      eventId,
+      eventType: event.type,
+      clerkUserId,
+    });
+
+    res.json({ ok: true, duplicate: eventRecord.duplicate });
+  } catch (error) {
+    error.traceId = traceId;
+
+    if (!verified && !error.status) {
+      error.status = 400;
+      error.message = 'Invalid Clerk webhook signature.';
+    }
+
+    next(error);
+  }
 }
 
 function decodeAudioBase64(audioBase64) {
@@ -316,6 +513,13 @@ async function consolidateArabicTranscript(
 
   return consolidatedTranscript;
 }
+
+app.post(
+  '/v1/webhooks/clerk',
+  express.raw({ type: 'application/json', limit: BODY_LIMIT }),
+  handleClerkWebhook,
+);
+app.use(express.json({ limit: BODY_LIMIT }));
 
 async function translateConsolidatedTranscript(consolidatedTranscript, traceId) {
   const client = getOpenAIClient();
@@ -537,8 +741,18 @@ async function handleTranslateAudio(req, res, next) {
   }
 }
 
-app.post('/v1/translate-audio', requireClerkSession, handleTranslateAudio);
-app.post('/translate-audio', requireClerkSession, handleTranslateAudio);
+app.post(
+  '/v1/translate-audio',
+  requireClerkSession,
+  ensureProfileForRequest,
+  handleTranslateAudio,
+);
+app.post(
+  '/translate-audio',
+  requireClerkSession,
+  ensureProfileForRequest,
+  handleTranslateAudio,
+);
 
 app.use((error, _req, res, _next) => {
   const status = Number(error.status || 500);

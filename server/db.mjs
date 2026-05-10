@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
+import WebSocket from 'ws';
 import { env } from './env.mjs';
 
 export const SUPABASE_PROJECT_REF = 'npjsersrmvltoxmqdkzd';
@@ -12,6 +13,9 @@ export function getSupabaseAdminClient() {
         persistSession: false,
         autoRefreshToken: false,
         detectSessionInUrl: false,
+      },
+      realtime: {
+        transport: WebSocket,
       },
     });
   }

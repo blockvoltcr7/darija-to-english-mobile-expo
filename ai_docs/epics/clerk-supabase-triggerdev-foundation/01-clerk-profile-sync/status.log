@@ -8,3 +8,7 @@
 2026-05-10T04:17:44Z create-clerk-webhook-events-migration open->in_progress
 2026-05-10T04:20:37Z create-clerk-webhook-events-migration in_progress->done
 2026-05-10T04:22:40Z add-profile-repository-helpers in_progress->done
+2026-05-10T04:23:14Z call-profile-upsert-after-clerk-verification open->in_progress
+2026-05-10T04:23:14Z add-clerk-webhook-endpoint open->in_progress
+2026-05-10T04:34:05Z call-profile-upsert-after-clerk-verification in_progress->done
+2026-05-10T04:34:05Z add-clerk-webhook-endpoint in_progress->done

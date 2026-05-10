@@ -103,6 +103,10 @@ function loadEnv(rawEnv = process.env) {
   const supabaseUrl = readString(rawEnv, 'SUPABASE_URL');
   const supabaseSecretKey = readString(rawEnv, 'SUPABASE_SECRET_KEY');
   const supabaseServiceRoleKey = readString(rawEnv, 'SUPABASE_SERVICE_ROLE_KEY');
+  const clerkWebhookSigningSecret = readString(
+    rawEnv,
+    'CLERK_WEBHOOK_SIGNING_SECRET',
+  );
 
   if (forbiddenPublicSecretVars.length > 0) {
     errors.push(
@@ -130,6 +134,8 @@ function loadEnv(rawEnv = process.env) {
     MAX_JSON_BODY_SIZE: readString(rawEnv, 'MAX_JSON_BODY_SIZE', '70mb'),
     CLERK_PUBLISHABLE_KEY: readString(rawEnv, 'CLERK_PUBLISHABLE_KEY'),
     CLERK_SECRET_KEY: readString(rawEnv, 'CLERK_SECRET_KEY'),
+    CLERK_WEBHOOK_SIGNING_SECRET: clerkWebhookSigningSecret,
+    CLERK_WEBHOOK_CONFIGURED: Boolean(clerkWebhookSigningSecret),
     CLERK_CONFIGURED: Boolean(
       readString(rawEnv, 'CLERK_PUBLISHABLE_KEY') &&
         readString(rawEnv, 'CLERK_SECRET_KEY'),

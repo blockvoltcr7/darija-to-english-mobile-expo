@@ -40,9 +40,9 @@ Guarantee every Clerk-authenticated user has a durable Supabase profile row with
 | #  | Slug                                          | Type      | Status | Updated              |
 |----|-----------------------------------------------|-----------|--------|----------------------|
 | 01 | add-profile-repository-helpers                | Code      | done   | 2026-05-10T04:22:40Z |
-| 02 | call-profile-upsert-after-clerk-verification  | Code      | open   | 2026-05-10T04:07:11Z |
+| 02 | call-profile-upsert-after-clerk-verification  | Code      | done   | 2026-05-10T04:34:05Z |
 | 03 | create-clerk-webhook-events-migration         | Migration | done   | 2026-05-10T04:20:37Z |
-| 04 | add-clerk-webhook-endpoint                    | Code      | open   | 2026-05-10T04:07:11Z |
+| 04 | add-clerk-webhook-endpoint                    | Code      | done   | 2026-05-10T04:34:05Z |
 | 05 | document-clerk-webhook-testing                | Code      | open   | 2026-05-10T04:07:11Z |
 | 06 | verify-profile-sync-end-to-end                | Code      | open   | 2026-05-10T04:07:11Z |
 <!-- STATUS-TABLE-END -->
