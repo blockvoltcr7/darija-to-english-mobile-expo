@@ -44,5 +44,5 @@ Guarantee every Clerk-authenticated user has a durable Supabase profile row with
 | 03 | create-clerk-webhook-events-migration         | Migration | done   | 2026-05-10T04:20:37Z |
 | 04 | add-clerk-webhook-endpoint                    | Code      | done   | 2026-05-10T04:34:05Z |
 | 05 | document-clerk-webhook-testing                | Code      | done   | 2026-05-10T04:35:26Z |
-| 06 | verify-profile-sync-end-to-end                | Code      | open   | 2026-05-10T04:07:11Z |
+| 06 | verify-profile-sync-end-to-end                | Code      | done   | 2026-05-10T04:38:59Z |
 <!-- STATUS-TABLE-END -->
