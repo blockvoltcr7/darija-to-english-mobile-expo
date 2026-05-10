@@ -2,6 +2,7 @@ import { clerkMiddleware, getAuth } from '@clerk/express';
 import cors from 'cors';
 import express from 'express';
 import OpenAI, { toFile } from 'openai';
+import { checkSupabaseConnection, SUPABASE_PROJECT_REF } from './db.mjs';
 import { env } from './env.mjs';
 
 const {
@@ -399,6 +400,38 @@ app.get('/health', (req, res) => {
   });
 
   res.json(payload);
+});
+
+app.get('/health/supabase', async (req, res) => {
+  const traceId = traceFromRequest(req);
+  const result = await checkSupabaseConnection();
+  const payload = {
+    ok: result.ok,
+    service: 'darija-to-english-api',
+    dependency: 'supabase',
+    projectRef: SUPABASE_PROJECT_REF,
+    table: result.table,
+    status: result.status,
+    rowCount: result.rowCount,
+    durationMs: result.durationMs,
+    errorCode: result.errorCode,
+    errorName: result.errorName,
+  };
+
+  logTrace(traceId, 'Supabase smoke check', {
+    ip: req.ip,
+    userAgent: req.get('User-Agent'),
+    ok: payload.ok,
+    projectRef: payload.projectRef,
+    table: payload.table,
+    status: payload.status,
+    rowCount: payload.rowCount,
+    errorCode: payload.errorCode,
+    errorName: payload.errorName,
+    durationMs: payload.durationMs,
+  });
+
+  res.status(payload.ok ? 200 : 503).json(payload);
 });
 
 async function handleTranslateAudio(req, res, next) {

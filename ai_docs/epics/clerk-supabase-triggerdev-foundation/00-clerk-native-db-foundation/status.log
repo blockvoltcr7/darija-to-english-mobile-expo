@@ -13,3 +13,7 @@
 2026-05-10T03:17:24Z add-server-env-contract in_progress->done
 2026-05-10T03:17:54Z create-clerk-native-profiles-migration open->in_progress
 2026-05-10T03:19:11Z create-clerk-native-profiles-migration in_progress->done
+2026-05-10T03:19:31Z add-db-local-updated-at-trigger open->in_progress
+2026-05-10T03:19:31Z add-server-supabase-db-client open->in_progress
+2026-05-10T03:23:04Z add-db-local-updated-at-trigger in_progress->done
+2026-05-10T03:30:06Z add-server-supabase-db-client in_progress->done
