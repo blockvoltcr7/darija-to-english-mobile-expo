@@ -59,6 +59,15 @@ export interface TranslationHistoryListResponse {
   nextCursor?: string | null;
 }
 
+export interface AsyncTranslationSubmitResponse {
+  jobId: string;
+  translationJobId: string;
+  status: 'queued';
+  triggerRunId?: string | null;
+  createdAt?: string | null;
+  detailUrl: string;
+}
+
 export interface TranslationProviderRunSummary {
   id: string;
   provider: string;

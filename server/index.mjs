@@ -27,7 +27,9 @@ import {
   markTranslationJobRunning,
   markTranslationJobSucceeded,
   updateTranslationJobStorageMetadata,
+  updateTranslationJobTriggerRunId,
 } from './translations.mjs';
+import { translateAudioJob } from '../trigger/translate-audio-job.mjs';
 
 const {
   PORT,
@@ -44,6 +46,7 @@ const {
   OPENAI_TRANSLATION_MODEL: TRANSLATION_MODEL,
   OPENAI_TRANSCRIPTION_MODEL,
   SUPABASE_CONFIGURED,
+  TRIGGER_CONFIGURED,
 } = env;
 
 const app = express();
@@ -228,6 +231,15 @@ function validatePayload(body) {
   }
 
   return { filename, audioBase64 };
+}
+
+function requireTriggerRuntime() {
+  if (!TRIGGER_CONFIGURED) {
+    throw httpError(
+      500,
+      'Trigger.dev is not configured. Set TRIGGER_SECRET_KEY for async translation.',
+    );
+  }
 }
 
 function requireClerkSession(req, res, next) {
@@ -564,6 +576,153 @@ async function handleGetTranslation(req, res, next) {
 
 app.get('/v1/translations', requireClerkSession, handleListTranslations);
 app.get('/v1/translations/:id', requireClerkSession, handleGetTranslation);
+
+function triggerRunIdFromHandle(handle) {
+  return (
+    handle?.id ||
+    handle?.runId ||
+    handle?.run?.id ||
+    handle?.runs?.[0]?.id ||
+    null
+  );
+}
+
+async function dispatchTranslationJob({ jobId }) {
+  return translateAudioJob.trigger(
+    { job_id: jobId },
+    {
+      idempotencyKey: `translation-job:${jobId}`,
+      tags: ['darija-mobile', `job:${jobId}`],
+    },
+  );
+}
+
+async function handleCreateTranslation(req, res, next) {
+  const traceId = traceFromRequest(req);
+  const startedAt = Date.now();
+  let translationJob = null;
+  let storedAudio = null;
+
+  try {
+    requireTriggerRuntime();
+
+    const payload = validatePayload(req.body);
+    const audio = prepareAudioForStorage(payload);
+    const audioBytes = audio.sizeBytes;
+    const clerkUserId = req.clerkAuth.userId;
+
+    logTrace(traceId, 'Async translation request received', {
+      ip: req.ip,
+      userId: clerkUserId,
+      filename: audio.filename,
+      base64Chars: audio.audioBase64.length,
+      audioBytes,
+      audioMimeType: audio.mimeType,
+      contentLength: req.get('Content-Length'),
+    });
+
+    translationJob = await createTranslationJob({
+      clerkUserId,
+      profileId: req.profile?.id,
+      filename: audio.filename,
+      audioBytes,
+      traceId,
+    });
+
+    storedAudio = await uploadOriginalAudioForJob({
+      clerkUserId,
+      jobId: translationJob.id,
+      audio,
+    });
+
+    try {
+      await updateTranslationJobStorageMetadata({
+        jobId: translationJob.id,
+        clerkUserId,
+        audioBucket: storedAudio.bucket,
+        audioObjectKey: storedAudio.objectKey,
+        audioSizeBytes: storedAudio.sizeBytes,
+        audioMimeType: storedAudio.mimeType,
+        audioRetentionExpiresAt: storedAudio.retentionExpiresAt,
+      });
+    } catch (metadataError) {
+      try {
+        await removeStoredObject({
+          bucket: storedAudio.bucket,
+          objectKey: storedAudio.objectKey,
+        });
+        storedAudio = null;
+      } catch (cleanupError) {
+        logTrace(traceId, 'Audio cleanup after async metadata failure failed', {
+          jobId: translationJob.id,
+          bucket: storedAudio.bucket,
+          errorName: cleanupError?.name,
+          errorCode: cleanupError?.code,
+        });
+      }
+
+      throw metadataError;
+    }
+
+    const triggerHandle = await dispatchTranslationJob({ jobId: translationJob.id });
+    const triggerRunId = triggerRunIdFromHandle(triggerHandle);
+
+    if (!triggerRunId) {
+      throw httpError(502, 'Trigger.dev dispatch did not return a run ID.');
+    }
+
+    await updateTranslationJobTriggerRunId({
+      jobId: translationJob.id,
+      clerkUserId,
+      triggerRunId,
+    });
+
+    const responsePayload = {
+      jobId: translationJob.id,
+      translationJobId: translationJob.id,
+      status: 'queued',
+      triggerRunId,
+      createdAt: translationJob.created_at,
+      detailUrl: `/v1/translations/${translationJob.id}`,
+    };
+
+    logTrace(traceId, 'Async translation queued', {
+      jobId: translationJob.id,
+      triggerRunId,
+      durationMs: Date.now() - startedAt,
+    });
+
+    res.status(202).json(responsePayload);
+  } catch (error) {
+    error.traceId = traceId;
+
+    if (translationJob?.id && req.clerkAuth?.userId) {
+      try {
+        await markTranslationJobFailed({
+          jobId: translationJob.id,
+          clerkUserId: req.clerkAuth.userId,
+          errorCode: safeErrorCode(error, 'async_dispatch_failed'),
+          errorMessage: safeErrorMessage(error),
+        });
+      } catch (recordError) {
+        logTrace(traceId, 'Async translation job failure recording failed', {
+          jobId: translationJob.id,
+          errorName: recordError?.name,
+          errorCode: recordError?.supabase?.code,
+        });
+      }
+    }
+
+    next(error);
+  }
+}
+
+app.post(
+  '/v1/translations',
+  requireClerkSession,
+  ensureProfileForRequest,
+  handleCreateTranslation,
+);
 
 async function handleTranslateAudio(req, res, next) {
   const traceId = traceFromRequest(req);
