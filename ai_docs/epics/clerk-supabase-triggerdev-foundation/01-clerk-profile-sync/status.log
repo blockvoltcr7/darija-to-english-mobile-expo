@@ -1,0 +1,6 @@
+2026-05-10T04:07:11Z add-profile-repository-helpers nil->open
+2026-05-10T04:07:11Z call-profile-upsert-after-clerk-verification nil->open
+2026-05-10T04:07:11Z create-clerk-webhook-events-migration nil->open
+2026-05-10T04:07:11Z add-clerk-webhook-endpoint nil->open
+2026-05-10T04:07:11Z document-clerk-webhook-testing nil->open
+2026-05-10T04:07:11Z verify-profile-sync-end-to-end nil->open
