@@ -1,4 +1,6 @@
 export interface TranslationResult {
+  jobId?: string;
+  translationJobId?: string;
   transcript: string;
   openaiArabicText?: string;
   darijaArabicText?: string;

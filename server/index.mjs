@@ -14,6 +14,17 @@ import {
   softDeleteProfile,
   upsertProfileFromClerkUser,
 } from './profiles.mjs';
+import {
+  createTranslationJob,
+  markTranslationJobFailed,
+  markTranslationJobRunning,
+  markTranslationJobSucceeded,
+  PROVIDER_OPERATIONS,
+  PROVIDER_RUN_STATUS,
+  PROVIDERS,
+  recordProviderRun,
+  writeTranslationResult,
+} from './translations.mjs';
 
 const {
   PORT,
@@ -59,6 +70,106 @@ function transcriptLengths(payload) {
     consolidatedArabicText: payload.consolidatedArabicText?.length || 0,
     englishText: payload.englishText?.length || 0,
   };
+}
+
+function base64Payload(audioBase64) {
+  return audioBase64.includes(',') ? audioBase64.split(',', 2)[1] : audioBase64;
+}
+
+function estimateAudioBytes(audioBase64) {
+  const payload = base64Payload(audioBase64);
+  const paddingChars = payload.endsWith('==') ? 2 : payload.endsWith('=') ? 1 : 0;
+
+  return Math.max(0, Math.floor((payload.length * 3) / 4) - paddingChars);
+}
+
+function safeErrorMessage(error) {
+  if (typeof error?.message === 'string' && error.message.trim()) {
+    return error.message.trim().slice(0, 500);
+  }
+
+  return 'Translation processing failed.';
+}
+
+function safeErrorCode(error, fallback = 'provider_error') {
+  if (typeof error?.code === 'string' && error.code.trim()) {
+    return error.code.trim().slice(0, 80);
+  }
+
+  if (Number.isInteger(error?.status)) {
+    return `http_${error.status}`;
+  }
+
+  if (typeof error?.name === 'string' && error.name.trim()) {
+    return error.name.trim().slice(0, 80);
+  }
+
+  return fallback;
+}
+
+async function recordProviderOperation({
+  traceId,
+  jobId,
+  clerkUserId,
+  provider,
+  operation,
+  model,
+  inputMetadata,
+  outputMetadata,
+  execute,
+}) {
+  const startedAt = new Date();
+  const startedMs = Date.now();
+  let result;
+
+  try {
+    result = await execute();
+  } catch (error) {
+    const completedAt = new Date();
+
+    try {
+      await recordProviderRun({
+        jobId,
+        clerkUserId,
+        provider,
+        operation,
+        model,
+        status: PROVIDER_RUN_STATUS.FAILED,
+        latencyMs: Date.now() - startedMs,
+        inputMetadata,
+        errorCode: safeErrorCode(error),
+        errorMessage: safeErrorMessage(error),
+        startedAt,
+        completedAt,
+      });
+    } catch (recordError) {
+      logTrace(traceId, 'Provider failure recording failed', {
+        operation,
+        provider,
+        errorName: recordError?.name,
+        errorCode: recordError?.supabase?.code,
+      });
+    }
+
+    throw error;
+  }
+
+  await recordProviderRun({
+    jobId,
+    clerkUserId,
+    provider,
+    operation,
+    model,
+    status: PROVIDER_RUN_STATUS.SUCCEEDED,
+    latencyMs: Date.now() - startedMs,
+    inputMetadata,
+    outputMetadata:
+      typeof outputMetadata === 'function' ? outputMetadata(result) : outputMetadata,
+    startedAt,
+    completedAt: new Date(),
+  });
+
+  return result;
 }
 
 let openaiClient;
@@ -319,11 +430,7 @@ async function handleClerkWebhook(req, res, next) {
 }
 
 function decodeAudioBase64(audioBase64) {
-  const value = audioBase64.includes(',')
-    ? audioBase64.split(',', 2)[1]
-    : audioBase64;
-
-  return Buffer.from(value, 'base64');
+  return Buffer.from(base64Payload(audioBase64), 'base64');
 }
 
 async function transcribeAudio({ filename, audioBase64 }, traceId) {
@@ -641,27 +748,93 @@ app.get('/health/supabase', async (req, res) => {
 async function handleTranslateAudio(req, res, next) {
   const traceId = traceFromRequest(req);
   const startedAt = Date.now();
+  let translationJob = null;
 
   try {
     const payload = validatePayload(req.body);
+    const audioBytes = estimateAudioBytes(payload.audioBase64);
+    const clerkUserId = req.clerkAuth.userId;
 
     logTrace(traceId, 'Translate audio request received', {
       ip: req.ip,
-      userId: req.clerkAuth?.userId,
+      userId: clerkUserId,
       filename: payload.filename,
       base64Chars: payload.audioBase64.length,
-      approxAudioBytes: Math.round((payload.audioBase64.length * 3) / 4),
+      approxAudioBytes: audioBytes,
       contentLength: req.get('Content-Length'),
     });
 
+    translationJob = await createTranslationJob({
+      clerkUserId,
+      profileId: req.profile?.id,
+      filename: payload.filename,
+      audioBytes,
+      traceId,
+    });
+
+    await markTranslationJobRunning({
+      jobId: translationJob.id,
+      clerkUserId,
+    });
+
     logTrace(traceId, 'STT parallel start', {
+      jobId: translationJob.id,
       requirement: 'openai_and_darija_required_before_consolidation',
     });
 
-    const [darijaAsr, openaiAsr] = await Promise.all([
-      transcribeAudio(payload, traceId),
-      transcribeAudioWithOpenAI(payload, traceId),
+    const [darijaAsrOutcome, openaiAsrOutcome] = await Promise.allSettled([
+      recordProviderOperation({
+        traceId,
+        jobId: translationJob.id,
+        clerkUserId,
+        provider: PROVIDERS.MODAL,
+        operation: PROVIDER_OPERATIONS.MODAL_DARIJA_ASR,
+        model: 'modal-darija-asr',
+        inputMetadata: {
+          filename: payload.filename,
+          audioBytes,
+        },
+        outputMetadata: (result) => ({
+          transcriptChars: result.text?.length || 0,
+          audioBytes: result.audio_bytes,
+          durationSeconds: result.duration_seconds,
+          model: result.model,
+          baseModel: result.base_model,
+        }),
+        execute: () => transcribeAudio(payload, traceId),
+      }),
+      recordProviderOperation({
+        traceId,
+        jobId: translationJob.id,
+        clerkUserId,
+        provider: PROVIDERS.OPENAI,
+        operation: PROVIDER_OPERATIONS.OPENAI_TRANSCRIPTION,
+        model: OPENAI_TRANSCRIPTION_MODEL,
+        inputMetadata: {
+          filename: payload.filename,
+          audioBytes,
+          language: 'ar',
+        },
+        outputMetadata: (result) => ({
+          transcriptChars: result.text?.length || 0,
+          audioBytes: result.audio_bytes,
+          durationSeconds: result.duration_seconds,
+          model: result.model,
+        }),
+        execute: () => transcribeAudioWithOpenAI(payload, traceId),
+      }),
     ]);
+
+    if (darijaAsrOutcome.status === 'rejected') {
+      throw darijaAsrOutcome.reason;
+    }
+
+    if (openaiAsrOutcome.status === 'rejected') {
+      throw openaiAsrOutcome.reason;
+    }
+
+    const darijaAsr = darijaAsrOutcome.value;
+    const openaiAsr = openaiAsrOutcome.value;
 
     if (!darijaAsr.text?.trim()) {
       throw httpError(502, 'Darija transcription returned empty text.');
@@ -671,19 +844,83 @@ async function handleTranslateAudio(req, res, next) {
       throw httpError(502, 'OpenAI transcription returned empty text.');
     }
 
-    const consolidatedArabicText = await consolidateArabicTranscript(
-      {
-        openaiTranscript: openaiAsr.text,
-        darijaTranscript: darijaAsr.text,
+    const consolidatedArabicText = await recordProviderOperation({
+      traceId,
+      jobId: translationJob.id,
+      clerkUserId,
+      provider: PROVIDERS.OPENAI,
+      operation: PROVIDER_OPERATIONS.OPENAI_CONSOLIDATION,
+      model: CONSOLIDATION_MODEL,
+      inputMetadata: {
+        openaiTranscriptChars: openaiAsr.text.length,
+        darijaTranscriptChars: darijaAsr.text.length,
       },
+      outputMetadata: (result) => ({
+        transcriptChars: result.length,
+      }),
+      execute: () =>
+        consolidateArabicTranscript(
+          {
+            openaiTranscript: openaiAsr.text,
+            darijaTranscript: darijaAsr.text,
+          },
+          traceId,
+        ),
+    });
+    const englishText = await recordProviderOperation({
       traceId,
-    );
-    const englishText = await translateConsolidatedTranscript(
+      jobId: translationJob.id,
+      clerkUserId,
+      provider: PROVIDERS.OPENAI,
+      operation: PROVIDER_OPERATIONS.OPENAI_TRANSLATION,
+      model: TRANSLATION_MODEL,
+      inputMetadata: {
+        consolidatedTranscriptChars: consolidatedArabicText.length,
+      },
+      outputMetadata: (result) => ({
+        translationChars: result.length,
+      }),
+      execute: () => translateConsolidatedTranscript(consolidatedArabicText, traceId),
+    });
+
+    const modelMetadata = {
+      models: {
+        openaiTranscription: openaiAsr.model,
+        darija: darijaAsr.model,
+        darijaBase: darijaAsr.base_model,
+        consolidation: CONSOLIDATION_MODEL,
+        translation: TRANSLATION_MODEL,
+      },
+      asr: {
+        openai: {
+          audioBytes: openaiAsr.audio_bytes,
+          durationSeconds: openaiAsr.duration_seconds,
+        },
+        darija: {
+          audioBytes: darijaAsr.audio_bytes,
+          durationSeconds: darijaAsr.duration_seconds,
+        },
+      },
+    };
+
+    await writeTranslationResult({
+      jobId: translationJob.id,
+      clerkUserId,
+      openaiArabicText: openaiAsr.text,
+      darijaArabicText: darijaAsr.text,
       consolidatedArabicText,
-      traceId,
-    );
+      englishText,
+      modelMetadata,
+    });
+
+    await markTranslationJobSucceeded({
+      jobId: translationJob.id,
+      clerkUserId,
+    });
 
     const responsePayload = {
+      jobId: translationJob.id,
+      translationJobId: translationJob.id,
       openaiArabicText: openaiAsr.text,
       darijaArabicText: darijaAsr.text,
       consolidatedArabicText,
@@ -720,6 +957,7 @@ async function handleTranslateAudio(req, res, next) {
     };
 
     logTrace(traceId, 'Translate audio response payload ready', {
+      jobId: translationJob.id,
       responseKeys: Object.keys(responsePayload).sort(),
       transcriptLengths: transcriptLengths(responsePayload),
       models: {
@@ -733,10 +971,29 @@ async function handleTranslateAudio(req, res, next) {
     res.json(responsePayload);
 
     logTrace(traceId, 'Translate audio response sent', {
+      jobId: translationJob.id,
       durationMs: Date.now() - startedAt,
     });
   } catch (error) {
     error.traceId = traceId;
+
+    if (translationJob?.id && req.clerkAuth?.userId) {
+      try {
+        await markTranslationJobFailed({
+          jobId: translationJob.id,
+          clerkUserId: req.clerkAuth.userId,
+          errorCode: safeErrorCode(error, 'translation_failed'),
+          errorMessage: safeErrorMessage(error),
+        });
+      } catch (recordError) {
+        logTrace(traceId, 'Translation job failure recording failed', {
+          jobId: translationJob.id,
+          errorName: recordError?.name,
+          errorCode: recordError?.supabase?.code,
+        });
+      }
+    }
+
     next(error);
   }
 }

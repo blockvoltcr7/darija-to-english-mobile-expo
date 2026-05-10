@@ -8,3 +8,5 @@
 2026-05-10T20:31:08Z create-translation-schema in_progress->done
 2026-05-10T20:31:43Z create-translation-db-writers open->in_progress
 2026-05-10T20:33:55Z create-translation-db-writers in_progress->done
+2026-05-10T20:34:20Z persist-sync-translation-results open->in_progress
+2026-05-10T20:37:12Z persist-sync-translation-results in_progress->done
