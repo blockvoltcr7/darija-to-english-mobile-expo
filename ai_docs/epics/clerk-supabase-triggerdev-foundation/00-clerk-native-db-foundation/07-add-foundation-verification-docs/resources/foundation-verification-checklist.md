@@ -4,12 +4,14 @@ Use this checklist after Epic 00 implementation.
 
 ## Supabase Project
 
-All live Supabase CLI/MCP verification must target:
+All live Supabase verification must target:
 
 ```text
 project_ref / project_id: npjsersrmvltoxmqdkzd
 project_name: Darija To English EXPO
 ```
+
+Current execution rule: use Supabase MCP for live Supabase database work. Do not use the local Supabase stack for verification, and do not use Supabase CLI for live DB operations in this repo unless this rule is explicitly changed.
 
 ## Static Code Checks
 
@@ -39,15 +41,21 @@ Expected:
 
 ## Migration Checks
 
-```bash
-supabase --version
-supabase link --project-ref npjsersrmvltoxmqdkzd
-supabase migration list --local
+Use Supabase MCP:
+
+```text
+list_migrations
+get_advisors type=security
+execute_sql <verification SQL>
 ```
 
-Do not mark live migration complete unless the migration was actually applied and verified against project ref `npjsersrmvltoxmqdkzd`.
+Do not mark live migration complete unless the migration was actually applied through Supabase MCP and verified against project ref `npjsersrmvltoxmqdkzd`.
 
-For Supabase MCP verification, use `project_id: "npjsersrmvltoxmqdkzd"` for every project-scoped call.
+Expected Epic 00 production migrations:
+
+- `create_clerk_native_profiles`
+- `add_db_local_updated_at_trigger`
+- `harden_set_updated_at_search_path`
 
 ## DB Shape Checks
 
@@ -65,6 +73,7 @@ Expected:
 - RLS is enabled on `public.profiles`.
 - No `profiles` policy uses `auth.uid()`.
 - `public.set_updated_at()` updates `profiles.updated_at` on update.
+- `public.set_updated_at()` has `SET search_path TO ''`.
 - No new trigger exists on `auth.users`.
 
 ## Secret Boundary Checks
@@ -80,3 +89,13 @@ Expected:
 - No mobile import of server env or DB modules.
 - No Supabase secret in an `EXPO_PUBLIC_*` variable.
 - No service/secret key references in mobile code.
+
+## Known Advisor Items
+
+Expected after Epic 00:
+
+- `public.profiles` has RLS enabled with no policies. This is intentional while the architecture is server-mediated through the API.
+
+Known unrelated pre-existing item:
+
+- `public.rls_auto_enable()` may still have `SECURITY DEFINER` executable warnings. That function is outside Epic 00's Clerk-native profile foundation scope.
