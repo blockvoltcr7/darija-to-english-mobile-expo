@@ -4,3 +4,7 @@
 2026-05-10T04:07:11Z add-clerk-webhook-endpoint nil->open
 2026-05-10T04:07:11Z document-clerk-webhook-testing nil->open
 2026-05-10T04:07:11Z verify-profile-sync-end-to-end nil->open
+2026-05-10T04:17:44Z add-profile-repository-helpers open->in_progress
+2026-05-10T04:17:44Z create-clerk-webhook-events-migration open->in_progress
+2026-05-10T04:20:37Z create-clerk-webhook-events-migration in_progress->done
+2026-05-10T04:22:40Z add-profile-repository-helpers in_progress->done
