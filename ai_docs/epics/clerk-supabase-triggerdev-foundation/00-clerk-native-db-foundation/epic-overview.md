@@ -50,7 +50,7 @@ Establish migration conventions, a Clerk-native profile schema, DB-local timesta
 |----|------|------|--------|---------|
 | 01 | establish-migration-convention | Infrastructure | done | 2026-05-10T03:10:36Z |
 | 02 | retire-supabase-auth-profile-shape | Migration | done | 2026-05-10T03:15:51Z |
-| 03 | create-clerk-native-profiles-migration | Migration | open | 2026-05-10T02:46:36Z |
+| 03 | create-clerk-native-profiles-migration | Migration | done | 2026-05-10T03:19:11Z |
 | 04 | add-db-local-updated-at-trigger | Database Function | open | 2026-05-10T02:46:36Z |
 | 05 | add-server-env-contract | Infrastructure | done | 2026-05-10T03:17:24Z |
 | 06 | add-server-supabase-db-client | Code | open | 2026-05-10T02:46:36Z |
