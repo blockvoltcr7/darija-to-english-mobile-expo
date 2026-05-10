@@ -10,9 +10,12 @@ Postgres triggers should only handle database-owned side effects. Clerk signup e
 
 This task owns the reusable `updated_at` trigger function and the first trigger attachment on `public.profiles`. Future mutable tables such as `translation_jobs` can reuse the same function in later epics.
 
+Any live Supabase CLI or MCP work for this trigger must target project ref / MCP `project_id` `npjsersrmvltoxmqdkzd`.
+
 ## Implementation
 
 - Create the migration with `supabase migration new add_db_local_updated_at_trigger`.
+- Confirm the CLI is linked to `npjsersrmvltoxmqdkzd` before any live `supabase db push`; MCP migration/SQL calls must use `project_id: npjsersrmvltoxmqdkzd`.
 - Add or reuse a `public.set_updated_at()` trigger function in SQL.
 - Keep the function narrow: assign `new.updated_at = now()` and return `new`.
 - Attach the trigger to `public.profiles` with a clear name such as `profiles_set_updated_at`.
@@ -30,6 +33,7 @@ This task owns the reusable `updated_at` trigger function and the first trigger 
 ## Acceptance Criteria
 
 - [ ] Migration file was created through `supabase migration new`.
+- [ ] Any live dry-run/apply evidence identifies project ref `npjsersrmvltoxmqdkzd`.
 - [ ] `public.set_updated_at()` exists and only mutates `new.updated_at`.
 - [ ] `public.profiles` has a `before update` row trigger using `public.set_updated_at()`.
 - [ ] Updating a profile row changes `updated_at`.

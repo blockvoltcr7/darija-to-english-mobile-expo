@@ -2,6 +2,11 @@
 
 Date checked: 2026-05-09
 
+## Project Scope
+
+- Live DB inspection must target Supabase project ref / MCP `project_id` `npjsersrmvltoxmqdkzd`.
+- Project name: `Darija To English EXPO`.
+
 ## Local Source Context
 
 - `ai_docs/production-readiness-roadmap/05-clerk-supabase-auth-solidification-plan.md` states that Clerk remains the identity provider and app tables should not be built around `auth.users`.
@@ -26,4 +31,3 @@ Retiring the old Supabase Auth profile shape means removing app-owned dependence
 - the old `auth.users` insert trigger that populates `profiles`
 
 It does not mean deleting Supabase Auth system tables or disabling Supabase platform features globally.
-

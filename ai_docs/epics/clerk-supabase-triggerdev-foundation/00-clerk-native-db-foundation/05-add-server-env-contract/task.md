@@ -10,6 +10,8 @@ Infrastructure
 
 The current public mobile config path is separate: `lib/config.ts` reads `EXPO_PUBLIC_API_BASE_URL`, and `app/_layout.tsx` reads `EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY`. Expo bundles `EXPO_PUBLIC_*` variables into the app, so Supabase secret keys must never use that prefix.
 
+The intended Supabase backend project for server env values is `Darija To English EXPO`, project ref `npjsersrmvltoxmqdkzd`.
+
 ## Implementation
 
 - Add `server/env.mjs` and move server-only environment parsing there.
@@ -36,6 +38,7 @@ The current public mobile config path is separate: `lib/config.ts` reads `EXPO_P
 - [ ] Missing required server env produces a clear startup/config error.
 - [ ] Existing Clerk/OpenAI/Darija ASR behavior and defaults are preserved.
 - [ ] `.env.example` documents `SUPABASE_URL` and a server-only Supabase secret key.
+- [ ] `.env.example` shows `SUPABASE_URL=https://npjsersrmvltoxmqdkzd.supabase.co` or otherwise documents that project ref `npjsersrmvltoxmqdkzd` is the target.
 - [ ] No `EXPO_PUBLIC_SUPABASE_*` secret variable is added.
 - [ ] No mobile file imports `server/env.mjs` or server secrets.
 - [ ] `node --check server/index.mjs` and `node --check server/env.mjs` pass.

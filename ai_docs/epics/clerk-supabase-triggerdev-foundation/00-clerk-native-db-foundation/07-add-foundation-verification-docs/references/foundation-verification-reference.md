@@ -2,6 +2,11 @@
 
 Date checked: 2026-05-09
 
+## Project Scope
+
+- Supabase project name: `Darija To English EXPO`
+- Supabase project ref / MCP `project_id`: `npjsersrmvltoxmqdkzd`
+
 ## Source Context
 
 - Root `AGENTS.md` requires `node --check server/index.mjs`, `npm run typecheck`, `npm run lint`, `npx expo-doctor`, and `/health` checks after code changes.
@@ -14,4 +19,3 @@ Date checked: 2026-05-09
 Foundation verification covers migration structure, DB shape, trigger behavior, server env, server DB client, health response, and secret boundaries.
 
 It does not prove Clerk webhook sync or profile lazy upsert; those belong to Epic 01.
-

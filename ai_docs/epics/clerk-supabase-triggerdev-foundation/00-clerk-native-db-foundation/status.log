@@ -5,3 +5,5 @@
 2026-05-10T02:46:36Z add-server-env-contract nil->open
 2026-05-10T02:46:36Z add-server-supabase-db-client nil->open
 2026-05-10T02:46:36Z add-foundation-verification-docs nil->open
+2026-05-10T03:09:55Z establish-migration-convention open->in_progress
+2026-05-10T03:10:36Z establish-migration-convention in_progress->done

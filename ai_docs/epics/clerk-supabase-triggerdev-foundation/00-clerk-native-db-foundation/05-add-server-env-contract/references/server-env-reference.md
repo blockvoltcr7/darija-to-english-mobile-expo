@@ -2,6 +2,12 @@
 
 Date checked: 2026-05-09
 
+## Project Scope
+
+- Supabase project name: `Darija To English EXPO`
+- Supabase project ref: `npjsersrmvltoxmqdkzd`
+- Expected project URL: `https://npjsersrmvltoxmqdkzd.supabase.co`
+
 ## Current Local Files
 
 - `server/index.mjs` currently calls `dotenv.config({ path: ['.env.local', '.env'] })` and reads `process.env` directly.
@@ -21,4 +27,3 @@ Recommended server env names for this project:
 - `SUPABASE_SERVICE_ROLE_KEY` only as a legacy fallback if needed
 
 Do not add secret-bearing `EXPO_PUBLIC_SUPABASE_*` variables for the current server-mediated architecture.
-

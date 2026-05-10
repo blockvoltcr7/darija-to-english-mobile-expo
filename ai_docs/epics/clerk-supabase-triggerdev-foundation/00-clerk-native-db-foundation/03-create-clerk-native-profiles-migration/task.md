@@ -17,10 +17,13 @@ The first production path is server-mediated:
 - App queries filter by `clerk_user_id`.
 - Direct mobile-to-Supabase RLS is a later option, not required here.
 
+Any live Supabase CLI or MCP work for this migration must target project ref / MCP `project_id` `npjsersrmvltoxmqdkzd`.
+
 ## Implementation
 
 - Ensure Task 01 has established `supabase/migrations/` and the migration README/convention.
 - Ensure Task 02 has a completed retirement decision before writing destructive SQL.
+- Confirm the CLI is linked to `npjsersrmvltoxmqdkzd` before any live `supabase db push`; MCP migration/SQL calls must use `project_id: npjsersrmvltoxmqdkzd`.
 - Create the migration with:
   - `supabase migration new create_clerk_native_profiles`
 - If Task 02 confirms `public.profiles` is empty and replaceable, write a migration that:
@@ -57,6 +60,7 @@ The first production path is server-mediated:
 ## Acceptance Criteria
 
 - Migration file was created through `supabase migration new`, not by hand-naming a timestamped file.
+- Any live dry-run/apply evidence identifies project ref `npjsersrmvltoxmqdkzd`.
 - Migration defines a Clerk-native `public.profiles` table.
 - `clerk_user_id` is unique and indexed.
 - `profiles` has no FK to `auth.users`.

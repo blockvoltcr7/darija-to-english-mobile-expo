@@ -2,6 +2,13 @@
 
 Date checked: 2026-05-09
 
+## Project Scope
+
+- Supabase project name: `Darija To English EXPO`
+- Supabase project ref / MCP `project_id`: `npjsersrmvltoxmqdkzd`
+- CLI live linking should use `supabase link --project-ref npjsersrmvltoxmqdkzd`.
+- MCP calls that require a project id must use `npjsersrmvltoxmqdkzd`.
+
 ## Sources
 
 - Supabase changelog index: `https://supabase.com/changelog.md`
@@ -23,4 +30,3 @@ Date checked: 2026-05-09
 
 - 2026-04-28: new tables in `public` are no longer automatically exposed to the Data API for projects that opt in, and this behavior becomes the default for new projects on 2026-05-30.
 - 2026-05-07: Developer Update included database/security breaking-change items; migration authors should scan the changelog before implementing schema work.
-

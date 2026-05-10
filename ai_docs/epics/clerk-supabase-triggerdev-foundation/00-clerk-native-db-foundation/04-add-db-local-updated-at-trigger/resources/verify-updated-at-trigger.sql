@@ -1,4 +1,5 @@
 -- Run against local/dev after the profiles migration and updated_at trigger migration.
+-- Target Supabase project ref / MCP project_id when run live: npjsersrmvltoxmqdkzd.
 
 insert into public.profiles (clerk_user_id, primary_email, display_name)
 values ('user_test_updated_at', 'updated-at@example.test', 'Before Update')
@@ -24,4 +25,3 @@ from information_schema.triggers
 where trigger_name = 'profiles_set_updated_at'
    or event_object_table = 'users'
 order by event_object_schema, event_object_table, trigger_name;
-

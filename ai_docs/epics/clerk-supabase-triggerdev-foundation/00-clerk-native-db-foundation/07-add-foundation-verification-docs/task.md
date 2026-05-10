@@ -10,6 +10,8 @@ The foundation needs explicit checks before profile sync and translation persist
 
 This task closes Epic 00 readiness for Epic 01. It should produce executable docs and repeatable commands, not just a prose summary.
 
+All live Supabase verification must target project ref / MCP `project_id` `npjsersrmvltoxmqdkzd`.
+
 ## Implementation
 
 - Add a foundation verification doc under `ai_docs/epics/clerk-supabase-triggerdev-foundation/00-clerk-native-db-foundation/` or the task's `resources/` folder, and link any reusable task-local SQL.
@@ -41,6 +43,8 @@ This task closes Epic 00 readiness for Epic 01. It should produce executable doc
   - logs and `/health` do not print secret values
 - Include Supabase migration checks:
   - migration files exist under `supabase/migrations/`
+  - CLI link, if used, points at `npjsersrmvltoxmqdkzd`
+  - Supabase MCP checks, if used, pass `project_id: npjsersrmvltoxmqdkzd`
   - `supabase migration list --local` or the documented fallback was run
   - live migration status is not claimed unless actually applied and verified
 - Include notes for physical-device API URL checks where relevant, but do not require mobile UI testing for this DB-only foundation.
@@ -51,6 +55,7 @@ This task closes Epic 00 readiness for Epic 01. It should produce executable doc
 - [ ] Checklist includes static code checks, API health checks, DB shape checks, trigger checks, migration checks, and secret-boundary checks.
 - [ ] Checklist includes exact commands and expected pass/fail signals.
 - [ ] Checklist states that live DB migration completion requires actual apply plus verification output.
+- [ ] Checklist requires project ref `npjsersrmvltoxmqdkzd` in live CLI/MCP evidence.
 - [ ] Checklist is clear enough for another agent to execute without prior context.
 - [ ] No verification step prints secrets.
 

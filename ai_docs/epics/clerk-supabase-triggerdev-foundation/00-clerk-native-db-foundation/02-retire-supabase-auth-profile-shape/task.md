@@ -18,9 +18,12 @@ Current app flow already uses Clerk at the API boundary:
 
 The DB transition should preserve that boundary: the mobile app still talks to the app API, and the server uses Supabase/Postgres server-side credentials. Direct mobile-to-Supabase RLS is out of scope for this epic.
 
+All live Supabase inspection for this task must target project ref / MCP `project_id` `npjsersrmvltoxmqdkzd` (`Darija To English EXPO`).
+
 ## Implementation
 
 - Read the migration convention from `01-establish-migration-convention` before drafting the retirement plan.
+- Use Supabase MCP with `project_id: npjsersrmvltoxmqdkzd` or a CLI link to `npjsersrmvltoxmqdkzd` for any live read-only inspection.
 - Inventory the current live `profiles` shape before deciding the replacement approach:
   - row count
   - columns and defaults
@@ -47,6 +50,7 @@ The DB transition should preserve that boundary: the mobile app still talks to t
 ## Acceptance Criteria
 
 - Current live `profiles` inventory is documented or the task records why live inspection was unavailable.
+- Live inspection evidence identifies project ref `npjsersrmvltoxmqdkzd`.
 - The retirement decision states whether the old table will be dropped, renamed, or replaced.
 - If the table is empty, the recommended path is explicit: replace the old Supabase Auth-shaped `profiles` table with the Clerk-native table in Task 03.
 - If the table is not empty, the task requires a backup/export and row-mapping plan before destructive changes.

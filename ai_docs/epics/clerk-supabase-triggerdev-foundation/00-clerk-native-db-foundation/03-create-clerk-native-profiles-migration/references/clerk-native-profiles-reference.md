@@ -2,6 +2,12 @@
 
 Date checked: 2026-05-09
 
+## Project Scope
+
+- Supabase project ref / MCP `project_id`: `npjsersrmvltoxmqdkzd`.
+- Project name: `Darija To English EXPO`.
+- CLI live migration operations must be linked to `npjsersrmvltoxmqdkzd`.
+
 ## Source Decisions
 
 - Clerk remains the identity provider.
@@ -38,4 +44,3 @@ create table public.profiles (
 - Task 03 writes the Clerk-native table migration.
 - Task 04 adds the reusable `updated_at` trigger behavior.
 - Epic 01 adds profile repository helpers, lazy upsert, and Clerk webhooks.
-

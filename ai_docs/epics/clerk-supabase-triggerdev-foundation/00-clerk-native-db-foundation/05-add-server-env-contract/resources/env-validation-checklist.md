@@ -18,7 +18,7 @@ Expected:
 ## Expected Server-Only Supabase Env
 
 ```dotenv
-SUPABASE_URL=https://your-project-ref.supabase.co
+SUPABASE_URL=https://npjsersrmvltoxmqdkzd.supabase.co
 SUPABASE_SECRET_KEY=replace-with-your-supabase-secret-key
 # Optional legacy fallback only if needed:
 # SUPABASE_SERVICE_ROLE_KEY=replace-with-your-legacy-service-role-key
@@ -33,4 +33,3 @@ SUPABASE_SECRET_KEY=replace-with-your-supabase-secret-key
 ```
 
 It must not return URLs, key prefixes, tokens, or secret values.
-

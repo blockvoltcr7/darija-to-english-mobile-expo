@@ -4,6 +4,7 @@ Use this note when executing the task.
 
 ## Live Inventory Summary
 
+- Supabase project ref / MCP `project_id`: `npjsersrmvltoxmqdkzd`
 - `public.profiles` row count:
 - Current primary key:
 - Current foreign keys:
@@ -30,4 +31,3 @@ Explain why this option is safe for the current live DB.
 - Backup/export location or reason not needed:
 - Rollback strategy:
 - Manual verification query:
-

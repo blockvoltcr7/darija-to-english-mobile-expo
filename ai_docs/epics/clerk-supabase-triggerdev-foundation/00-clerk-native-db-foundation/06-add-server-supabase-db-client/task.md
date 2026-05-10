@@ -10,6 +10,8 @@ The API needs server-only access to Supabase Postgres for profiles, jobs, result
 
 Task 05 centralizes server env in `server/env.mjs`; this task adds the server-only Supabase client module that later profile sync and translation persistence code will use.
 
+The server client must connect to Supabase project ref `npjsersrmvltoxmqdkzd` via `SUPABASE_URL=https://npjsersrmvltoxmqdkzd.supabase.co`.
+
 ## Implementation
 
 - Install the server/client dependency with npm if it is not already present:
@@ -30,6 +32,7 @@ Task 05 centralizes server env in `server/env.mjs`; this task adds the server-on
 - [ ] `@supabase/supabase-js` is added to `package.json` and `package-lock.json` if not already installed.
 - [ ] `server/db.mjs` exists and imports config only from `server/env.mjs`.
 - [ ] Supabase client uses server-only credentials.
+- [ ] Supabase client targets project ref `npjsersrmvltoxmqdkzd`.
 - [ ] Client creation is singleton or otherwise avoids unnecessary per-request recreation.
 - [ ] Auth session persistence is disabled for server usage.
 - [ ] Server code can run a safe Supabase/Postgres smoke query.

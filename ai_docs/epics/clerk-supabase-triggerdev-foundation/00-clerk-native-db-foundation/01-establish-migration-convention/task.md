@@ -15,6 +15,7 @@ Current local observation:
 - No `supabase/` directory exists in the repo yet.
 - Local Supabase CLI is installed, but currently reports `2.75.0` while the CLI says `2.98.2` is available.
 - Current Supabase platform behavior is changing around Data API exposure: new public tables should include explicit grants when they are intended to be reachable through Supabase Data API clients.
+- The intended Supabase project is `Darija To English EXPO` with project ref / MCP `project_id` `npjsersrmvltoxmqdkzd`.
 
 ## Implementation
 
@@ -29,6 +30,8 @@ Current local observation:
   - Command details must be discovered with `supabase <command> --help` before use.
   - The current live DB has no recorded Supabase CLI migration history.
   - Remote schema changes should not be made through the Dashboard SQL editor or Table Editor once migrations are adopted.
+  - The repo must link only to project ref `npjsersrmvltoxmqdkzd` when a live Supabase project is intentionally linked.
+  - Supabase MCP calls must use `project_id: npjsersrmvltoxmqdkzd`.
   - Remote deployment must use a reviewed migration flow, normally `supabase db push --dry-run` followed by `supabase db push` after approval.
   - When the CLI reports remote-history drift or missing history, stop and document the baseline decision instead of forcing a push.
 - Add a baseline note for the current live database:
@@ -56,6 +59,7 @@ Current local observation:
 - Notes explicitly say this task does not apply schema changes to the live DB.
 - Notes require `supabase migration new <name>` for new migration files.
 - Notes include a local CLI version check and mention that the installed CLI may need upgrade before later migration work.
+- Notes identify Supabase project ref / MCP `project_id` `npjsersrmvltoxmqdkzd`.
 - Notes define the local test path before live deployment.
 - Notes require a dry-run/review step before live `supabase db push`.
 - Notes include the current Data API grant/RLS convention for newly created public tables.

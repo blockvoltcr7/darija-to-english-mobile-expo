@@ -2,6 +2,17 @@
 
 Use this checklist when implementing the migration convention or authoring later migrations.
 
+## Project Scope
+
+Use this Supabase project for all live CLI/MCP work in this repo:
+
+```text
+project_ref / project_id: npjsersrmvltoxmqdkzd
+project_name: Darija To English EXPO
+```
+
+For Supabase MCP calls, pass `project_id: "npjsersrmvltoxmqdkzd"` when the tool schema requires it.
+
 ## Preflight
 
 ```bash
@@ -43,7 +54,7 @@ If local Docker/Supabase stack is not available, record the blocker in the task 
 Do not run these in planning tasks. Use them only after schema SQL has been reviewed and the project is intentionally linked.
 
 ```bash
-supabase link
+supabase link --project-ref npjsersrmvltoxmqdkzd
 supabase db push --dry-run
 supabase db push
 ```
@@ -61,4 +72,3 @@ select * from pg_policies where schemaname = 'public' and tablename = 'profiles'
 ```
 
 Also inspect triggers, indexes, grants, and whether any app path still expects `profiles.user_id`.
-

@@ -2,6 +2,10 @@
 
 Date: 2026-05-09
 
+## Project Scope
+
+Use Supabase project ref / MCP `project_id` `npjsersrmvltoxmqdkzd` for any live migration dry-run, apply, or verification.
+
 ## Scope Decision
 
 This task should produce the migration for the Clerk-native `profiles` table. It should not add API profile upsert helpers, Clerk webhooks, or the reusable `updated_at` trigger.
@@ -18,4 +22,3 @@ The old live table is expected to be empty, but destructive SQL must still be ga
 - Avoid `auth.uid()` policies.
 - Avoid broad `anon` and `authenticated` grants.
 - Grant only server-side access needed for the current API-mediated architecture.
-

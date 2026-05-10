@@ -1,5 +1,12 @@
 # DB Client Smoke Checks
 
+Target Supabase project:
+
+```text
+project_ref: npjsersrmvltoxmqdkzd
+url: https://npjsersrmvltoxmqdkzd.supabase.co
+```
+
 ## Dependency
 
 ```bash
@@ -31,4 +38,3 @@ console.log(await checkSupabaseConnection());
 ```
 
 The output should report success/failure without printing keys, URLs with credentials, or row data beyond safe counts/status fields.
-

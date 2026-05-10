@@ -1,5 +1,6 @@
 -- Inspect the current Supabase Auth-shaped profiles table before retirement.
 -- Run read-only first. Do not apply destructive SQL until the replacement plan is approved.
+-- Target Supabase project ref / MCP project_id: npjsersrmvltoxmqdkzd.
 
 select count(*) as profile_count
 from public.profiles;
@@ -97,4 +98,3 @@ from information_schema.role_table_grants
 where table_schema = 'public'
   and table_name = 'profiles'
 order by grantee, privilege_type;
-

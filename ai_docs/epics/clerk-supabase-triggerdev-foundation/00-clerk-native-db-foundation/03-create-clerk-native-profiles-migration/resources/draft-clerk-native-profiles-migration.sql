@@ -1,5 +1,6 @@
 -- Draft outline only. Create the real file with:
 -- supabase migration new create_clerk_native_profiles
+-- Live target project ref / MCP project_id: npjsersrmvltoxmqdkzd.
 --
 -- Preconditions:
 -- 1. Task 02 inventory confirms public.profiles is empty, or a backup/mapping plan exists.
@@ -43,4 +44,3 @@ revoke all on table public.profiles from authenticated;
 grant select, insert, update, delete on table public.profiles to service_role;
 
 commit;
-

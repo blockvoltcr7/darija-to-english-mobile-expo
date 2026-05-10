@@ -2,6 +2,11 @@
 
 Date checked: 2026-05-09
 
+## Project Scope
+
+- Supabase project ref: `npjsersrmvltoxmqdkzd`
+- Expected project URL: `https://npjsersrmvltoxmqdkzd.supabase.co`
+
 ## Local Source Context
 
 - `package.json` does not currently include `@supabase/supabase-js`.
@@ -24,4 +29,3 @@ Repository helpers for profiles belong to Epic 01, not this task.
 ## Security Direction
 
 Supabase secret keys and legacy `service_role` keys are backend-only and can bypass RLS assumptions. Later API code must still filter user-owned data by the authenticated Clerk user ID.
-

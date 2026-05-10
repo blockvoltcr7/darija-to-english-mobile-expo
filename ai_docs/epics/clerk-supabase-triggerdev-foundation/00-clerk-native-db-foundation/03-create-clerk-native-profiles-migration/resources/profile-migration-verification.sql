@@ -1,4 +1,5 @@
 -- Verification queries for the Clerk-native profiles migration.
+-- Target Supabase project ref / MCP project_id when run live: npjsersrmvltoxmqdkzd.
 
 select
   column_name,
@@ -74,4 +75,3 @@ where event_object_schema in ('public', 'auth')
 order by event_object_schema, event_object_table, trigger_name;
 
 select gen_random_uuid() as generated_uuid;
-

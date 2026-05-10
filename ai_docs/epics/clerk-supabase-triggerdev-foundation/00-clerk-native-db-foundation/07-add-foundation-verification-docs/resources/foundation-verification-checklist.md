@@ -2,6 +2,15 @@
 
 Use this checklist after Epic 00 implementation.
 
+## Supabase Project
+
+All live Supabase CLI/MCP verification must target:
+
+```text
+project_ref / project_id: npjsersrmvltoxmqdkzd
+project_name: Darija To English EXPO
+```
+
 ## Static Code Checks
 
 ```bash
@@ -32,10 +41,13 @@ Expected:
 
 ```bash
 supabase --version
+supabase link --project-ref npjsersrmvltoxmqdkzd
 supabase migration list --local
 ```
 
-Do not mark live migration complete unless the migration was actually applied and verified against the live project.
+Do not mark live migration complete unless the migration was actually applied and verified against project ref `npjsersrmvltoxmqdkzd`.
+
+For Supabase MCP verification, use `project_id: "npjsersrmvltoxmqdkzd"` for every project-scoped call.
 
 ## DB Shape Checks
 
@@ -68,4 +80,3 @@ Expected:
 - No mobile import of server env or DB modules.
 - No Supabase secret in an `EXPO_PUBLIC_*` variable.
 - No service/secret key references in mobile code.
-
