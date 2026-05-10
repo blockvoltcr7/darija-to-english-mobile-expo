@@ -48,6 +48,6 @@ Move audio from synchronous base64 processing toward private Supabase bucket sto
 | 04 | add-triggerdev-project-config  | Infrastructure | done   | 2026-05-10T22:34:26Z |
 | 05 | add-triggerdev-translation-task | Code           | done   | 2026-05-10T22:40:54Z |
 | 06 | dispatch-triggerdev-from-api   | Code           | done   | 2026-05-10T22:42:41Z |
-| 07 | add-mobile-job-polling         | UI             | open   | 2026-05-10T22:03:29Z |
+| 07 | add-mobile-job-polling         | UI             | done   | 2026-05-10T22:45:36Z |
 | 08 | verify-async-job-flow          | Code           | open   | 2026-05-10T22:03:29Z |
 <!-- STATUS-TABLE-END -->

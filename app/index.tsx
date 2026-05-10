@@ -13,7 +13,7 @@ import * as FileSystem from 'expo-file-system/legacy';
 import { useRouter } from 'expo-router';
 import type { Href } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -73,8 +73,14 @@ function statusLabel(status: WorkStatus, isRecording: boolean) {
   switch (status) {
     case 'preparing':
       return 'Preparing';
+    case 'queued':
+      return 'Queued';
+    case 'running':
+      return 'Running';
+    case 'polling':
+      return 'Polling';
     case 'transcribing':
-      return 'Transcribing';
+      return 'Submitting';
     case 'done':
       return 'Complete';
     case 'error':
@@ -94,6 +100,9 @@ function statusColor(status: WorkStatus, isRecording: boolean) {
 
   switch (status) {
     case 'preparing':
+    case 'queued':
+    case 'running':
+    case 'polling':
     case 'transcribing':
       return palette.amber;
     case 'done':
@@ -108,6 +117,15 @@ function statusColor(status: WorkStatus, isRecording: boolean) {
 
 function createTraceId(prefix: string) {
   return `${prefix}-${Date.now().toString(36)}`;
+}
+
+function isAbortError(error: unknown) {
+  return (
+    typeof error === 'object' &&
+    error !== null &&
+    'name' in error &&
+    (error as { name?: string }).name === 'AbortError'
+  );
 }
 
 async function readSelectedAudioAsBase64(asset: DocumentPickerAsset) {
@@ -134,9 +152,15 @@ export default function HomeScreen() {
   const [error, setError] = useState<string | null>(null);
   const [diagnostics, setDiagnostics] = useState<string[]>([]);
   const [isDiagnosticsOpen, setIsDiagnosticsOpen] = useState(false);
+  const activeRequestRef = useRef<AbortController | null>(null);
 
   const isRecording = recorderState.isRecording;
-  const isBusy = status === 'preparing' || status === 'transcribing';
+  const isBusy =
+    status === 'preparing' ||
+    status === 'transcribing' ||
+    status === 'queued' ||
+    status === 'running' ||
+    status === 'polling';
   const isPrimaryDisabled = permissionGranted !== true || isBusy;
   const isUploadDisabled = isRecording || isBusy;
   const activeStatusColor = statusColor(status, isRecording);
@@ -153,6 +177,31 @@ export default function HomeScreen() {
 
     console.log(`[DarijaDebug] ${line}`);
     setDiagnostics((current) => [line, ...current].slice(0, MAX_DIAGNOSTIC_LINES));
+  }
+
+  function beginTranslationRequest() {
+    activeRequestRef.current?.abort();
+    const controller = new AbortController();
+    activeRequestRef.current = controller;
+    return controller;
+  }
+
+  function setAsyncJobStatus(jobStatus: string) {
+    switch (jobStatus) {
+      case 'queued':
+        setStatus('queued');
+        break;
+      case 'running':
+        setStatus('running');
+        break;
+      case 'polling':
+        setStatus('polling');
+        break;
+      default:
+        if (jobStatus !== 'succeeded') {
+          setStatus('polling');
+        }
+    }
   }
 
   async function checkApiHealth(traceId: string) {
@@ -248,6 +297,12 @@ export default function HomeScreen() {
     };
   }, []);
 
+  useEffect(() => {
+    return () => {
+      activeRequestRef.current?.abort();
+    };
+  }, []);
+
   async function startRecording() {
     if (permissionGranted !== true) {
       Alert.alert('Microphone permission is required.');
@@ -295,18 +350,27 @@ export default function HomeScreen() {
       });
       appendDiagnostic(`Read recording base64 chars=${audioBase64.length}`, traceId);
 
+      const controller = beginTranslationRequest();
       const translationResult = await translateAudioFile({
         filename: filenameFromUri(recordingUri),
         audioBase64,
         accessToken,
         traceId,
         onTrace: (message) => appendDiagnostic(message, traceId),
+        onJobStatus: setAsyncJobStatus,
+        signal: controller.signal,
       });
 
       appendDiagnostic('Recording result stored in UI state', traceId);
       setResult(translationResult);
       setStatus('done');
+      activeRequestRef.current = null;
     } catch (caughtError) {
+      activeRequestRef.current = null;
+      if (isAbortError(caughtError)) {
+        setStatus('idle');
+        return;
+      }
       setStatus('error');
       setError(
         caughtError instanceof Error
@@ -356,18 +420,27 @@ export default function HomeScreen() {
       const audioBase64 = await readSelectedAudioAsBase64(selectedAudio);
       appendDiagnostic(`Read upload base64 chars=${audioBase64.length}`, traceId);
 
+      const controller = beginTranslationRequest();
       const translationResult = await translateAudioFile({
         filename: selectedAudio.name || filenameFromUri(selectedAudio.uri),
         audioBase64,
         accessToken,
         traceId,
         onTrace: (message) => appendDiagnostic(message, traceId),
+        onJobStatus: setAsyncJobStatus,
+        signal: controller.signal,
       });
 
       appendDiagnostic('Upload result stored in UI state', traceId);
       setResult(translationResult);
       setStatus('done');
+      activeRequestRef.current = null;
     } catch (caughtError) {
+      activeRequestRef.current = null;
+      if (isAbortError(caughtError)) {
+        setStatus('idle');
+        return;
+      }
       setStatus('error');
       setError(
         caughtError instanceof Error ? caughtError.message : 'Upload failed.',
@@ -376,6 +449,8 @@ export default function HomeScreen() {
   }
 
   function reset() {
+    activeRequestRef.current?.abort();
+    activeRequestRef.current = null;
     setStatus('idle');
     setError(null);
     setResult(null);
@@ -385,7 +460,7 @@ export default function HomeScreen() {
 
   const primaryLabel = isRecording
     ? 'Stop recording'
-    : status === 'transcribing'
+    : isBusy
       ? 'Working'
       : 'Record';
   const primaryIcon = isRecording ? 'stop' : 'mic';
@@ -511,7 +586,7 @@ export default function HomeScreen() {
                 pressed && !isPrimaryDisabled ? styles.pressedButton : null,
               ]}
             >
-              {status === 'transcribing' ? (
+              {isBusy ? (
                 <ActivityIndicator color={palette.stoneText} />
               ) : (
                 <Ionicons

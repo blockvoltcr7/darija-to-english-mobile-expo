@@ -110,6 +110,9 @@ export type WorkStatus =
   | 'idle'
   | 'preparing'
   | 'recording'
+  | 'queued'
+  | 'running'
+  | 'polling'
   | 'transcribing'
   | 'done'
   | 'error';
