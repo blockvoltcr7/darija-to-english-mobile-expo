@@ -22,3 +22,4 @@
 2026-05-10T22:45:36Z add-mobile-job-polling in_progress->done
 2026-05-10T22:45:54Z verify-async-job-flow open->in_progress
 2026-05-10T22:47:20Z verify-async-job-flow in_progress->in_progress # blocker: runtime authenticated Trigger.dev end-to-end QA needs TRIGGER_SECRET_KEY, Clerk session token, and explicit deployment/dev-worker decision for shared Trigger project
+2026-05-11T00:29:47Z verify-async-job-flow in_progress->done # authenticated CLI E2E passed with local API + Trigger.dev worker; run_id=run_cmp0gmrfr23i50omz8vp3ss31; cleanup verified
