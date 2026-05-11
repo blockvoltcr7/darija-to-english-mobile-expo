@@ -28,9 +28,4 @@ android/
 ios/
 build/
 coverage/
-
-# Local AI/reference documentation not published to GitHub
-ai_docs/
-aidocs/
-ai-docs/
-docs/
+.trigger/

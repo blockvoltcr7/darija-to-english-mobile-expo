@@ -1,0 +1,4 @@
+interface:
+  display_name: "Run Epic Codex"
+  short_description: "Execute an analyzed local epic with Codex-native subagent orchestration"
+  default_prompt: "Run this analyzed local epic folder with Codex subagents for parallel-safe phases"

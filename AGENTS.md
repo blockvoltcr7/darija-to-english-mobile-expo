@@ -36,9 +36,11 @@ This is a single Expo React Native project with a local Node/Express API. Treat 
 
 ## Cross-Domain Workflow
 
-- Mobile upload/recording calls `lib/api.ts`.
-- `lib/api.ts` posts `{ filename, audio_base64 }` to `/translate-audio`.
+- Mobile upload/recording calls `lib/api.ts` after Clerk signs the user in.
+- `lib/api.ts` posts `{ filename, audio_base64 }` to authenticated `/v1/translate-audio`.
+- The mobile app sends `Authorization: Bearer <Clerk session token>`.
 - `server/index.mjs` runs OpenAI STT and Modal Darija ASR in parallel.
+- `server/index.mjs` verifies the Clerk session before any model/provider call.
 - Server requires both STT outputs, consolidates with OpenAI, then translates consolidated Darija to English.
 - Server returns raw transcripts, consolidated transcript, English translation, model metadata, and aliases for older UI fields.
 

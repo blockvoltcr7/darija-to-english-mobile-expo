@@ -1,0 +1,25 @@
+2026-05-10T22:03:29Z create-private-storage-buckets nil->open
+2026-05-10T22:03:29Z add-storage-metadata-to-jobs nil->open
+2026-05-10T22:03:29Z add-server-side-audio-storage-flow nil->open
+2026-05-10T22:03:29Z add-triggerdev-project-config nil->open
+2026-05-10T22:03:29Z add-triggerdev-translation-task nil->open
+2026-05-10T22:03:29Z dispatch-triggerdev-from-api nil->open
+2026-05-10T22:03:29Z add-mobile-job-polling nil->open
+2026-05-10T22:03:29Z verify-async-job-flow nil->open
+2026-05-10T22:23:48Z create-private-storage-buckets open->in_progress
+2026-05-10T22:24:45Z create-private-storage-buckets in_progress->done
+2026-05-10T22:25:09Z add-storage-metadata-to-jobs open->in_progress
+2026-05-10T22:28:57Z add-storage-metadata-to-jobs in_progress->done
+2026-05-10T22:29:19Z add-server-side-audio-storage-flow open->in_progress
+2026-05-10T22:31:37Z add-server-side-audio-storage-flow in_progress->done
+2026-05-10T22:31:54Z add-triggerdev-project-config open->in_progress
+2026-05-10T22:34:26Z add-triggerdev-project-config in_progress->done
+2026-05-10T22:34:53Z add-triggerdev-translation-task open->in_progress
+2026-05-10T22:40:54Z add-triggerdev-translation-task in_progress->done
+2026-05-10T22:41:23Z dispatch-triggerdev-from-api open->in_progress
+2026-05-10T22:42:41Z dispatch-triggerdev-from-api in_progress->done
+2026-05-10T22:43:06Z add-mobile-job-polling open->in_progress
+2026-05-10T22:45:36Z add-mobile-job-polling in_progress->done
+2026-05-10T22:45:54Z verify-async-job-flow open->in_progress
+2026-05-10T22:47:20Z verify-async-job-flow in_progress->in_progress # blocker: runtime authenticated Trigger.dev end-to-end QA needs TRIGGER_SECRET_KEY, Clerk session token, and explicit deployment/dev-worker decision for shared Trigger project
+2026-05-11T00:29:47Z verify-async-job-flow in_progress->done # authenticated CLI E2E passed with local API + Trigger.dev worker; run_id=run_cmp0gmrfr23i50omz8vp3ss31; cleanup verified

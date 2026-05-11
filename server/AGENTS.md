@@ -6,7 +6,7 @@ Local Node/Express API for audio transcription, transcript consolidation, and tr
 
 ## Current Pipeline
 
-`POST /translate-audio` accepts:
+`POST /v1/translate-audio` accepts:
 
 ```json
 { "filename": "audio.m4a", "audio_base64": "..." }
@@ -14,12 +14,13 @@ Local Node/Express API for audio transcription, transcript consolidation, and tr
 
 Flow:
 
-1. Validate filename and base64 audio.
-2. Start Modal Darija ASR and OpenAI STT in parallel.
-3. Require both transcripts to be non-empty.
-4. Send both transcripts to OpenAI consolidation.
-5. Send consolidated Arabic/Darija transcript to OpenAI translation.
-6. Return raw transcripts, consolidated transcript, English translation, aliases, and model metadata.
+1. Verify the Clerk session from `Authorization: Bearer <session_token>`.
+2. Validate filename and base64 audio.
+3. Start Modal Darija ASR and OpenAI STT in parallel.
+4. Require both transcripts to be non-empty.
+5. Send both transcripts to OpenAI consolidation.
+6. Send consolidated Arabic/Darija transcript to OpenAI translation.
+7. Return raw transcripts, consolidated transcript, English translation, aliases, and model metadata.
 
 ## Backend Rules
 
@@ -29,6 +30,7 @@ Flow:
 - Keep structured trace logs, but do not log secrets.
 - Do not log full transcripts by default in production-ready work; log lengths, model names, timings, and trace IDs.
 - Any future auth, paywall, entitlement, and usage-meter checks must happen before model calls.
+- Keep `/health` public.
 
 ## Environment
 
