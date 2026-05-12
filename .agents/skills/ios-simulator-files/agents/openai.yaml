@@ -1,0 +1,4 @@
+interface:
+  display_name: "iOS Simulator Files"
+  short_description: "Put test files into Simulator Files"
+  default_prompt: "Use $ios-simulator-files to add this audio file to the iOS Simulator Files app."

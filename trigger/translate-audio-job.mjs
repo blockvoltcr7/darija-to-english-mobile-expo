@@ -29,6 +29,8 @@ export const translateAudioJob = schemaTask({
     logTrace(traceId, 'Trigger translation task started', {
       jobId: payload.job_id,
       taskId: 'translate-audio-job',
+      runId: ctx?.run?.id || null,
+      attempt: ctx?.attempt?.number || null,
     });
 
     const result = await processStoredTranslationJob({
