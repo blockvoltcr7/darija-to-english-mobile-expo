@@ -30,11 +30,13 @@ function RootStack() {
   return (
     <ThemeProvider value={DarkTheme}>
       <Stack>
-        <Stack.Protected guard={!isSignedIn}>
-          <Stack.Screen name="sign-in" options={{ headerShown: false }} />
-        </Stack.Protected>
+        <Stack.Screen name="index" options={{ headerShown: false }} />
+        <Stack.Screen name="login" options={{ headerShown: false }} />
+        <Stack.Screen name="signup" options={{ headerShown: false }} />
+        <Stack.Screen name="verify" options={{ headerShown: false }} />
+        <Stack.Screen name="sign-in" options={{ headerShown: false }} />
         <Stack.Protected guard={isSignedIn}>
-          <Stack.Screen name="index" options={{ headerShown: false }} />
+          <Stack.Screen name="translate" options={{ headerShown: false }} />
           <Stack.Screen
             name="account"
             options={{

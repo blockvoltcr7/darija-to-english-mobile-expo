@@ -1,0 +1,38 @@
+# Epic 06: Store Beta And Release Prep
+
+## Objective
+
+Prepare TestFlight, Google Play testing, production API documentation, and rollback/release gates after staging E2E passes.
+
+## Scope
+
+- Configure EAS Submit assumptions.
+- Create store beta builds.
+- Document production API deployment path.
+- Add rollback and release checklists.
+- Verify release readiness gates.
+
+## Out Of Scope
+
+- Public launch.
+- Billing/RevenueCat.
+- Full legal readiness beyond deployment prerequisites.
+- Completing usage controls from the separate Epic 04.
+
+## Tasks
+
+| # | Task | Type | Depends On |
+| --- | --- | --- | --- |
+| 01 | `configure-eas-submit` | Infrastructure | `05-staging-e2e-qa/capture-staging-qa-evidence` |
+| 02 | `create-store-beta-builds` | Infrastructure | `configure-eas-submit` |
+| 03 | `document-production-api-path` | Infrastructure | `01-staging-api-hosting/document-api-operations` |
+| 04 | `add-release-rollback-checklist` | Code | `create-store-beta-builds`, `document-production-api-path` |
+| 05 | `verify-release-readiness-gates` | Code | `add-release-rollback-checklist` |
+
+## Verification
+
+- TestFlight or Google Play testing path is documented and attempted when credentials are ready.
+- Production API path is documented even if production deploy is deferred.
+- Rollback checklist covers mobile build/update, API host, and Trigger worker.
+- Release gate explicitly references staging E2E and usage-control readiness.
+

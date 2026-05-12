@@ -29,6 +29,7 @@ interface HistoryListParams {
   limit?: number;
   cursor?: string | null;
   onTrace?: (message: string) => void;
+  signal?: AbortSignal;
 }
 
 interface HistoryDetailParams {
@@ -299,6 +300,7 @@ export async function listTranslations({
   limit,
   cursor,
   onTrace,
+  signal,
 }: HistoryListParams): Promise<TranslationHistoryListResponse> {
   const params = new URLSearchParams();
 
@@ -320,6 +322,7 @@ export async function listTranslations({
     headers: {
       Authorization: `Bearer ${accessToken}`,
     },
+    signal,
   });
 
   onTrace?.(`History response ${res.status} after ${Date.now() - startedAt}ms`);

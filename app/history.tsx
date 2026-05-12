@@ -1,6 +1,6 @@
 import { useAuth } from '@clerk/expo';
 import { Ionicons } from '@expo/vector-icons';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Pressable,
@@ -17,6 +17,8 @@ import type {
   TranslationHistoryDetail,
   TranslationHistoryListItem,
 } from '@/lib/types';
+
+const HISTORY_REQUEST_TIMEOUT_MS = 10000;
 
 const palette = {
   shell: '#242424',
@@ -79,7 +81,7 @@ function modelLine(item: TranslationHistoryListItem) {
 }
 
 export default function HistoryScreen() {
-  const { getToken, isLoaded } = useAuth();
+  const { getToken, isLoaded, userId } = useAuth();
   const [items, setItems] = useState<TranslationHistoryListItem[]>([]);
   const [detail, setDetail] = useState<TranslationHistoryDetail | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -87,11 +89,41 @@ export default function HistoryScreen() {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isDetailLoading, setIsDetailLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const activeUserIdRef = useRef<string | null | undefined>(userId);
+  const activeRequestRef = useRef<AbortController | null>(null);
+  const getTokenRef = useRef(getToken);
+
+  useEffect(() => {
+    getTokenRef.current = getToken;
+  }, [getToken]);
+
+  const clearHistoryState = useCallback(() => {
+    setItems([]);
+    setDetail(null);
+    setSelectedId(null);
+    setIsRefreshing(false);
+    setIsDetailLoading(false);
+    setError(null);
+  }, []);
 
   const loadHistory = useCallback(
     async ({ refreshing = false } = {}) => {
-      if (!isLoaded) {
+      if (!isLoaded || !userId) {
+        activeUserIdRef.current = userId;
+        activeRequestRef.current?.abort();
+        activeRequestRef.current = null;
+        clearHistoryState();
+        setIsLoading(false);
         return;
+      }
+
+      const requestUserId = userId;
+
+      if (activeUserIdRef.current !== requestUserId) {
+        activeUserIdRef.current = requestUserId;
+        activeRequestRef.current?.abort();
+        activeRequestRef.current = null;
+        clearHistoryState();
       }
 
       if (refreshing) {
@@ -100,10 +132,17 @@ export default function HistoryScreen() {
         setIsLoading(true);
       }
 
+      activeRequestRef.current?.abort();
+      const controller = new AbortController();
+      activeRequestRef.current = controller;
+      const timeout = setTimeout(() => {
+        controller.abort();
+      }, HISTORY_REQUEST_TIMEOUT_MS);
+
       setError(null);
 
       try {
-        const token = await getToken();
+        const token = await getTokenRef.current();
 
         if (!token) {
           throw new Error('Unauthorized');
@@ -112,31 +151,69 @@ export default function HistoryScreen() {
         const response = await listTranslations({
           accessToken: token,
           limit: 30,
+          signal: controller.signal,
         });
+
+        if (
+          activeUserIdRef.current !== requestUserId ||
+          activeRequestRef.current !== controller
+        ) {
+          return;
+        }
 
         setItems(response.items);
       } catch (caughtError) {
+        if (
+          activeUserIdRef.current !== requestUserId ||
+          activeRequestRef.current !== controller
+        ) {
+          return;
+        }
+
         const message =
-          caughtError instanceof Error ? caughtError.message : 'Unable to load history';
+          caughtError instanceof Error && caughtError.name === 'AbortError'
+            ? 'History request timed out. Confirm the API is running on localhost:8787.'
+            : caughtError instanceof Error
+              ? caughtError.message
+              : 'Unable to load history';
         setError(message);
       } finally {
-        setIsLoading(false);
-        setIsRefreshing(false);
+        clearTimeout(timeout);
+        if (activeRequestRef.current === controller) {
+          activeRequestRef.current = null;
+          if (activeUserIdRef.current === requestUserId) {
+            setIsLoading(false);
+            setIsRefreshing(false);
+          }
+        }
       }
     },
-    [getToken, isLoaded],
+    [clearHistoryState, isLoaded, userId],
   );
 
   useEffect(() => {
     loadHistory();
   }, [loadHistory]);
 
+  useEffect(() => {
+    return () => {
+      activeRequestRef.current?.abort();
+    };
+  }, []);
+
   async function openDetail(id: string) {
+    if (!userId) {
+      setError('Unauthorized');
+      return;
+    }
+
     if (selectedId === id && detail) {
       setSelectedId(null);
       setDetail(null);
       return;
     }
+
+    const requestUserId = userId;
 
     setSelectedId(id);
     setDetail(null);
@@ -144,24 +221,34 @@ export default function HistoryScreen() {
     setError(null);
 
     try {
-      const token = await getToken();
+      const token = await getTokenRef.current();
 
       if (!token) {
         throw new Error('Unauthorized');
       }
 
-      setDetail(
-        await getTranslation({
-          accessToken: token,
-          id,
-        }),
-      );
+      const translationDetail = await getTranslation({
+        accessToken: token,
+        id,
+      });
+
+      if (activeUserIdRef.current !== requestUserId) {
+        return;
+      }
+
+      setDetail(translationDetail);
     } catch (caughtError) {
+      if (activeUserIdRef.current !== requestUserId) {
+        return;
+      }
+
       const message =
         caughtError instanceof Error ? caughtError.message : 'Unable to load translation';
       setError(message);
     } finally {
-      setIsDetailLoading(false);
+      if (activeUserIdRef.current === requestUserId) {
+        setIsDetailLoading(false);
+      }
     }
   }
 
@@ -184,14 +271,14 @@ export default function HistoryScreen() {
           <Text style={styles.subtitle}>Recent translations</Text>
         </View>
 
-        {isLoading ? (
+        {isLoading && !hasItems ? (
           <View style={styles.statePanel}>
             <ActivityIndicator color={palette.stone} />
             <Text style={styles.stateText}>Loading history</Text>
           </View>
         ) : null}
 
-        {!isLoading && error ? (
+        {!isLoading && error && !hasItems ? (
           <View style={styles.statePanel}>
             <Ionicons name="alert-circle-outline" size={24} color={palette.red} />
             <Text style={styles.stateText}>{error}</Text>

@@ -11,7 +11,10 @@ This is a single Expo React Native project with a local Node/Express API. Treat 
 | `app/` | Expo Router app screens and mobile UI. See `app/AGENTS.md`. |
 | `lib/` | Shared client config, API client, and TypeScript contracts. See `lib/AGENTS.md`. |
 | `server/` | Local API proxy for dual STT, consolidation, and translation. See `server/AGENTS.md`. |
-| `docs/` | Plans, launch notes, and operational docs. See `docs/AGENTS.md`. |
+| `trigger/` | Trigger.dev background jobs for async translation work. See `trigger/AGENTS.md`. |
+| `supabase/` | Local Supabase migrations/config for persistence and RLS. |
+| `ai_docs/` | Plans, QA playbooks, visuals, and operational docs. See `ai_docs/AGENTS.md`. |
+| `.agents/skills/` | Project-scoped Codex skills such as iOS Simulator file loading. |
 | `refs/openai-speech-to-text-app/` | Reference dual-STT/consolidation web app. Read only by default. |
 | `refs/darija-model-speech-to-text/` | Reference Modal/Darija ASR code. Read only by default. |
 | `refs/os-hq-mobile-expo-native/` | Reference Expo app scaffold/style source. Read only by default. |
@@ -37,12 +40,37 @@ This is a single Expo React Native project with a local Node/Express API. Treat 
 ## Cross-Domain Workflow
 
 - Mobile upload/recording calls `lib/api.ts` after Clerk signs the user in.
-- `lib/api.ts` posts `{ filename, audio_base64 }` to authenticated `/v1/translate-audio`.
+- `lib/api.ts` posts `{ filename, audio_base64 }` to authenticated `/v1/translations`; `/v1/translate-audio` is legacy-compatible.
 - The mobile app sends `Authorization: Bearer <Clerk session token>`.
-- `server/index.mjs` runs OpenAI STT and Modal Darija ASR in parallel.
-- `server/index.mjs` verifies the Clerk session before any model/provider call.
-- Server requires both STT outputs, consolidates with OpenAI, then translates consolidated Darija to English.
-- Server returns raw transcripts, consolidated transcript, English translation, model metadata, and aliases for older UI fields.
+- `server/index.mjs` verifies the Clerk session before storage, Trigger.dev dispatch, or model/provider calls.
+- Server stores the original audio in private Supabase Storage, creates a translation row, dispatches `trigger/translate-audio-job.mjs`, and returns a queued job with a Trigger run ID.
+- The mobile app polls `/v1/translations/:id` with refreshed Clerk session tokens until the job succeeds or fails.
+- The Trigger worker downloads stored audio, runs OpenAI STT and Modal Darija ASR in parallel, requires both STT outputs, consolidates with OpenAI, then translates consolidated Darija to English.
+- Server returns raw transcripts, consolidated transcript, English translation, model metadata, Trigger run ID, and aliases for older UI fields.
+
+## Fresh Clerk User QA
+
+Use this acceptance path before moving from Epic 03 into Epic 04 release-readiness work:
+
+1. Start the API and Trigger worker:
+
+```bash
+npm run api
+npx trigger.dev dev --env-file .env.local
+```
+
+2. Load a non-sensitive audio fixture into the iOS Simulator Files app with the project skill:
+
+```bash
+.agents/skills/ios-simulator-files/scripts/add_to_simulator_files.sh /absolute/path/to/audio.m4a
+```
+
+3. Run the app in an iOS development build, not Expo Go. Use `EXPO_PUBLIC_API_BASE_URL=http://localhost:8787` for the simulator.
+4. In the app, open Account, sign out, then create a fresh Clerk test user from the Clerk sign-in/sign-up screen.
+5. Confirm the app shows the new user's email, upload the simulator audio file, and wait for `Complete`.
+6. Verify UI results: English translation, consolidated Darija, raw OpenAI transcript, raw Darija transcript, model metadata, and diagnostics are visible.
+7. Verify logs: API health check, profile resolution for the new Clerk user, queued job ID, Trigger run ID, stored audio download, OpenAI STT completion, Modal ASR HTTP 200, consolidation, translation, and final `succeeded` status.
+8. Do not copy Clerk session tokens, API keys, `.env` values, or private audio contents into docs or screenshots.
 
 ## Verification
 
