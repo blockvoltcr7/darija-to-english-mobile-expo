@@ -1,0 +1,900 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Darija to English — Expo Deployment Map</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500;700&family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --font-display: 'Instrument Serif', Georgia, serif;
+      --font-body: 'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif;
+      --font-mono: 'JetBrains Mono', 'SF Mono', Consolas, monospace;
+      --bg: #faf7f1;
+      --paper: #fffdf8;
+      --paper-2: #f4eddf;
+      --ink: #211b16;
+      --muted: #70665b;
+      --faint: #9b9083;
+      --border: rgba(55, 43, 31, 0.13);
+      --border-strong: rgba(55, 43, 31, 0.28);
+      --red: #b91c1c;
+      --red-dim: rgba(185, 28, 28, 0.09);
+      --green: #047857;
+      --green-dim: rgba(4, 120, 87, 0.10);
+      --blue: #1e3a5f;
+      --blue-dim: rgba(30, 58, 95, 0.10);
+      --gold: #b7791f;
+      --gold-dim: rgba(183, 121, 31, 0.12);
+      --slate: #334155;
+      --slate-dim: rgba(51, 65, 85, 0.09);
+      --shadow: 0 16px 40px rgba(55, 43, 31, 0.08);
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #181410;
+        --paper: #221d18;
+        --paper-2: #2c251f;
+        --ink: #f4ecdf;
+        --muted: #b9aa98;
+        --faint: #8d8070;
+        --border: rgba(244, 236, 223, 0.10);
+        --border-strong: rgba(244, 236, 223, 0.20);
+        --red: #f87171;
+        --red-dim: rgba(248, 113, 113, 0.12);
+        --green: #34d399;
+        --green-dim: rgba(52, 211, 153, 0.10);
+        --blue: #93c5fd;
+        --blue-dim: rgba(147, 197, 253, 0.12);
+        --gold: #fbbf24;
+        --gold-dim: rgba(251, 191, 36, 0.12);
+        --slate: #cbd5e1;
+        --slate-dim: rgba(203, 213, 225, 0.10);
+        --shadow: 0 18px 46px rgba(0, 0, 0, 0.24);
+      }
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      color: var(--ink);
+      font-family: var(--font-body);
+      background:
+        radial-gradient(circle at 10% 0%, var(--red-dim), transparent 34rem),
+        radial-gradient(circle at 88% 18%, var(--green-dim), transparent 30rem),
+        linear-gradient(135deg, rgba(55,43,31,0.045) 0 1px, transparent 1px 22px),
+        var(--bg);
+      padding: 36px;
+    }
+    .wrap {
+      max-width: 1440px;
+      margin: 0 auto;
+      display: grid;
+      grid-template-columns: 190px minmax(0, 1fr);
+      gap: 40px;
+    }
+    .toc {
+      position: sticky;
+      top: 24px;
+      align-self: start;
+      max-height: calc(100dvh - 48px);
+      overflow: auto;
+      padding: 16px 0;
+    }
+    .toc-title {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 1.8px;
+      text-transform: uppercase;
+      color: var(--faint);
+      padding-bottom: 12px;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 10px;
+    }
+    .toc a {
+      display: block;
+      text-decoration: none;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.35;
+      padding: 7px 10px;
+      margin: 2px 0;
+      border-left: 2px solid transparent;
+      border-radius: 6px;
+    }
+    .toc a:hover {
+      color: var(--ink);
+      background: var(--paper-2);
+    }
+    .main { min-width: 0; }
+    .hero {
+      background: color-mix(in srgb, var(--paper) 90%, var(--gold) 10%);
+      border: 1px solid var(--border-strong);
+      border-radius: 22px;
+      padding: 34px;
+      box-shadow: var(--shadow);
+      position: relative;
+      overflow: hidden;
+    }
+    .hero::after {
+      content: '';
+      position: absolute;
+      right: -80px;
+      top: -70px;
+      width: 250px;
+      height: 250px;
+      border: 1px solid var(--border);
+      border-radius: 50%;
+      background: radial-gradient(circle, var(--green-dim), transparent 64%);
+    }
+    .eyebrow, .section-label {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 1.7px;
+      text-transform: uppercase;
+      color: var(--red);
+    }
+    .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 99px;
+      background: currentColor;
+      display: inline-block;
+    }
+    h1 {
+      font-family: var(--font-display);
+      font-size: clamp(48px, 8vw, 100px);
+      line-height: 0.9;
+      letter-spacing: -0.03em;
+      margin: 18px 0 18px;
+      max-width: 980px;
+      font-weight: 400;
+    }
+    .lead {
+      font-size: clamp(18px, 2vw, 25px);
+      line-height: 1.45;
+      color: var(--muted);
+      max-width: 920px;
+      margin: 0;
+    }
+    .answer-strip {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 12px;
+      margin-top: 28px;
+    }
+    .answer {
+      background: var(--paper);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 16px;
+      min-width: 0;
+    }
+    .answer strong {
+      display: block;
+      font-size: 14px;
+      margin-bottom: 8px;
+    }
+    .answer p {
+      margin: 0;
+      color: var(--muted);
+      line-height: 1.45;
+      font-size: 13px;
+    }
+    section {
+      margin-top: 38px;
+      scroll-margin-top: 24px;
+    }
+    .section-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: end;
+      gap: 20px;
+      margin-bottom: 16px;
+    }
+    h2 {
+      font-family: var(--font-display);
+      font-size: clamp(34px, 5vw, 56px);
+      line-height: 0.95;
+      margin: 8px 0 0;
+      font-weight: 400;
+      letter-spacing: -0.02em;
+    }
+    .section-note {
+      color: var(--muted);
+      max-width: 520px;
+      line-height: 1.55;
+      margin: 0;
+      font-size: 14px;
+    }
+    .card {
+      background: var(--paper);
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      padding: 20px;
+      min-width: 0;
+    }
+    .card.elevated {
+      box-shadow: var(--shadow);
+      border-color: var(--border-strong);
+    }
+    .grid-2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+    .grid-3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+    .pipeline {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      gap: 12px;
+      align-items: stretch;
+    }
+    .lane {
+      padding: 18px;
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      background: var(--paper);
+      position: relative;
+      min-height: 210px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .lane::after {
+      content: '→';
+      position: absolute;
+      right: -13px;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 26px;
+      height: 26px;
+      border-radius: 50%;
+      display: grid;
+      place-items: center;
+      color: var(--muted);
+      background: var(--paper-2);
+      border: 1px solid var(--border);
+      z-index: 2;
+      font-family: var(--font-mono);
+    }
+    .lane:last-child::after { display: none; }
+    .lane .tag {
+      align-self: flex-start;
+      font-family: var(--font-mono);
+      font-size: 10px;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      padding: 5px 7px;
+      border-radius: 999px;
+      background: var(--blue-dim);
+      color: var(--blue);
+      font-weight: 700;
+    }
+    .lane h3, .card h3 {
+      margin: 0;
+      font-size: 17px;
+      line-height: 1.25;
+    }
+    .lane p, .card p {
+      margin: 0;
+      color: var(--muted);
+      line-height: 1.5;
+      font-size: 14px;
+    }
+    .mono {
+      font-family: var(--font-mono);
+      font-size: 12px;
+      color: var(--faint);
+      overflow-wrap: anywhere;
+    }
+    .status {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: .6px;
+      text-transform: uppercase;
+      padding: 6px 8px;
+      border-radius: 999px;
+      white-space: nowrap;
+    }
+    .status.need { color: var(--red); background: var(--red-dim); }
+    .status.ready { color: var(--green); background: var(--green-dim); }
+    .status.plan { color: var(--gold); background: var(--gold-dim); }
+    .timeline {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      overflow: hidden;
+      background: var(--paper);
+    }
+    .phase {
+      padding: 22px;
+      border-right: 1px solid var(--border);
+      min-height: 250px;
+    }
+    .phase:last-child { border-right: none; }
+    .phase-num {
+      font-family: var(--font-mono);
+      color: var(--faint);
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 1.5px;
+    }
+    .phase h3 {
+      font-size: 19px;
+      margin: 12px 0 10px;
+    }
+    .phase ul, .card ul {
+      margin: 12px 0 0;
+      padding: 0;
+      list-style: none;
+      display: grid;
+      gap: 9px;
+    }
+    .phase li, .card li {
+      position: relative;
+      padding-left: 18px;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.45;
+    }
+    .phase li::before, .card li::before {
+      content: '';
+      position: absolute;
+      left: 0;
+      top: .6em;
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--gold);
+    }
+    .table-wrap {
+      overflow-x: auto;
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      background: var(--paper);
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      min-width: 880px;
+    }
+    th, td {
+      text-align: left;
+      vertical-align: top;
+      padding: 15px 16px;
+      border-bottom: 1px solid var(--border);
+      line-height: 1.45;
+      font-size: 13px;
+    }
+    th {
+      position: sticky;
+      top: 0;
+      z-index: 1;
+      background: var(--paper-2);
+      font-family: var(--font-mono);
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--slate);
+    }
+    tr:last-child td { border-bottom: none; }
+    code {
+      font-family: var(--font-mono);
+      font-size: 0.92em;
+      background: var(--paper-2);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 2px 5px;
+      color: var(--ink);
+    }
+    .choice {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 18px;
+      align-items: start;
+      padding: 18px;
+      border-radius: 16px;
+      border: 1px solid var(--border);
+      background: var(--paper);
+    }
+    .choice.recommended {
+      background: color-mix(in srgb, var(--paper) 88%, var(--green) 12%);
+      border-color: color-mix(in srgb, var(--border) 60%, var(--green) 40%);
+    }
+    .callout {
+      border-left: 4px solid var(--red);
+      background: var(--red-dim);
+      padding: 16px 18px;
+      border-radius: 12px;
+      color: var(--ink);
+      line-height: 1.55;
+    }
+    .callout strong { display: block; margin-bottom: 6px; }
+    .sources a {
+      color: var(--blue);
+      text-decoration-thickness: 1px;
+      text-underline-offset: 3px;
+    }
+    .asset-grid {
+      display: grid;
+      grid-template-columns: 130px 1fr;
+      gap: 18px;
+      align-items: center;
+    }
+    .flag-badge {
+      width: 82px;
+      height: 82px;
+      border-radius: 50%;
+      background: #202020;
+      border: 1px solid rgba(255,255,255,.12);
+      display: grid;
+      place-items: center;
+      box-shadow: inset 0 0 0 2px rgba(255,255,255,.03);
+    }
+    .flag {
+      width: 58px;
+      height: 38px;
+      border-radius: 9px;
+      background: #c1121f;
+      position: relative;
+      box-shadow: inset -10px 0 18px rgba(0,0,0,.12);
+    }
+    .flag::after {
+      content: '☆';
+      color: #047857;
+      font-size: 34px;
+      line-height: 1;
+      position: absolute;
+      inset: 0;
+      display: grid;
+      place-items: center;
+      transform: translateY(-1px);
+      font-family: Georgia, serif;
+      font-weight: 700;
+    }
+    .footer {
+      margin: 44px 0 20px;
+      color: var(--faint);
+      font-family: var(--font-mono);
+      font-size: 11px;
+      line-height: 1.6;
+    }
+    @media (max-width: 1120px) {
+      .wrap { grid-template-columns: 1fr; gap: 0; }
+      body { padding: 0 22px 32px; }
+      .toc {
+        position: sticky;
+        top: 0;
+        z-index: 20;
+        display: flex;
+        gap: 4px;
+        max-height: none;
+        overflow-x: auto;
+        background: color-mix(in srgb, var(--bg) 92%, transparent);
+        backdrop-filter: blur(14px);
+        margin: 0 -22px 24px;
+        padding: 12px 22px;
+        border-bottom: 1px solid var(--border);
+      }
+      .toc-title { display: none; }
+      .toc a { white-space: nowrap; border-left: 0; border-bottom: 2px solid transparent; }
+      .answer-strip, .grid-2, .grid-3, .pipeline, .timeline { grid-template-columns: 1fr; }
+      .lane::after { display: none; }
+      .phase { border-right: 0; border-bottom: 1px solid var(--border); }
+      .phase:last-child { border-bottom: none; }
+      .section-head { display: block; }
+      .section-note { margin-top: 10px; }
+      .hero { padding: 28px 22px; }
+    }
+    @media (prefers-reduced-motion: no-preference) {
+      .hero, section { animation: fadeUp .46s ease-out both; }
+      section:nth-of-type(2) { animation-delay: .04s; }
+      section:nth-of-type(3) { animation-delay: .08s; }
+      section:nth-of-type(4) { animation-delay: .12s; }
+      section:nth-of-type(5) { animation-delay: .16s; }
+    }
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(14px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <nav class="toc" id="toc">
+      <div class="toc-title">Deployment Map</div>
+      <a href="#answer">Answer</a>
+      <a href="#current">Current Shape</a>
+      <a href="#lanes">Deploy Lanes</a>
+      <a href="#staging">Staging Model</a>
+      <a href="#api">API Decision</a>
+      <a href="#env">Environment Matrix</a>
+      <a href="#assets">Assets & QA</a>
+      <a href="#actions">Next Work</a>
+      <a href="#sources">Sources</a>
+    </nav>
+
+    <main class="main">
+      <header class="hero" id="answer">
+        <div class="eyebrow"><span class="dot"></span> Darija to English production path</div>
+        <h1>Expo builds the app. Your API still needs a real home.</h1>
+        <p class="lead">
+          The mobile app, the Express API, Trigger.dev worker, Modal ASR service, and Supabase data layer are separate runtime pieces. Expo can build and distribute iOS/Android binaries, and it can host web/API-route projects, but this repo currently uses a standalone Node/Express server that must be deployed separately or deliberately refactored into Expo Router API routes.
+        </p>
+        <div class="answer-strip">
+          <div class="answer">
+            <strong>Phone beta testing exists</strong>
+            <p>Use EAS internal distribution, TestFlight, or Google Play internal/closed testing before public release.</p>
+          </div>
+          <div class="answer">
+            <strong>Expo is not your current API host</strong>
+            <p>The current backend is <code>server/index.mjs</code>, launched with <code>npm run api</code>.</p>
+          </div>
+          <div class="answer">
+            <strong>Production needs HTTPS URLs</strong>
+            <p><code>EXPO_PUBLIC_API_BASE_URL</code> must point to staging/prod API hosts, not <code>localhost:8787</code>.</p>
+          </div>
+        </div>
+      </header>
+
+      <section id="current">
+        <div class="section-head">
+          <div>
+            <div class="section-label"><span class="dot"></span> Current repo facts</div>
+            <h2>What exists today</h2>
+          </div>
+          <p class="section-note">This is based on the checked-in repo files and QA assets, not an abstract Expo template.</p>
+        </div>
+        <div class="grid-3">
+          <div class="card elevated">
+            <span class="status ready">Native app</span>
+            <h3>Expo Router mobile app</h3>
+            <p>Configured in <code>app.json</code> with iOS bundle ID, Android package, Expo Router, audio, secure store, web browser, and Clerk Expo plugin.</p>
+            <p class="mono">app/, app.json, package.json</p>
+          </div>
+          <div class="card elevated">
+            <span class="status need">Backend runtime</span>
+            <h3>Standalone Express API</h3>
+            <p>Runs locally with <code>npm run api</code>. It verifies Clerk, writes Supabase rows/storage, dispatches Trigger.dev, and exposes <code>/health</code>.</p>
+            <p class="mono">server/index.mjs</p>
+          </div>
+          <div class="card elevated">
+            <span class="status plan">Async worker</span>
+            <h3>Trigger.dev job</h3>
+            <p>The server queues jobs; the worker runs provider orchestration and persists status/results. It needs staging and production deployment too.</p>
+            <p class="mono">trigger/translate-audio-job.mjs</p>
+          </div>
+        </div>
+      </section>
+
+      <section id="lanes">
+        <div class="section-head">
+          <div>
+            <div class="section-label"><span class="dot"></span> Deployment lanes</div>
+            <h2>What deploys where</h2>
+          </div>
+          <p class="section-note">Think of production as multiple lanes, not one single Expo deploy button.</p>
+        </div>
+        <div class="pipeline">
+          <div class="lane">
+            <span class="tag">EAS Build</span>
+            <h3>iOS / Android binary</h3>
+            <p>Build development, preview, staging, and production binaries.</p>
+            <p class="mono">eas build -p ios --profile preview</p>
+          </div>
+          <div class="lane">
+            <span class="tag">Distribution</span>
+            <h3>Install on testers' phones</h3>
+            <p>Use internal distribution URLs, TestFlight, or Google Play test tracks.</p>
+            <p class="mono">eas submit / TestFlight / Play Console</p>
+          </div>
+          <div class="lane">
+            <span class="tag">API host</span>
+            <h3>Express API deployment</h3>
+            <p>Deploy a staging and production HTTPS endpoint with server-side secrets.</p>
+            <p class="mono">https://staging-api...</p>
+          </div>
+          <div class="lane">
+            <span class="tag">Jobs</span>
+            <h3>Trigger.dev worker</h3>
+            <p>Deploy the background task environment that claims translation jobs.</p>
+            <p class="mono">npm run trigger:deploy:staging</p>
+          </div>
+          <div class="lane">
+            <span class="tag">Providers</span>
+            <h3>Supabase + Modal + OpenAI</h3>
+            <p>Keep secrets off device. Mobile never calls OpenAI or Modal directly.</p>
+            <p class="mono">Clerk token → API → providers</p>
+          </div>
+        </div>
+      </section>
+
+      <section id="staging">
+        <div class="section-head">
+          <div>
+            <div class="section-label"><span class="dot"></span> Staging model</div>
+            <h2>How to test before public rollout</h2>
+          </div>
+          <p class="section-note">Expo supports phone-installable beta paths. The right one depends on who is testing and how close to production you need to be.</p>
+        </div>
+        <div class="timeline">
+          <div class="phase">
+            <div class="phase-num">Phase 01</div>
+            <h3>Development build</h3>
+            <span class="status ready">Fast iteration</span>
+            <ul>
+              <li>Best while coding and debugging.</li>
+              <li>Uses development client.</li>
+              <li>May still rely on local API or LAN API.</li>
+            </ul>
+          </div>
+          <div class="phase">
+            <div class="phase-num">Phase 02</div>
+            <h3>Preview internal build</h3>
+            <span class="status ready">Phone QA</span>
+            <ul>
+              <li>Install through Expo build URL or QR.</li>
+              <li>iOS requires registered device UDID for ad hoc builds.</li>
+              <li>Android installs APK directly.</li>
+            </ul>
+          </div>
+          <div class="phase">
+            <div class="phase-num">Phase 03</div>
+            <h3>Store beta staging</h3>
+            <span class="status plan">Release candidate</span>
+            <ul>
+              <li>iOS TestFlight.</li>
+              <li>Android internal or closed testing track.</li>
+              <li>Recommended staging path for near-production release checks.</li>
+            </ul>
+          </div>
+          <div class="phase">
+            <div class="phase-num">Phase 04</div>
+            <h3>Production release</h3>
+            <span class="status need">Public users</span>
+            <ul>
+              <li>App Store / Play Store public rollout.</li>
+              <li>Production API URL.</li>
+              <li>Production Trigger, Supabase, Clerk, Modal, and OpenAI config.</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <section id="api">
+        <div class="section-head">
+          <div>
+            <div class="section-label"><span class="dot"></span> API hosting decision</div>
+            <h2>Best backend component</h2>
+          </div>
+          <p class="section-note">There are two viable paths. The safer short-term choice is to deploy the existing Express API separately.</p>
+        </div>
+        <div class="grid-2">
+          <div class="choice recommended">
+            <div>
+              <span class="status ready">Recommended now</span>
+              <h3>Deploy existing Express API to a Node host</h3>
+              <p>Keep <code>server/index.mjs</code> intact and host it on a service that supports long-running Node/Express apps, environment secrets, logs, and outbound HTTP calls.</p>
+              <ul>
+                <li>Lowest refactor risk.</li>
+                <li>Matches current Clerk Express middleware.</li>
+                <li>Works with current Trigger.dev and Supabase flow.</li>
+              </ul>
+            </div>
+          </div>
+          <div class="choice">
+            <div>
+              <span class="status plan">Later option</span>
+              <h3>Refactor into Expo Router API routes</h3>
+              <p>EAS Hosting can serve API routes when using <code>+api.ts</code> files and <code>web.output = "server"</code>. This is not your current architecture.</p>
+              <ul>
+                <li>Requires moving Express route logic into request handlers.</li>
+                <li>Runs on Cloudflare Workers/V8 isolates, not a full Node process.</li>
+                <li>May require changes for raw body, packages, and provider SDK compatibility.</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+        <div class="callout" style="margin-top:16px;">
+          <strong>The screenshot error is expected in a non-local deployment shape.</strong>
+          The app is trying <code>http://localhost:8787/health</code>. On a physical phone or production build, <code>localhost</code> means the phone itself. You need a reachable HTTPS API URL.
+        </div>
+      </section>
+
+      <section id="env">
+        <div class="section-head">
+          <div>
+            <div class="section-label"><span class="dot"></span> Environment matrix</div>
+            <h2>Configuration per lane</h2>
+          </div>
+          <p class="section-note">This is the minimum environment model to prevent staging builds from accidentally calling local or production services.</p>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Environment</th>
+                <th>Mobile install path</th>
+                <th>API URL</th>
+                <th>Backend services</th>
+                <th>Main use</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><strong>Local simulator</strong></td>
+                <td><code>npm run ios</code> / dev build</td>
+                <td><code>http://localhost:8787</code> on iOS simulator</td>
+                <td>Local API + local Trigger worker + hosted Supabase/Modal/OpenAI</td>
+                <td>Developer debugging.</td>
+              </tr>
+              <tr>
+                <td><strong>Physical dev phone</strong></td>
+                <td>Development build</td>
+                <td><code>http://&lt;mac-lan-ip&gt;:8787</code> only while on same LAN</td>
+                <td>Local API reachable from phone</td>
+                <td>Device microphone/files QA before staging API exists.</td>
+              </tr>
+              <tr>
+                <td><strong>Preview</strong></td>
+                <td>EAS internal distribution URL / QR</td>
+                <td><code>https://preview-api...</code> or <code>https://staging-api...</code></td>
+                <td>Staging API + staging Trigger + staging-safe provider config</td>
+                <td>Installable phone QA without App Store review.</td>
+              </tr>
+              <tr>
+                <td><strong>Staging</strong></td>
+                <td>TestFlight / Google Play testing</td>
+                <td><code>https://staging-api...</code></td>
+                <td>Staging API, staging Trigger, production-like credentials with low-risk limits</td>
+                <td>Release candidate verification.</td>
+              </tr>
+              <tr>
+                <td><strong>Production</strong></td>
+                <td>Public App Store / Play Store</td>
+                <td><code>https://api...</code></td>
+                <td>Production API + Trigger + Supabase + Modal + OpenAI</td>
+                <td>Real users and billing/usage controls.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section id="assets">
+        <div class="section-head">
+          <div>
+            <div class="section-label"><span class="dot"></span> Reference assets</div>
+            <h2>Visual and QA assets already in repo</h2>
+          </div>
+          <p class="section-note">Use these as supporting evidence and reusable QA material while preparing staging.</p>
+        </div>
+        <div class="grid-2">
+          <div class="card asset-grid">
+            <div class="flag-badge"><div class="flag"></div></div>
+            <div>
+              <h3>Morocco flag landing icon</h3>
+              <p>Current landing-screen visual asset lives at <code>assets/images/morocco-flag-icon.png</code>.</p>
+              <p class="mono">Use it in app previews and screenshots once final styling is approved.</p>
+            </div>
+          </div>
+          <div class="card">
+            <h3>Existing visual QA pack</h3>
+            <p>The repo already stores reusable QA visual material and diagrams under <code>ai_docs/html-visuals/</code> and <code>ai_docs/visuals/</code>.</p>
+            <ul>
+              <li>Mobile E2E QA playbook HTML.</li>
+              <li>Clerk/Supabase/Trigger architecture PNGs.</li>
+              <li>Fresh Clerk user QA checklist.</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <section id="actions">
+        <div class="section-head">
+          <div>
+            <div class="section-label"><span class="dot"></span> Best next components</div>
+            <h2>What needs to be done</h2>
+          </div>
+          <p class="section-note">This is the deployment work package I would build next before calling the app production-ready.</p>
+        </div>
+        <div class="grid-3">
+          <div class="card">
+            <span class="status need">1</span>
+            <h3>Create <code>eas.json</code></h3>
+            <p>Add <code>development</code>, <code>preview</code>, <code>staging</code>, and <code>production</code> build profiles with channels.</p>
+          </div>
+          <div class="card">
+            <span class="status need">2</span>
+            <h3>Deploy staging API</h3>
+            <p>Host the current Express API at an HTTPS staging URL with server-side secrets configured.</p>
+          </div>
+          <div class="card">
+            <span class="status need">3</span>
+            <h3>Set EAS env values</h3>
+            <p>Set <code>EXPO_PUBLIC_API_BASE_URL</code> per EAS environment so builds never default to localhost.</p>
+          </div>
+          <div class="card">
+            <span class="status plan">4</span>
+            <h3>Deploy Trigger worker</h3>
+            <p>Use the existing scripts for staging/prod Trigger deployments and verify runs in the dashboard.</p>
+          </div>
+          <div class="card">
+            <span class="status plan">5</span>
+            <h3>Build preview app</h3>
+            <p>Use EAS internal distribution first; register your iPhone UDID for iOS ad hoc install.</p>
+          </div>
+          <div class="card">
+            <span class="status ready">6</span>
+            <h3>Run fresh-user E2E QA</h3>
+            <p>Use the existing QA checklist: sign up, upload audio, verify result sections and logs.</p>
+          </div>
+        </div>
+      </section>
+
+      <section id="sources">
+        <div class="section-head">
+          <div>
+            <div class="section-label"><span class="dot"></span> Sources</div>
+            <h2>Docs and repo references</h2>
+          </div>
+          <p class="section-note">Official Expo docs were used for the staging and hosting model; repo files were used for the current architecture.</p>
+        </div>
+        <div class="grid-2 sources">
+          <div class="card">
+            <h3>Official Expo references</h3>
+            <ul>
+              <li><a href="https://docs.expo.dev/build/internal-distribution/">EAS Build internal distribution</a></li>
+              <li><a href="https://docs.expo.dev/eas-update/deployment/">EAS Update deployment channels</a></li>
+              <li><a href="https://docs.expo.dev/eas/hosting/introduction/">EAS Hosting introduction</a></li>
+              <li><a href="https://docs.expo.dev/router/web/api-routes/">Expo Router API routes</a></li>
+            </ul>
+          </div>
+          <div class="card">
+            <h3>Repo references reviewed</h3>
+            <ul>
+              <li><code>app.json</code> for native app IDs and Expo plugins.</li>
+              <li><code>lib/config.ts</code> for API URL resolution.</li>
+              <li><code>server/index.mjs</code> and <code>server/AGENTS.md</code> for the Express API boundary.</li>
+              <li><code>trigger/AGENTS.md</code> and production-readiness docs for async job ownership.</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <div class="footer">
+        Generated as a self-contained visual explainer for the Darija to English Expo deployment path. Keep the API and provider secrets server-side; the mobile app should only know public config and the API base URL.
+      </div>
+    </main>
+  </div>
+  <script>
+    (function() {
+      const toc = document.getElementById('toc');
+      if (!toc) return;
+      const links = Array.from(toc.querySelectorAll('a'));
+      const sections = links
+        .map(link => ({ link, el: document.querySelector(link.getAttribute('href')) }))
+        .filter(item => item.el);
+      const observer = new IntersectionObserver(entries => {
+        entries.forEach(entry => {
+          if (!entry.isIntersecting) return;
+          links.forEach(link => link.style.borderLeftColor = 'transparent');
+          const match = sections.find(item => item.el === entry.target);
+          if (match) match.link.style.borderLeftColor = 'var(--red)';
+        });
+      }, { rootMargin: '-20% 0px -65% 0px', threshold: 0.01 });
+      sections.forEach(item => observer.observe(item.el));
+    })();
+  </script>
+</body>
+</html>

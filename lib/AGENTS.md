@@ -20,6 +20,8 @@ Shared mobile client configuration, API client logic, and TypeScript contracts.
 - Keep diagnostics hooks optional; API functions should work without UI logging callbacks.
 - Never put private API keys in Expo public config. `EXPO_PUBLIC_*` is visible to the app bundle.
 - `translateAudioFile` must send the Clerk session token as `Authorization: Bearer <token>`.
+- Polling must refresh the Clerk session token when a refresh callback is available; long-running Trigger jobs can outlive the first token.
+- Preserve `triggerRunId` on queued responses, history list items, and history detail items so UI diagnostics can link app state to Trigger.dev logs.
 
 ## Device API URLs
 

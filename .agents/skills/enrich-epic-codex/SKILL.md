@@ -1,6 +1,6 @@
 ---
 name: enrich-epic
-description: Enrich a local epic's task specs with implementation details, acceptance criteria, dependencies, and file-path guidance by cross-referencing local PRD/session docs and the codebase. Run after seed-epic and before finalize-epic/analyze-epic.
+description: Enrich a local epic's task specs and task-local support materials with implementation details, acceptance criteria, dependencies, file-path guidance, references, resources, and notes by cross-referencing local PRD/session docs, the codebase, and primary external docs when needed.
 ---
 
 # Enrich Epic
@@ -26,9 +26,7 @@ Parse one argument:
 
 If it is missing, ask for it.
 
-Do not require `status.log`. Enrichment is allowed before finalization because this skill improves draft task specs before the task set is frozen for analysis and execution.
-
-If `status.log` exists, treat it as append-only execution state and do not edit it. If `status.log` is missing, mention that this is expected for a pre-finalized epic and that `finalize-epic <epic_folder_path>` should run after enrichment.
+This skill enriches task specs and task-local support materials. Do not inspect, require, validate, mention, create, or update execution status files.
 
 ## Workflow
 
@@ -84,31 +82,68 @@ The new body must include:
 
 Keep `## Implementation` concise and directive. It should point the executor to the right files and patterns, not contain the full implementation.
 
-Never touch `plan.md` or `*.plan.md` files (analyze-epic owns them). Never touch `status.log` if it already exists. Never touch `epic-overview.md` (enrichment doesn't change structure). Never delete or rewrite task support folders unless the user explicitly asks for that.
+Never touch `plan.md` or `*.plan.md` files (analyze-epic owns them). Never touch `epic-overview.md` (enrichment doesn't change structure). Never delete or rewrite task support folders unless the user explicitly asks for that.
 
 If the user is concerned about losing manual edits to a task body, the previous version is recoverable via `git log` and `git checkout` — every enrichment session creates an auto-commit.
 
-### 5. Cross-check consistency
+### 5. Task support-material audit and enrichment
 
-After updating tasks, do a quick pass for:
+After the chosen task specs have been enriched, run a task-local support-material audit for each enriched task.
+
+When subagents are available, spawn one subagent per task in parallel. Assign each subagent exactly one task folder and a disjoint write scope limited to that folder's support directories:
+
+```text
+<NN>-<slug>/references/
+<NN>-<slug>/resources/
+<NN>-<slug>/notes/
+<NN>-<slug>/artifacts/
+```
+
+Tell each subagent:
+- inspect the task's `task.md` and existing support folders;
+- analyze the codebase with `rg` and direct file reads when local implementation details are needed;
+- use web search only when current external product documentation is needed, and prefer official/primary docs;
+- determine whether the task needs additional `references/`, `resources/`, `notes/`, or artifact templates before analysis or execution;
+- add concise, source-grounded files only when they materially reduce ambiguity for a future executor;
+- do not edit `task.md`, `epic-overview.md`, `plan.md`, `*.plan.md`, or any other task folder;
+- do not fabricate execution evidence in `artifacts/`; real command outputs, screenshots, run IDs, deployment IDs, and blocker evidence belong to execution-time work;
+- if an artifact would be useful before execution, create only a clearly labeled template or checklist.
+
+Suggested support-file roles:
+- `references/`: PRD excerpts, source-code excerpts, schema/API/config snippets, official documentation summaries, and links that anchor the task.
+- `resources/`: repeatable commands, checklists, validation recipes, setup steps, and external-doc URLs needed during execution.
+- `notes/`: assumptions, decisions to make, known blockers, deviation logs, ownership notes, and task-specific cautions.
+- `artifacts/`: templates for future evidence only, unless the current enrichment session actually produced verifiable evidence.
+
+If subagents are not available, do the same audit locally task by task. Keep support material concise; do not create files just to fill empty folders.
+
+After subagents finish, merge their recommendations conservatively:
+- keep task-local additions in the corresponding task folder;
+- avoid duplicate reference material across tasks unless each task genuinely needs a local copy;
+- prefer one focused file over many tiny files when the material belongs together;
+- preserve any existing manually written support files unless the user explicitly asked to rewrite them.
+
+### 6. Cross-check consistency
+
+After updating task specs and support materials, do a quick pass for:
 - dependency consistency
 - PRD terminology drift
 - missing shared-file notes
+- support-file claims that are not backed by local source, PRD docs, or cited external docs
+- artifact files that accidentally contain speculative execution evidence
 
-### 6. Auto-commit and handoff
+### 7. Auto-commit and handoff
 
-Stage the spec files modified in this session and create a commit:
+Stage the task specs and support files modified in this session and create a commit:
 
 ```bash
 git add <epic_folder_path>
 git commit -m "Enrich epic: <epic_name> (<N> tasks updated)"
 ```
 
-Skip the commit only if no spec files actually changed.
+Skip the commit only if no task specs or support files actually changed.
 
-Report the enriched tasks and point the user to:
-- `finalize-epic <epic_folder_path>` if the epic has not been finalized yet
-- `analyze-epic <epic_folder_path>` after finalization
+Report the enriched tasks, the support materials added, and point the user to the next analysis or execution step requested by the user.
 
 ## References
 

@@ -7,3 +7,4 @@ These files are intended to be opened directly in a browser. Keep generated HTML
 ## Index
 
 - `darija-mobile-e2e-qa-playbook.html` - slide deck for testing the iOS app end to end before Epic 04.
+- `darija-expo-deployment-map.html` - visual deployment map for Expo builds, staging, API hosting, Trigger.dev, Supabase, Modal, and production release work.
