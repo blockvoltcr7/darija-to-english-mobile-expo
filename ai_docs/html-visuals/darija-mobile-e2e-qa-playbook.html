@@ -1,0 +1,1047 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Darija Mobile E2E QA Playbook</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@500;600;700;800&family=Fragment+Mono&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --font-body: 'Bricolage Grotesque', ui-sans-serif, sans-serif;
+      --font-mono: 'Fragment Mono', 'SF Mono', Consolas, monospace;
+      --bg: #f6f1ea;
+      --surface: #fffaf2;
+      --surface-2: #efe4d6;
+      --ink: #241f1a;
+      --muted: #72685c;
+      --soft: #a99a89;
+      --line: rgba(36, 31, 26, 0.12);
+      --line-strong: rgba(36, 31, 26, 0.22);
+      --terracotta: #b64d21;
+      --terracotta-soft: rgba(182, 77, 33, 0.11);
+      --sage: #5f7d4f;
+      --sage-soft: rgba(95, 125, 79, 0.13);
+      --gold: #b57614;
+      --gold-soft: rgba(181, 118, 20, 0.13);
+      --blue: #315f7d;
+      --blue-soft: rgba(49, 95, 125, 0.12);
+      --red: #a7352b;
+      --red-soft: rgba(167, 53, 43, 0.12);
+      --shadow: 0 20px 70px rgba(60, 42, 24, 0.13);
+      --code-bg: #211d19;
+      --code-text: #f8f1e7;
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #151411;
+        --surface: #201d18;
+        --surface-2: #29241d;
+        --ink: #f3eadc;
+        --muted: #baaa96;
+        --soft: #8f806f;
+        --line: rgba(243, 234, 220, 0.12);
+        --line-strong: rgba(243, 234, 220, 0.24);
+        --terracotta: #e27a4b;
+        --terracotta-soft: rgba(226, 122, 75, 0.14);
+        --sage: #9ab986;
+        --sage-soft: rgba(154, 185, 134, 0.14);
+        --gold: #d7a13a;
+        --gold-soft: rgba(215, 161, 58, 0.15);
+        --blue: #82aeca;
+        --blue-soft: rgba(130, 174, 202, 0.14);
+        --red: #e16b62;
+        --red-soft: rgba(225, 107, 98, 0.14);
+        --shadow: 0 22px 70px rgba(0, 0, 0, 0.28);
+        --code-bg: #0f0e0c;
+        --code-text: #f5eadc;
+      }
+    }
+
+    * { box-sizing: border-box; }
+    html, body { height: 100%; }
+    body {
+      margin: 0;
+      font-family: var(--font-body);
+      color: var(--ink);
+      background:
+        linear-gradient(135deg, rgba(182, 77, 33, 0.07), transparent 38%),
+        radial-gradient(circle at 86% 16%, var(--sage-soft), transparent 34%),
+        radial-gradient(circle at 8% 88%, var(--gold-soft), transparent 31%),
+        var(--bg);
+      overflow: hidden;
+    }
+
+    code, pre { font-family: var(--font-mono); }
+    a { color: var(--terracotta); text-underline-offset: 3px; }
+
+    .deck {
+      height: 100dvh;
+      overflow-y: auto;
+      scroll-snap-type: y mandatory;
+      scroll-behavior: smooth;
+      -webkit-overflow-scrolling: touch;
+    }
+
+    .slide {
+      min-height: 100dvh;
+      height: 100dvh;
+      scroll-snap-align: start;
+      position: relative;
+      overflow: hidden;
+      padding: clamp(54px, 8vh, 92px) clamp(32px, 7vw, 108px) clamp(54px, 7vh, 84px);
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      isolation: isolate;
+      opacity: 0;
+      transform: translateY(28px) scale(0.985);
+      transition: opacity 0.5s ease, transform 0.5s ease;
+    }
+
+    .slide.visible { opacity: 1; transform: none; }
+    .reveal { opacity: 0; transform: translateY(16px); transition: opacity 0.45s ease, transform 0.45s ease; }
+    .slide.visible .reveal { opacity: 1; transform: none; }
+    .slide.visible .reveal:nth-child(2) { transition-delay: 0.08s; }
+    .slide.visible .reveal:nth-child(3) { transition-delay: 0.16s; }
+    .slide.visible .reveal:nth-child(4) { transition-delay: 0.24s; }
+    .slide.visible .reveal:nth-child(5) { transition-delay: 0.32s; }
+
+    .slide::before {
+      content: attr(data-kicker);
+      position: absolute;
+      left: clamp(32px, 7vw, 108px);
+      top: 26px;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--muted);
+      z-index: 1;
+    }
+
+    .deck-progress {
+      position: fixed;
+      top: 0;
+      left: 0;
+      height: 3px;
+      background: linear-gradient(90deg, var(--terracotta), var(--sage), var(--gold));
+      z-index: 100;
+      width: 0;
+      transition: width 0.25s ease;
+    }
+
+    .deck-tabs {
+      position: fixed;
+      top: 14px;
+      right: clamp(16px, 2vw, 28px);
+      z-index: 110;
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+      gap: 6px;
+      max-width: min(760px, calc(100vw - 260px));
+    }
+
+    .deck-tab {
+      border: 1px solid var(--line);
+      background: color-mix(in srgb, var(--surface) 88%, transparent);
+      color: var(--muted);
+      border-radius: 999px;
+      padding: 8px 11px;
+      font-family: var(--font-mono);
+      font-size: 10px;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      cursor: pointer;
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+    }
+
+    .deck-tab.active {
+      color: var(--ink);
+      border-color: color-mix(in srgb, var(--terracotta) 45%, var(--line));
+      background: color-mix(in srgb, var(--surface) 82%, var(--terracotta-soft));
+    }
+
+    .deck-dots {
+      position: fixed;
+      right: 18px;
+      top: 50%;
+      transform: translateY(-50%);
+      display: flex;
+      flex-direction: column;
+      gap: 7px;
+      z-index: 100;
+      padding: 8px;
+      border-radius: 999px;
+      background: color-mix(in srgb, var(--surface) 76%, transparent);
+      border: 1px solid var(--line);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+    }
+
+    .deck-dot {
+      width: 8px;
+      height: 8px;
+      border: 0;
+      border-radius: 50%;
+      background: var(--soft);
+      opacity: 0.45;
+      cursor: pointer;
+      padding: 0;
+    }
+    .deck-dot.active { opacity: 1; transform: scale(1.45); background: var(--terracotta); }
+
+    .deck-counter, .deck-hints {
+      position: fixed;
+      z-index: 100;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--muted);
+      background: color-mix(in srgb, var(--surface) 70%, transparent);
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      padding: 7px 10px;
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+    }
+    .deck-counter { right: 18px; bottom: 16px; font-variant-numeric: tabular-nums; }
+    .deck-hints { left: 50%; bottom: 16px; transform: translateX(-50%); }
+    .deck-hints.faded { opacity: 0; pointer-events: none; }
+
+    .display {
+      font-size: clamp(50px, 9.5vw, 116px);
+      line-height: 0.88;
+      letter-spacing: -0.045em;
+      margin: 0;
+      max-width: 1040px;
+      text-wrap: balance;
+    }
+
+    .heading {
+      font-size: clamp(30px, 5vw, 58px);
+      line-height: 1;
+      letter-spacing: -0.035em;
+      margin: 0 0 18px;
+      max-width: 1040px;
+      text-wrap: balance;
+    }
+
+    .lead {
+      font-size: clamp(18px, 2.1vw, 27px);
+      color: var(--muted);
+      line-height: 1.38;
+      max-width: 960px;
+      margin: 0;
+      text-wrap: balance;
+    }
+
+    .label {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--terracotta);
+      margin-bottom: 16px;
+    }
+    .label::before {
+      content: "";
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: currentColor;
+    }
+
+    .grid {
+      display: grid;
+      gap: 16px;
+      min-width: 0;
+    }
+    .grid-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .grid-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .grid-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+
+    .card {
+      background: color-mix(in srgb, var(--surface) 92%, transparent);
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      padding: clamp(16px, 2vw, 24px);
+      min-width: 0;
+      box-shadow: none;
+    }
+    .card.important {
+      background: color-mix(in srgb, var(--surface) 90%, var(--terracotta-soft));
+      border-color: color-mix(in srgb, var(--terracotta) 45%, var(--line));
+      box-shadow: var(--shadow);
+    }
+    .card.sage {
+      background: color-mix(in srgb, var(--surface) 90%, var(--sage-soft));
+      border-color: color-mix(in srgb, var(--sage) 45%, var(--line));
+    }
+    .card.gold {
+      background: color-mix(in srgb, var(--surface) 90%, var(--gold-soft));
+      border-color: color-mix(in srgb, var(--gold) 45%, var(--line));
+    }
+    .card.blue {
+      background: color-mix(in srgb, var(--surface) 90%, var(--blue-soft));
+      border-color: color-mix(in srgb, var(--blue) 45%, var(--line));
+    }
+    .card.red {
+      background: color-mix(in srgb, var(--surface) 90%, var(--red-soft));
+      border-color: color-mix(in srgb, var(--red) 45%, var(--line));
+    }
+
+    .card h3 {
+      margin: 0 0 10px;
+      font-size: clamp(18px, 2vw, 25px);
+      line-height: 1.05;
+      letter-spacing: -0.02em;
+    }
+    .card p, .card li {
+      margin: 0;
+      color: var(--muted);
+      font-size: clamp(13px, 1.45vw, 17px);
+      line-height: 1.35;
+    }
+    .card ul, .checklist {
+      margin: 12px 0 0;
+      padding: 0;
+      list-style: none;
+      display: grid;
+      gap: 8px;
+    }
+    .card li, .checklist li {
+      position: relative;
+      padding-left: 18px;
+    }
+    .card li::before, .checklist li::before {
+      content: "";
+      position: absolute;
+      left: 0;
+      top: 0.62em;
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--sage);
+    }
+
+    .metric {
+      font-size: clamp(36px, 6vw, 76px);
+      line-height: 0.9;
+      letter-spacing: -0.05em;
+      font-weight: 800;
+    }
+    .metric-label {
+      font-family: var(--font-mono);
+      font-size: 12px;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.11em;
+      margin-top: 10px;
+    }
+
+    .code {
+      background: var(--code-bg);
+      color: var(--code-text);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 14px;
+      padding: 14px 16px;
+      font-family: var(--font-mono);
+      font-size: clamp(11px, 1.2vw, 15px);
+      line-height: 1.45;
+      white-space: pre-wrap;
+      overflow-wrap: break-word;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.05);
+    }
+    .code strong { color: #f2c879; font-weight: 400; }
+
+    .timeline {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      gap: 12px;
+      align-items: stretch;
+      margin-top: 28px;
+    }
+    .step {
+      position: relative;
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      padding: 18px;
+      min-width: 0;
+    }
+    .step::after {
+      content: "";
+      position: absolute;
+      top: 50%;
+      right: -12px;
+      width: 12px;
+      height: 1px;
+      background: var(--line-strong);
+    }
+    .step:last-child::after { display: none; }
+    .step-num {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      display: grid;
+      place-items: center;
+      background: var(--terracotta);
+      color: #fff7ee;
+      font-family: var(--font-mono);
+      font-size: 12px;
+      margin-bottom: 12px;
+    }
+    .step h3 { margin: 0 0 7px; font-size: 19px; line-height: 1.05; }
+    .step p { margin: 0; color: var(--muted); font-size: 14px; line-height: 1.28; }
+
+    .flow {
+      display: grid;
+      grid-template-columns: 1fr 42px 1fr 42px 1fr;
+      align-items: center;
+      gap: 10px;
+      margin-top: 22px;
+    }
+    .flow .card { min-height: 150px; }
+    .arrow {
+      height: 2px;
+      background: var(--line-strong);
+      position: relative;
+    }
+    .arrow::after {
+      content: "";
+      position: absolute;
+      right: -1px;
+      top: -5px;
+      width: 0;
+      height: 0;
+      border-left: 9px solid var(--line-strong);
+      border-top: 6px solid transparent;
+      border-bottom: 6px solid transparent;
+    }
+
+    .table-wrap {
+      overflow-x: auto;
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      background: var(--surface);
+    }
+    table { width: 100%; border-collapse: collapse; min-width: 760px; }
+    th, td {
+      padding: 12px 14px;
+      text-align: left;
+      border-bottom: 1px solid var(--line);
+      vertical-align: top;
+      font-size: 14px;
+      line-height: 1.25;
+    }
+    th {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--terracotta);
+      background: color-mix(in srgb, var(--surface-2) 72%, transparent);
+    }
+    tr:last-child td { border-bottom: 0; }
+    td { color: var(--muted); }
+    td strong { color: var(--ink); }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      padding: 6px 9px;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--muted);
+      background: color-mix(in srgb, var(--surface) 86%, transparent);
+      white-space: nowrap;
+    }
+    .badge::before {
+      content: "";
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--sage);
+    }
+    .badge.warn::before { background: var(--gold); }
+    .badge.stop::before { background: var(--red); }
+    .badge.go::before { background: var(--sage); }
+
+    .split {
+      display: grid;
+      grid-template-columns: minmax(0, 0.95fr) minmax(0, 1.05fr);
+      gap: clamp(20px, 4vw, 56px);
+      align-items: center;
+    }
+
+    .device {
+      position: relative;
+      max-width: 330px;
+      margin: 0 auto;
+      aspect-ratio: 0.48;
+      border: 10px solid color-mix(in srgb, var(--ink) 92%, transparent);
+      border-radius: 42px;
+      background: #111;
+      padding: 18px;
+      box-shadow: var(--shadow);
+    }
+    .device::before {
+      content: "";
+      position: absolute;
+      top: 10px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 92px;
+      height: 20px;
+      border-radius: 999px;
+      background: #050505;
+    }
+    .screen {
+      height: 100%;
+      border-radius: 28px;
+      background:
+        linear-gradient(180deg, #242424, #0f0f0f);
+      color: #f4f1ea;
+      padding: 42px 18px 18px;
+      display: flex;
+      flex-direction: column;
+      gap: 13px;
+      overflow: hidden;
+    }
+    .phone-pill {
+      align-self: flex-start;
+      border: 1px solid #444;
+      color: #c4bbb0;
+      border-radius: 999px;
+      padding: 5px 8px;
+      font-family: var(--font-mono);
+      font-size: 9px;
+    }
+    .phone-title { font-size: 26px; line-height: 0.98; font-weight: 800; }
+    .phone-button {
+      border-radius: 15px;
+      background: #c4bbb0;
+      color: #171717;
+      padding: 12px;
+      text-align: center;
+      font-weight: 800;
+      margin-top: auto;
+    }
+    .phone-status {
+      display: flex;
+      gap: 5px;
+      flex-wrap: wrap;
+    }
+    .phone-status span {
+      border: 1px solid #343434;
+      border-radius: 999px;
+      padding: 5px 7px;
+      font-family: var(--font-mono);
+      font-size: 9px;
+      color: #a6a19a;
+    }
+
+    .source-list {
+      display: grid;
+      gap: 10px;
+      margin-top: 18px;
+    }
+    .source-list a, .source-list span {
+      font-family: var(--font-mono);
+      font-size: 12px;
+      color: var(--muted);
+      overflow-wrap: anywhere;
+    }
+
+    @media (max-width: 920px) {
+      body { overflow: auto; }
+      .slide {
+        min-height: 100dvh;
+        height: auto;
+        overflow: visible;
+        padding-top: 90px;
+      }
+      .grid-2, .grid-3, .grid-4, .split, .flow, .timeline {
+        grid-template-columns: 1fr;
+      }
+      .arrow, .step::after { display: none; }
+      .deck-dots { display: none; }
+      .deck-tabs {
+        left: 10px;
+        right: 10px;
+        max-width: none;
+        justify-content: flex-start;
+        overflow-x: auto;
+        flex-wrap: nowrap;
+      }
+      .deck-hints { display: none; }
+      .deck-counter { right: 10px; bottom: 10px; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .slide, .reveal { opacity: 1 !important; transform: none !important; transition: none !important; }
+      .deck { scroll-behavior: auto; }
+    }
+  </style>
+</head>
+<body>
+  <div class="deck" id="deck">
+    <section class="slide" data-section="overview" data-kicker="E2E QA Playbook">
+      <div class="label reveal">Before Epic 04</div>
+      <h1 class="display reveal">Darija mobile functional test deck</h1>
+      <p class="lead reveal">A practical QA runbook for proving the actual iOS app works before adding usage limits, kill switches, retention cleanup, and beta release controls.</p>
+      <div class="grid grid-3 reveal" style="margin-top:34px;">
+        <div class="card important"><div class="metric">01</div><div class="metric-label">Preferred first pass</div><p style="margin-top:12px;">iOS Simulator using <code>localhost</code> to remove phone/network variables.</p></div>
+        <div class="card sage"><div class="metric">02</div><div class="metric-label">Real device pass</div><p style="margin-top:12px;">Physical iPhone with a development build, LAN API URL, and QR into the dev client.</p></div>
+        <div class="card gold"><div class="metric">03</div><div class="metric-label">Gate outcome</div><p style="margin-top:12px;">Record, translate, poll, history, account, and evidence captured.</p></div>
+      </div>
+    </section>
+
+    <section class="slide" data-section="overview" data-kicker="What Is Already Proven">
+      <div class="split">
+        <div>
+          <div class="label reveal">Known good backend</div>
+          <h2 class="heading reveal">Do not repeat the backend E2E unless the UI test fails.</h2>
+          <p class="lead reveal">Epic 03 already proved the authenticated server path: Clerk -> API -> Supabase Storage -> Trigger.dev worker -> Modal and OpenAI -> Supabase result rows -> polling success.</p>
+        </div>
+        <div class="grid reveal">
+          <div class="card sage"><h3>Purpose of this test</h3><p>Confirm the mobile app launches, signs in, records or uploads audio, calls the async endpoint, renders progress, shows the English result, and can reopen history.</p></div>
+          <div class="card gold"><h3>Why now</h3><p>Epic 04 adds blocking controls. First prove the happy path, then add quota, rate limit, kill switch, retention, and deletion behavior.</p></div>
+          <div class="card red"><h3>Do not use Expo Go</h3><p>This repo uses Clerk native auth and <code>expo-dev-client</code>. Use a development build for the real auth flow.</p></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="slide" data-section="overview" data-kicker="Testing Lanes">
+      <div class="label reveal">Choose the right lane</div>
+      <h2 class="heading reveal">Simulator is on your Mac. Your iPhone runs a real development build.</h2>
+      <div class="table-wrap reveal">
+        <table>
+          <thead><tr><th>Lane</th><th>Best for</th><th>API base URL</th><th>How it opens</th><th>Use it when</th></tr></thead>
+          <tbody>
+            <tr><td><strong>iOS Simulator</strong></td><td>Fast first UI smoke test</td><td><code>http://localhost:8787</code></td><td><code>npm run ios</code></td><td>You want the least network friction.</td></tr>
+            <tr><td><strong>Physical iPhone</strong></td><td>Real microphone, real device permissions, QR flow</td><td><code>http://&lt;mac-lan-ip&gt;:8787</code></td><td>Install dev build over USB, then scan QR</td><td>You want confidence on the device you will actually use.</td></tr>
+            <tr><td><strong>Expo Go</strong></td><td>Non-auth experiments only</td><td>Depends on experiment</td><td>Expo Go app</td><td>Not recommended for this app because Clerk native auth needs the dev build.</td></tr>
+            <tr><td><strong>EAS dev build</strong></td><td>Fallback when local iOS signing is painful</td><td><code>http://&lt;mac-lan-ip&gt;:8787</code></td><td>Install build artifact/QR from EAS</td><td>You cannot install locally from Xcode.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="slide" data-section="prep" data-kicker="System Map">
+      <div class="label reveal">What must be running</div>
+      <h2 class="heading reveal">The phone is only one part of the test rig.</h2>
+      <div class="flow reveal">
+        <div class="card important"><h3>Mac API</h3><p><code>npm run api</code></p><ul><li>Verifies Clerk session</li><li>Uploads audio to private storage</li><li>Dispatches Trigger job</li></ul></div>
+        <div class="arrow"></div>
+        <div class="card sage"><h3>Trigger worker</h3><p><code>npx trigger.dev dev --env-file .env.local</code></p><ul><li>Runs async job</li><li>Calls Modal and OpenAI</li></ul></div>
+        <div class="arrow"></div>
+        <div class="card gold"><h3>Metro + iOS app</h3><p><code>expo start --dev-client</code></p><ul><li>Loads JS bundle</li><li>Displays auth, record, polling, result</li></ul></div>
+      </div>
+      <p class="lead reveal" style="margin-top:28px;">For a physical phone, <code>localhost</code> means the phone itself. Use the Mac LAN IP so the app can reach the API running on your MacBook.</p>
+    </section>
+
+    <section class="slide" data-section="prep" data-kicker="Preflight">
+      <div class="label reveal">Terminal zero</div>
+      <h2 class="heading reveal">Start from a known-good local state.</h2>
+      <div class="grid grid-2 reveal">
+        <div class="card">
+          <h3>Sanity checks</h3>
+          <pre class="code">git status -sb
+npm run typecheck
+npm run lint
+npx expo-doctor
+curl http://localhost:8787/health</pre>
+        </div>
+        <div class="card sage">
+          <h3>Expected</h3>
+          <ul>
+            <li>Working tree clean or changes understood.</li>
+            <li>Typecheck, lint, and Expo Doctor pass.</li>
+            <li><code>/health</code> reports configured models and services.</li>
+            <li>No secrets printed into screenshots or notes.</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <section class="slide" data-section="prep" data-kicker="Backend Startup">
+      <div class="label reveal">Two backend terminals</div>
+      <h2 class="heading reveal">Bring up the same services Epic 03 verified.</h2>
+      <div class="grid grid-2 reveal">
+        <div class="card important">
+          <h3>Terminal A: API</h3>
+          <pre class="code">HOST=0.0.0.0 PORT=8787 npm run api</pre>
+          <p style="margin-top:12px;">The repo default host is already <code>0.0.0.0</code>, but setting it explicitly makes phone testing unambiguous.</p>
+        </div>
+        <div class="card important">
+          <h3>Terminal B: Trigger worker</h3>
+          <pre class="code">npx trigger.dev dev \
+  --config trigger.config.mjs \
+  --env-file .env.local \
+  --skip-update-check</pre>
+          <p style="margin-top:12px;">Look for the local worker ready message before submitting audio.</p>
+        </div>
+      </div>
+      <div class="card gold reveal" style="margin-top:18px;">
+        <h3>Health check</h3>
+        <pre class="code">curl http://localhost:8787/health</pre>
+      </div>
+    </section>
+
+    <section class="slide" data-section="simulator" data-kicker="Simulator Path">
+      <div class="split">
+        <div>
+          <div class="label reveal">Fast first pass</div>
+          <h2 class="heading reveal">Use Simulator first when you want to remove phone networking from the problem.</h2>
+          <p class="lead reveal">The iOS Simulator can reach the Mac API at <code>localhost:8787</code>. This is the fastest way to test Clerk, record/upload, polling, result render, history, and account screens.</p>
+        </div>
+        <div class="card important reveal">
+          <h3>Command</h3>
+          <pre class="code">EXPO_PUBLIC_API_BASE_URL=http://localhost:8787 npm run ios</pre>
+          <ul>
+            <li>Sign in or sign up with a Clerk test user.</li>
+            <li>Grant microphone permission.</li>
+            <li>Record 3 to 8 seconds or upload a small audio file.</li>
+            <li>Expected status path: Recording -> Submitting -> Queued -> Running/Polling -> Complete.</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <section class="slide" data-section="iphone" data-kicker="Physical iPhone Setup">
+      <div class="label reveal">Recommended real-device path</div>
+      <h2 class="heading reveal">Install a development build on the iPhone. Then use QR to load Metro.</h2>
+      <div class="timeline reveal">
+        <div class="step"><div class="step-num">1</div><h3>Plug in</h3><p>Connect iPhone to MacBook by cable. Trust the computer. Enable iOS Developer Mode if prompted.</p></div>
+        <div class="step"><div class="step-num">2</div><h3>Same Wi-Fi</h3><p>Put Mac and phone on the same network. Avoid guest/public Wi-Fi when possible.</p></div>
+        <div class="step"><div class="step-num">3</div><h3>Find LAN IP</h3><p>Use the Mac Wi-Fi IP. The phone cannot use Mac <code>localhost</code>.</p></div>
+        <div class="step"><div class="step-num">4</div><h3>Install app</h3><p>Run local iOS build with <code>--device</code> and select the connected iPhone.</p></div>
+        <div class="step"><div class="step-num">5</div><h3>Scan QR</h3><p>Start Metro in LAN mode. Scan the QR with Camera to open the dev build.</p></div>
+      </div>
+    </section>
+
+    <section class="slide" data-section="iphone" data-kicker="Phone Commands">
+      <div class="label reveal">Physical iPhone command set</div>
+      <h2 class="heading reveal">Use the Mac LAN IP for the app API URL.</h2>
+      <div class="grid grid-2 reveal">
+        <div class="card">
+          <h3>Get Mac LAN IP</h3>
+          <pre class="code">MAC_LAN_IP=$(ipconfig getifaddr en0)
+echo $MAC_LAN_IP
+curl http://$MAC_LAN_IP:8787/health</pre>
+          <p style="margin-top:12px;">If <code>en0</code> is empty, check Wi-Fi/Ethernet in System Settings or inspect <code>ifconfig</code>.</p>
+        </div>
+        <div class="card important">
+          <h3>Install on connected iPhone</h3>
+          <pre class="code">EXPO_PUBLIC_API_BASE_URL=http://$MAC_LAN_IP:8787 \
+  npx expo run:ios --device</pre>
+          <p style="margin-top:12px;">This compiles and installs a debug development build. The cable is mainly for install/signing, not for API networking.</p>
+        </div>
+      </div>
+      <div class="card sage reveal" style="margin-top:18px;">
+        <h3>After the dev build exists</h3>
+        <pre class="code">EXPO_PUBLIC_API_BASE_URL=http://$MAC_LAN_IP:8787 \
+  npx expo start --dev-client --lan --clear</pre>
+      </div>
+    </section>
+
+    <section class="slide" data-section="iphone" data-kicker="QR Flow">
+      <div class="split">
+        <div class="device reveal">
+          <div class="screen">
+            <div class="phone-pill">DEVELOPMENT BUILD</div>
+            <div class="phone-title">Darija to English</div>
+            <p style="color:#a6a19a; line-height:1.25; margin:0;">Scan the Metro QR after the app is installed. It should open this development build, not Expo Go.</p>
+            <div class="phone-status"><span>Ready</span><span>Queued</span><span>Running</span><span>Complete</span></div>
+            <div class="phone-button">Record</div>
+          </div>
+        </div>
+        <div>
+          <div class="label reveal">What the QR does</div>
+          <h2 class="heading reveal">The QR points your installed dev build at Metro.</h2>
+          <ul class="checklist reveal">
+            <li>Install the development build first with <code>npx expo run:ios --device</code> or an EAS development build.</li>
+            <li>Start Metro with <code>--dev-client --lan</code>.</li>
+            <li>Scan the QR with the iPhone Camera app.</li>
+            <li>If it tries to open Expo Go, the dev build is not installed or the URL is not targeting the dev client.</li>
+            <li>If LAN fails, try <code>npx expo start --dev-client --tunnel --clear</code>, but keep API URL reachable from the phone.</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <section class="slide" data-section="qa" data-kicker="App Happy Path">
+      <div class="label reveal">Functional QA script</div>
+      <h2 class="heading reveal">Run one clean translation from the actual app UI.</h2>
+      <div class="timeline reveal">
+        <div class="step"><div class="step-num">1</div><h3>Auth</h3><p>Sign up or sign in with a Clerk test user. Do not use production personal data.</p></div>
+        <div class="step"><div class="step-num">2</div><h3>Permission</h3><p>Grant microphone permission when iOS asks.</p></div>
+        <div class="step"><div class="step-num">3</div><h3>Record</h3><p>Record 3 to 8 seconds of simple speech, then stop.</p></div>
+        <div class="step"><div class="step-num">4</div><h3>Observe</h3><p>Watch status move through submitting, queued, running or polling.</p></div>
+        <div class="step"><div class="step-num">5</div><h3>Verify</h3><p>English Translation appears and diagnostics contain job/polling events.</p></div>
+      </div>
+      <div class="card important reveal" style="margin-top:20px;">
+        <h3>Pass condition</h3>
+        <p>The app reaches Complete within 180 seconds and displays English text. API logs should show authenticated request, async job queued, polling, and result retrieval.</p>
+      </div>
+    </section>
+
+    <section class="slide" data-section="qa" data-kicker="Screens To Touch">
+      <div class="label reveal">Mobile surface checklist</div>
+      <h2 class="heading reveal">Do not stop at the first translation result.</h2>
+      <div class="grid grid-3 reveal">
+        <div class="card important"><h3>Home</h3><ul><li>Status pill changes correctly.</li><li>Record button toggles to Stop.</li><li>Upload Audio remains disabled during work.</li><li>Reset clears result and diagnostics.</li></ul></div>
+        <div class="card sage"><h3>Diagnostics</h3><ul><li>Health request appears.</li><li>Clerk token loaded without printing token.</li><li>Queued job ID appears.</li><li>Polling status appears.</li></ul></div>
+        <div class="card gold"><h3>History</h3><ul><li>Recent translation appears.</li><li>Status is succeeded.</li><li>Detail opens.</li><li>English and consolidated Arabic are visible.</li></ul></div>
+      </div>
+      <div class="grid grid-2 reveal" style="margin-top:16px;">
+        <div class="card blue"><h3>Account</h3><p>Open Account, confirm the signed-in email/user is correct, then verify Sign out returns to the Clerk auth screen.</p></div>
+        <div class="card"><h3>Upload alternative</h3><p>If recording is blocked by device setup, use Upload Audio with a small local audio file and run the same status/result/history checks.</p></div>
+      </div>
+    </section>
+
+    <section class="slide" data-section="qa" data-kicker="Evidence Capture">
+      <div class="label reveal">What to save</div>
+      <h2 class="heading reveal">Capture enough evidence to make Epic 04 changes safe.</h2>
+      <div class="grid grid-4 reveal">
+        <div class="card"><span class="badge go">Screenshot</span><h3 style="margin-top:14px;">Signed-in home</h3><p>Shows test user and Ready state before submission.</p></div>
+        <div class="card"><span class="badge warn">Screenshot</span><h3 style="margin-top:14px;">Running state</h3><p>Shows queued/running/polling state during Trigger processing.</p></div>
+        <div class="card"><span class="badge go">Screenshot</span><h3 style="margin-top:14px;">Complete result</h3><p>Shows English Translation and transcript panels.</p></div>
+        <div class="card"><span class="badge go">Screenshot</span><h3 style="margin-top:14px;">History detail</h3><p>Shows completed row and detail expansion.</p></div>
+      </div>
+      <div class="card important reveal" style="margin-top:18px;">
+        <h3>Terminal snippets</h3>
+        <p>Keep API and Trigger logs showing authenticated request, job ID, Trigger run ID, provider completion, and polling success. Avoid copying tokens or secret env values.</p>
+      </div>
+    </section>
+
+    <section class="slide" data-section="troubleshoot" data-kicker="Troubleshooting">
+      <div class="label reveal">Fast diagnosis table</div>
+      <h2 class="heading reveal">Most failures are URL, dev-build, or network shape.</h2>
+      <div class="table-wrap reveal">
+        <table>
+          <thead><tr><th>Symptom</th><th>Likely cause</th><th>Fix</th></tr></thead>
+          <tbody>
+            <tr><td><strong>Phone cannot reach API</strong></td><td>App is using <code>localhost</code> or Mac firewall/network blocks port 8787.</td><td>Use <code>http://&lt;mac-lan-ip&gt;:8787</code>. Confirm <code>curl http://$MAC_LAN_IP:8787/health</code> from Mac and keep API bound to <code>0.0.0.0</code>.</td></tr>
+            <tr><td><strong>QR opens Expo Go</strong></td><td>Development build not installed or Metro not in dev-client mode.</td><td>Run <code>npx expo run:ios --device</code>, then <code>npx expo start --dev-client --lan --clear</code>.</td></tr>
+            <tr><td><strong>Clerk screen fails or loops</strong></td><td>Wrong publishable key, stale build, or not using dev build.</td><td>Confirm <code>EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY</code> is present and rebuild if native config changed.</td></tr>
+            <tr><td><strong>Translation never completes</strong></td><td>Trigger worker not running, provider env missing, or provider latency.</td><td>Check API and Trigger terminals. Worker should show <code>translate-audio-job</code> started and provider completions.</td></tr>
+            <tr><td><strong>Microphone unavailable</strong></td><td>iOS permission denied or device audio mode issue.</td><td>Enable permission in iOS Settings or use Upload Audio for this QA pass.</td></tr>
+            <tr><td><strong>History is empty after success</strong></td><td>Different Clerk user, polling failed before persistence, or stale screen.</td><td>Pull to refresh History and confirm the same account is signed in.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="slide" data-section="troubleshoot" data-kicker="Go / No-Go">
+      <div class="label reveal">Decision gate</div>
+      <h2 class="heading reveal">Move to Epic 04 only after this checklist is green.</h2>
+      <div class="grid grid-2 reveal">
+        <div class="card sage">
+          <h3>Go</h3>
+          <ul>
+            <li>iOS app launches in dev build.</li>
+            <li>Clerk sign-in or sign-up works.</li>
+            <li>API health succeeds from the target device path.</li>
+            <li>One record or upload translation completes.</li>
+            <li>History/detail shows the completed result.</li>
+            <li>Sign out returns to sign-in.</li>
+          </ul>
+        </div>
+        <div class="card red">
+          <h3>No-go</h3>
+          <ul>
+            <li>Phone cannot reach Mac API.</li>
+            <li>QR only opens Expo Go.</li>
+            <li>Clerk auth cannot complete.</li>
+            <li>Worker never receives the job.</li>
+            <li>UI completes but history is missing.</li>
+            <li>Any secret/token appears in copied evidence.</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <section class="slide" data-section="appendix" data-kicker="Command Appendix">
+      <div class="label reveal">Copyable command set</div>
+      <h2 class="heading reveal">Use this when you are ready to run the test.</h2>
+      <div class="grid grid-2 reveal">
+        <div class="card">
+          <h3>Simulator</h3>
+          <pre class="code">HOST=0.0.0.0 PORT=8787 npm run api
+npx trigger.dev dev --config trigger.config.mjs --env-file .env.local --skip-update-check
+EXPO_PUBLIC_API_BASE_URL=http://localhost:8787 npm run ios</pre>
+        </div>
+        <div class="card important">
+          <h3>Physical iPhone</h3>
+          <pre class="code">MAC_LAN_IP=$(ipconfig getifaddr en0)
+HOST=0.0.0.0 PORT=8787 npm run api
+npx trigger.dev dev --config trigger.config.mjs --env-file .env.local --skip-update-check
+EXPO_PUBLIC_API_BASE_URL=http://$MAC_LAN_IP:8787 npx expo run:ios --device
+EXPO_PUBLIC_API_BASE_URL=http://$MAC_LAN_IP:8787 npx expo start --dev-client --lan --clear</pre>
+        </div>
+      </div>
+    </section>
+
+    <section class="slide" data-section="appendix" data-kicker="References">
+      <div class="label reveal">Sources</div>
+      <h2 class="heading reveal">Where these instructions come from.</h2>
+      <div class="grid grid-2 reveal">
+        <div class="card">
+          <h3>Repo sources</h3>
+          <div class="source-list">
+            <span>README.md: dev build requirement and API URL matrix</span>
+            <span>package.json: <code>api</code>, <code>ios</code>, <code>start</code>, Trigger scripts</span>
+            <span>app/index.tsx: record/upload, health, token, polling, diagnostics</span>
+            <span>lib/api.ts: <code>/v1/translations</code>, 2.5s polling, 180s timeout</span>
+            <span>app/history.tsx and app/account.tsx: history/detail/account checks</span>
+          </div>
+        </div>
+        <div class="card sage">
+          <h3>Expo guidance checked</h3>
+          <div class="source-list">
+            <a href="https://docs.expo.dev/develop/development-builds/use-development-builds/">Use a development build</a>
+            <a href="https://docs.expo.dev/guides/local-app-development/">Create a debug build locally</a>
+            <a href="https://docs.expo.dev/get-started/start-developing/">Start developing and QR behavior</a>
+            <a href="https://docs.expo.dev/develop/development-builds/expo-go-to-dev-build/">Switch from Expo Go to a development build</a>
+          </div>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <script>
+    class SlideEngine {
+      constructor() {
+        this.deck = document.getElementById('deck');
+        this.slides = Array.from(document.querySelectorAll('.slide'));
+        this.current = 0;
+        this.total = this.slides.length;
+        this.sections = ['overview', 'prep', 'simulator', 'iphone', 'qa', 'troubleshoot', 'appendix'];
+        this.labels = {
+          overview: 'Overview',
+          prep: 'Prep',
+          simulator: 'Simulator',
+          iphone: 'iPhone',
+          qa: 'QA',
+          troubleshoot: 'Fixes',
+          appendix: 'Commands'
+        };
+        this.buildChrome();
+        this.bindEvents();
+        this.observe();
+        this.update();
+      }
+      buildChrome() {
+        this.bar = document.createElement('div');
+        this.bar.className = 'deck-progress';
+        document.body.appendChild(this.bar);
+
+        this.tabs = document.createElement('div');
+        this.tabs.className = 'deck-tabs';
+        this.tabButtons = {};
+        this.sections.forEach((section) => {
+          const button = document.createElement('button');
+          button.className = 'deck-tab';
+          button.textContent = this.labels[section];
+          button.onclick = () => this.goToSection(section);
+          this.tabs.appendChild(button);
+          this.tabButtons[section] = button;
+        });
+        document.body.appendChild(this.tabs);
+
+        const dots = document.createElement('div');
+        dots.className = 'deck-dots';
+        this.slides.forEach((_, index) => {
+          const dot = document.createElement('button');
+          dot.className = 'deck-dot';
+          dot.title = 'Slide ' + (index + 1);
+          dot.onclick = () => this.goTo(index);
+          dots.appendChild(dot);
+        });
+        document.body.appendChild(dots);
+        this.dots = Array.from(dots.children);
+
+        this.counter = document.createElement('div');
+        this.counter.className = 'deck-counter';
+        document.body.appendChild(this.counter);
+
+        this.hints = document.createElement('div');
+        this.hints.className = 'deck-hints';
+        this.hints.textContent = 'Use arrows, scroll, dots, or section tabs';
+        document.body.appendChild(this.hints);
+        this.hintTimer = setTimeout(() => this.hints.classList.add('faded'), 4500);
+      }
+      bindEvents() {
+        document.addEventListener('keydown', (event) => {
+          if (event.target.closest('button, a, input, textarea, [contenteditable]')) return;
+          if (['ArrowDown', 'ArrowRight', ' ', 'PageDown'].includes(event.key)) {
+            event.preventDefault();
+            this.next();
+          } else if (['ArrowUp', 'ArrowLeft', 'PageUp'].includes(event.key)) {
+            event.preventDefault();
+            this.prev();
+          } else if (event.key === 'Home') {
+            event.preventDefault();
+            this.goTo(0);
+          } else if (event.key === 'End') {
+            event.preventDefault();
+            this.goTo(this.total - 1);
+          }
+          this.fadeHints();
+        });
+      }
+      observe() {
+        const observer = new IntersectionObserver((entries) => {
+          entries.forEach((entry) => {
+            if (entry.isIntersecting) {
+              entry.target.classList.add('visible');
+              this.current = this.slides.indexOf(entry.target);
+              this.update();
+            }
+          });
+        }, { threshold: 0.52 });
+        this.slides.forEach((slide) => observer.observe(slide));
+      }
+      goTo(index) {
+        const target = this.slides[Math.max(0, Math.min(index, this.total - 1))];
+        target.scrollIntoView({ behavior: 'smooth' });
+      }
+      goToSection(section) {
+        const index = this.slides.findIndex((slide) => slide.dataset.section === section);
+        if (index >= 0) this.goTo(index);
+      }
+      next() { if (this.current < this.total - 1) this.goTo(this.current + 1); }
+      prev() { if (this.current > 0) this.goTo(this.current - 1); }
+      update() {
+        this.bar.style.width = ((this.current + 1) / this.total * 100) + '%';
+        this.dots.forEach((dot, index) => dot.classList.toggle('active', index === this.current));
+        this.counter.textContent = (this.current + 1) + ' / ' + this.total;
+        const section = this.slides[this.current]?.dataset.section;
+        Object.entries(this.tabButtons).forEach(([key, button]) => {
+          button.classList.toggle('active', key === section);
+        });
+      }
+      fadeHints() {
+        clearTimeout(this.hintTimer);
+        this.hints.classList.add('faded');
+      }
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      new SlideEngine();
+    });
+  </script>
+</body>
+</html>

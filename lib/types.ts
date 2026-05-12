@@ -39,6 +39,7 @@ export interface TranslationResult {
 export interface TranslationHistoryListItem {
   id: string;
   status: 'queued' | 'running' | 'succeeded' | 'failed' | 'canceled' | string;
+  triggerRunId?: string | null;
   filename?: string | null;
   createdAt: string;
   updatedAt?: string | null;
@@ -85,6 +86,7 @@ export interface TranslationProviderRunSummary {
 export interface TranslationHistoryDetail {
   id: string;
   status: string;
+  triggerRunId?: string | null;
   filename?: string | null;
   sourceAudioBytes?: number | null;
   traceId?: string | null;

@@ -576,6 +576,8 @@ export async function runTranslationProviderPipeline({
 }
 
 export async function processStoredTranslationJob({ jobId, traceId, logTrace = noop }) {
+  logTrace(traceId, 'Attempting to claim stored translation job', { jobId });
+
   const claim = await claimTranslationJobForProcessing({ jobId });
   const job = claim.job;
 
@@ -584,6 +586,11 @@ export async function processStoredTranslationJob({ jobId, traceId, logTrace = n
   }
 
   if (!claim.claimed) {
+    logTrace(traceId, 'Stored translation job was not claimed', {
+      jobId,
+      status: job.status,
+    });
+
     if (
       job.status === TRANSLATION_JOB_STATUS.RUNNING ||
       job.status === TRANSLATION_JOB_STATUS.SUCCEEDED
@@ -599,6 +606,15 @@ export async function processStoredTranslationJob({ jobId, traceId, logTrace = n
   }
 
   try {
+    logTrace(traceId, 'Stored translation job claimed', {
+      jobId: job.id,
+      clerkUserId: job.clerk_user_id,
+      audioBucket: job.audio_bucket,
+      audioObjectKey: job.audio_object_key,
+      audioBytes: job.audio_size_bytes,
+      filename: job.source_filename,
+    });
+
     if (!job.audio_bucket || !job.audio_object_key) {
       throw httpError(422, 'Translation job is missing audio storage metadata.');
     }
@@ -607,6 +623,12 @@ export async function processStoredTranslationJob({ jobId, traceId, logTrace = n
       bucket: job.audio_bucket,
       objectKey: job.audio_object_key,
     });
+
+    logTrace(traceId, 'Stored translation audio downloaded', {
+      jobId: job.id,
+      audioBytes: audioBuffer.length,
+    });
+
     const pipelineResult = await runTranslationProviderPipeline({
       traceId,
       jobId: job.id,

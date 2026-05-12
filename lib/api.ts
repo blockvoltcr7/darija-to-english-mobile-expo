@@ -10,6 +10,7 @@ interface TranslateAudioParams {
   filename: string;
   audioBase64: string;
   accessToken: string;
+  refreshAccessToken?: () => Promise<string | null>;
   traceId?: string;
   onTrace?: (message: string) => void;
   onJobStatus?: (status: string) => void;
@@ -19,6 +20,8 @@ interface TranslateAudioParams {
 interface ApiErrorBody {
   error?: string;
   detail?: string;
+  reason?: string;
+  traceId?: string;
 }
 
 interface HistoryListParams {
@@ -30,6 +33,7 @@ interface HistoryListParams {
 
 interface HistoryDetailParams {
   accessToken: string;
+  traceId?: string;
   id: string;
   onTrace?: (message: string) => void;
   signal?: AbortSignal;
@@ -38,10 +42,32 @@ interface HistoryDetailParams {
 const POLL_INTERVAL_MS = 2500;
 const POLL_TIMEOUT_MS = 180000;
 
+function formatElapsedMs(startedAt?: string | null) {
+  if (!startedAt) {
+    return 'n/a';
+  }
+
+  const timestamp = Date.parse(startedAt);
+
+  if (Number.isNaN(timestamp)) {
+    return 'n/a';
+  }
+
+  return `${Date.now() - timestamp}ms`;
+}
+
 async function readError(res: Response) {
   try {
     const body = (await res.json()) as ApiErrorBody;
-    return body.error || body.detail || `${res.status} ${res.statusText}`;
+    const message = body.error || body.detail || `${res.status} ${res.statusText}`;
+    const context = [
+      body.reason ? `reason=${body.reason}` : null,
+      body.traceId ? `trace=${body.traceId}` : null,
+    ]
+      .filter(Boolean)
+      .join(' ');
+
+    return context ? `${message} (${context})` : message;
   } catch {
     return `${res.status} ${res.statusText}`;
   }
@@ -51,6 +77,7 @@ export async function translateAudioFile({
   filename,
   audioBase64,
   accessToken,
+  refreshAccessToken,
   traceId,
   onTrace,
   onJobStatus,
@@ -100,7 +127,10 @@ export async function translateAudioFile({
 
   return pollTranslationResult({
     accessToken,
+    refreshAccessToken,
     id: queued.jobId,
+    triggerRunId: queued.triggerRunId || null,
+    traceId,
     onTrace,
     onJobStatus,
     signal,
@@ -191,26 +221,48 @@ function toTranslationResult(detail: TranslationHistoryDetail): TranslationResul
 
 async function pollTranslationResult({
   accessToken,
+  refreshAccessToken,
   id,
+  triggerRunId,
+  traceId,
   onTrace,
   onJobStatus,
   signal,
   startedAt,
 }: HistoryDetailParams & {
+  refreshAccessToken?: () => Promise<string | null>;
   onJobStatus?: (status: string) => void;
   startedAt: number;
+  triggerRunId?: string | null;
 }): Promise<TranslationResult> {
   onJobStatus?.('polling');
+  let currentAccessToken = accessToken;
 
   while (Date.now() - startedAt < POLL_TIMEOUT_MS) {
+    if (refreshAccessToken) {
+      const refreshedToken = await refreshAccessToken();
+
+      if (!refreshedToken) {
+        throw new Error('Clerk session token was unavailable while polling.');
+      }
+
+      currentAccessToken = refreshedToken;
+      onTrace?.('Refreshed Clerk session token for polling');
+    }
+
     const detail = await getTranslation({
-      accessToken,
+      accessToken: currentAccessToken,
+      traceId,
       id,
       onTrace,
       signal,
     });
 
-    onTrace?.(`Job ${id} status=${detail.status}`);
+    onTrace?.(
+      `Job ${id} status=${detail.status} triggerRun=${
+        detail.triggerRunId || triggerRunId || 'n/a'
+      } queuedAge=${formatElapsedMs(detail.createdAt)} updated=${detail.updatedAt || 'n/a'}`,
+    );
     onJobStatus?.(detail.status);
 
     if (detail.status === 'succeeded') {
@@ -281,6 +333,7 @@ export async function listTranslations({
 
 export async function getTranslation({
   accessToken,
+  traceId,
   id,
   onTrace,
   signal,
@@ -293,6 +346,7 @@ export async function getTranslation({
   const res = await fetch(endpoint, {
     headers: {
       Authorization: `Bearer ${accessToken}`,
+      ...(traceId ? { 'X-Trace-Id': traceId } : {}),
     },
     signal,
   });
@@ -300,7 +354,11 @@ export async function getTranslation({
   onTrace?.(`History detail response ${res.status} after ${Date.now() - startedAt}ms`);
 
   if (!res.ok) {
-    throw new Error(await readError(res));
+    const errorMessage = await readError(res);
+    onTrace?.(`History detail error ${res.status}: ${errorMessage}`);
+    throw new Error(
+      `History detail request failed for ${id}: ${res.status} ${errorMessage}`,
+    );
   }
 
   return (await res.json()) as TranslationHistoryDetail;

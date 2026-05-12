@@ -68,6 +68,20 @@ function logTrace(traceId, message, details = undefined) {
   console.log(`[${nowIso()}] [${traceId}] ${message}${suffix}`);
 }
 
+function requestLogContext(req) {
+  const authorization = req.get('Authorization') || '';
+  const [scheme] = authorization.split(/\s+/, 1);
+
+  return {
+    method: req.method,
+    path: req.originalUrl || req.url,
+    ip: req.ip,
+    userAgent: req.get('User-Agent') || null,
+    hasAuthorization: Boolean(authorization),
+    authorizationScheme: scheme || null,
+  };
+}
+
 function transcriptLengths(payload) {
   return {
     openaiArabicText: payload.openaiArabicText?.length || 0,
@@ -148,6 +162,7 @@ function toTranslationListItem(row) {
   return {
     id: row.id,
     status: row.status,
+    triggerRunId: row.trigger_run_id,
     filename: row.source_filename,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
@@ -186,6 +201,7 @@ function toTranslationDetail(row) {
   return {
     id: row.id,
     status: row.status,
+    triggerRunId: row.trigger_run_id,
     filename: row.source_filename,
     sourceAudioBytes: row.source_audio_bytes,
     traceId: row.trace_id,
@@ -243,6 +259,8 @@ function requireTriggerRuntime() {
 }
 
 function requireClerkSession(req, res, next) {
+  const traceId = traceFromRequest(req);
+
   if (!CLERK_CONFIGURED) {
     return next(
       httpError(
@@ -255,7 +273,18 @@ function requireClerkSession(req, res, next) {
   const auth = getAuth(req);
 
   if (!auth.userId) {
-    return res.status(401).json({ error: 'Unauthorized' });
+    logTrace(traceId, 'Clerk auth rejected request', {
+      ...requestLogContext(req),
+      hasUserId: Boolean(auth.userId),
+      hasSessionId: Boolean(auth.sessionId),
+      reason: 'missing_user_id',
+    });
+
+    return res.status(401).json({
+      error: 'Unauthorized',
+      traceId,
+      reason: 'clerk_session_missing',
+    });
   }
 
   req.clerkAuth = {
@@ -565,6 +594,15 @@ async function handleGetTranslation(req, res, next) {
       userId: req.clerkAuth.userId,
       translationId: translation.id,
       status: translation.status,
+      triggerRunId: translation.trigger_run_id,
+      createdAt: translation.created_at,
+      updatedAt: translation.updated_at,
+      startedAt: translation.started_at,
+      completedAt: translation.completed_at,
+      errorCode: translation.error_code,
+      providerRunCount: Array.isArray(translation.provider_runs)
+        ? translation.provider_runs.length
+        : 0,
     });
 
     res.json(toTranslationDetail(translation));
