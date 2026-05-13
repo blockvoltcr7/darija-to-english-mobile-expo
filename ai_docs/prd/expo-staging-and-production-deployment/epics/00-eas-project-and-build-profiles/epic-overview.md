@@ -38,7 +38,7 @@ Create the EAS control plane for Darija to English so the app has explicit devel
 | #  | Slug | Type | Status | Updated |
 |----|------|------|--------|---------|
 | 01 | initialize-eas-project | Infrastructure | done | 2026-05-13T22:38:19Z |
-| 02 | create-eas-build-profiles | Infrastructure | open | 2026-05-12T16:44:37Z |
+| 02 | create-eas-build-profiles | Infrastructure | done | 2026-05-13T22:39:37Z |
 | 03 | document-native-identity-assumptions | Code | open | 2026-05-12T16:44:37Z |
 | 04 | verify-eas-config | Code | open | 2026-05-12T16:44:37Z |
 <!-- STATUS-TABLE-END -->

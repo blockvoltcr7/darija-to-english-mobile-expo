@@ -2,7 +2,7 @@
 
 ## Decision Status
 
-Pending execution of Task 02.
+Decided during Task 02 execution.
 
 ## Options
 
@@ -14,3 +14,13 @@ Pending execution of Task 02.
 ## Current Recommendation
 
 Use a dedicated `staging` EAS environment if the team plans to keep owner-device preview and TestFlight/Play staging as separate QA lanes. If execution chooses this, document the PRD deviation in `notes/profile-deviations.md`.
+
+## Executed Decision
+
+Use a dedicated `staging` EAS environment for the `staging` build profile.
+
+Rationale:
+
+- `preview` remains the owner-device internal distribution lane.
+- `staging` becomes the store-beta/TestFlight/Play testing lane.
+- Epic 02 can configure public environment variables separately for preview and staging instead of sharing one environment.
