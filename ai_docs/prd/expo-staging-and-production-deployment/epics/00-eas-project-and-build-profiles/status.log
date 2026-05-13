@@ -2,3 +2,5 @@
 2026-05-12T16:44:37Z create-eas-build-profiles nil->open
 2026-05-12T16:44:37Z document-native-identity-assumptions nil->open
 2026-05-12T16:44:37Z verify-eas-config nil->open
+2026-05-13T22:37:00Z initialize-eas-project open->in_progress
+2026-05-13T22:38:19Z initialize-eas-project in_progress->done
