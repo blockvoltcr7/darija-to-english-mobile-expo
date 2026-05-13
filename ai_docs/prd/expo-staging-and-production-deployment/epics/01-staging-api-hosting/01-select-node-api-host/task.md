@@ -8,6 +8,15 @@ Infrastructure
 
 Expo native app builds will not host the standalone Express API. The current API must run on an HTTPS Node host that can preserve the existing server contract and secret boundary.
 
+The staging Google Cloud project has been created and selected in the local `gcloud` CLI:
+
+- Project ID: `darija-to-english-expo`
+- Default Cloud Run region: `us-central1`
+- Active local account observed during setup: `samisabir212@gmail.com`
+- Billing: enabled
+- Required APIs verified enabled: Cloud Resource Manager, Service Usage, Cloud Run, Cloud Build, Artifact Registry, and Secret Manager
+- Application Default Credentials: token available after quota-project setup
+
 ## Implementation
 
 - Compare candidate hosts against the PRD requirements:
@@ -38,6 +47,9 @@ Expo native app builds will not host the standalone Express API. The current API
 - Do not refactor to Expo Router API routes in this task.
 - Vercel serverless/functions should only be selected if body-size/runtime constraints are verified.
 - Render, Fly.io, Railway, and Google Cloud Run are plausible options.
+- If Google Cloud Run is selected, use the global `gcp-cloud-run` skill as the deployment reference for Cloud Run service shape, container deployment commands, logs, IAM, and rollback notes.
+- Use the dedicated Google Cloud project `darija-to-english-expo` for this app's staging API unless the user explicitly changes the project decision.
+- Before Cloud Run deployment, re-check billing/API/region state only if the local `gcloud` configuration changes or a deployment command reports a permission/quota issue.
 
 ## Artifact Slots
 
@@ -45,4 +57,3 @@ Expo native app builds will not host the standalone Express API. The current API
 - `references/`: host docs excerpts and PRD requirements.
 - `resources/`: evaluation checklist.
 - `notes/`: account access blockers and tradeoffs.
-
