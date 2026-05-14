@@ -12,6 +12,7 @@ The app must be installed on a physical iPhone before public release. EAS previe
 
 - Confirm `eas.json` preview profile exists.
 - Confirm EAS preview env points at the staging HTTPS API.
+- Confirm the staging profile currently reads EAS `preview` env values; do not expect a custom EAS `staging` env on this Expo plan.
 - Confirm iOS identifier in `app.json` is final for preview.
 - Run:
   - `npx eas-cli@latest build -p ios --profile preview`
@@ -34,6 +35,7 @@ The app must be installed on a physical iPhone before public release. EAS previe
 
 - This may require Apple Developer access and device registration.
 - Do not switch to production profile for owner-device QA.
+- Verify the active API target in the app diagnostics instead of relying only on EAS environment names.
 
 ## Artifact Slots
 
@@ -41,4 +43,3 @@ The app must be installed on a physical iPhone before public release. EAS previe
 - `references/`: preview profile excerpt.
 - `resources/`: build command.
 - `notes/`: Apple credential or UDID setup notes.
-

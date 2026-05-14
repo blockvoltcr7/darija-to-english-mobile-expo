@@ -2,7 +2,7 @@
 
 ## Decision Status
 
-Decided during Task 02 execution.
+Superseded during Epic 02 execution after EAS rejected custom environments on the current Expo plan.
 
 ## Options
 
@@ -13,14 +13,15 @@ Decided during Task 02 execution.
 
 ## Current Recommendation
 
-Use a dedicated `staging` EAS environment if the team plans to keep owner-device preview and TestFlight/Play staging as separate QA lanes. If execution chooses this, document the PRD deviation in `notes/profile-deviations.md`.
+Use `environment: "preview"` for the `staging` build profile until the Expo account supports custom environments. Keep `channel: "staging"` so store-beta builds remain distinguishable from owner-device preview builds.
 
 ## Executed Decision
 
-Use a dedicated `staging` EAS environment for the `staging` build profile.
+Use the default `preview` EAS environment for the `staging` build profile.
 
 Rationale:
 
-- `preview` remains the owner-device internal distribution lane.
-- `staging` becomes the store-beta/TestFlight/Play testing lane.
-- Epic 02 can configure public environment variables separately for preview and staging instead of sharing one environment.
+- The current Expo account supports default EAS environments: `development`, `preview`, and `production`.
+- Attempting to create a custom `staging` EAS environment returned a paid-plan gate.
+- `preview` and `staging` build profiles both compile with the staging Cloud Run API URL for now.
+- `staging` remains the store-beta/TestFlight/Play testing lane through its build profile and channel.

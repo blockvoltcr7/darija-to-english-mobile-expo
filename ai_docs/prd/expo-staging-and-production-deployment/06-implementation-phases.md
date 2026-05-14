@@ -62,6 +62,8 @@ Tasks:
 
 - Set `EXPO_PUBLIC_API_BASE_URL` for preview/staging/production.
 - Set Clerk publishable keys for the right environment.
+- Use the default EAS `development` environment for cloud-built development clients.
+- Use the default EAS `preview` environment for both preview builds and the staging build profile until the Expo account supports custom `staging` environments.
 - Verify no secrets are configured as Expo public variables.
 - Update `.env.example` with non-secret examples.
 - Optionally add a config assertion/test that non-local EAS builds cannot silently use localhost.
@@ -73,6 +75,7 @@ Deliverable:
 Dependencies:
 
 - Phase 2 staging API URL.
+- Current Expo account plan supports only default EAS environments: `development`, `preview`, and `production`.
 
 Parallelization:
 

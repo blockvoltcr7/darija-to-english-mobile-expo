@@ -12,6 +12,7 @@ Android release readiness should be tracked separately so iOS staging can procee
 
 - Confirm Android package identifier in `app.json`.
 - Confirm preview env values apply to Android builds.
+- Confirm staging-profile builds also use EAS `preview` env values until custom EAS environments are available.
 - Run:
   - `npx eas-cli@latest build -p android --profile preview`
 - Capture build ID or record why Android is deferred.
@@ -31,6 +32,7 @@ Android release readiness should be tracked separately so iOS staging can procee
 ## Technical Notes
 
 - Android emulator local API default is `http://10.0.2.2:8787`; preview builds should use HTTPS staging API.
+- The EAS environment name may be `preview` while the API target is still the staging Cloud Run API.
 - If Play Store setup is missing, internal APK/AAB preview evidence may still be useful.
 
 ## Artifact Slots
@@ -39,4 +41,3 @@ Android release readiness should be tracked separately so iOS staging can procee
 - `references/`: Android profile/package excerpts.
 - `resources/`: Android build command.
 - `notes/`: Android release-scope decisions.
-

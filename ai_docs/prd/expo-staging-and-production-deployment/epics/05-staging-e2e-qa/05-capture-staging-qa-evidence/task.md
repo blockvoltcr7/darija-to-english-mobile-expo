@@ -13,6 +13,7 @@ The staging proof must be reusable for release decisions. Evidence should connec
 - Create a QA evidence note under `ai_docs/deployment/` or this task's `artifacts/`.
 - Include:
   - build profile and EAS build ID.
+  - EAS environment used by the build profile.
   - staging API URL.
   - sanitized Clerk test user reference.
   - translation job ID.
@@ -37,6 +38,7 @@ The staging proof must be reusable for release decisions. Evidence should connec
 
 - Do not include full secret values, session tokens, or private email verification codes.
 - Keep enough identifiers to debug the exact run later.
+- It is acceptable for a staging QA build to report EAS environment `preview` as long as diagnostics prove it targets the staging API.
 
 ## Artifact Slots
 
@@ -44,4 +46,3 @@ The staging proof must be reusable for release decisions. Evidence should connec
 - `references/`: screenshots, logs, and run IDs.
 - `resources/`: QA evidence template.
 - `notes/`: residual risks and release recommendation.
-

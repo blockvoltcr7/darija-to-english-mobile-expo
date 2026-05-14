@@ -18,6 +18,7 @@ Before E2E QA, the installed preview app must prove it is using the staging API 
 - Confirm API URL is HTTPS and non-local.
 - Confirm sign-in/sign-up entry is reachable.
 - If the app shows `localhost`, stop and fix EAS env config before E2E QA.
+- Treat the app diagnostic API URL as source of truth; current staging-profile builds may read from EAS `preview` env.
 
 ## Acceptance Criteria
 
@@ -34,6 +35,7 @@ Before E2E QA, the installed preview app must prove it is using the staging API 
 
 - Do not include tokens or session IDs in screenshots.
 - The diagnostic evidence should be safe to share internally.
+- Do not fail verification merely because the EAS environment name is `preview`; fail only if the app targets a local or wrong API URL.
 
 ## Artifact Slots
 
@@ -41,4 +43,3 @@ Before E2E QA, the installed preview app must prove it is using the staging API 
 - `references/`: expected config matrix.
 - `resources/`: verification checklist.
 - `notes/`: config mismatches and fixes.
-

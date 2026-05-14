@@ -4,7 +4,7 @@
 
 - [ ] `eas.json` exists with `development`, `preview`, `staging`, and `production` profiles.
 - [ ] EAS project is initialized and associated with the Expo app.
-- [ ] EAS preview/staging/production public environment variables are configured.
+- [ ] EAS development and preview public environment variables are configured with the staging API URL; production public environment variables are configured only after a production API URL exists.
 - [ ] No server secrets are present in Expo public environment variables.
 - [ ] Staging API host is selected and documented.
 - [ ] Staging API deploys `server/index.mjs` and returns expected `/health`.
