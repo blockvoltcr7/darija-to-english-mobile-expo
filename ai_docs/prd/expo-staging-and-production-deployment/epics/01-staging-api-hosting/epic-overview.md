@@ -40,8 +40,8 @@ Deploy the existing `server/index.mjs` Express API to a reachable HTTPS staging 
 | #  | Slug | Type | Status | Updated |
 |----|------|------|--------|---------|
 | 01 | select-node-api-host | Infrastructure | done | 2026-05-14T03:02:16Z |
-| 02 | add-api-host-deployment-config | Infrastructure | open | 2026-05-13T23:21:55Z |
-| 03 | configure-staging-api-environment | Infrastructure | open | 2026-05-13T23:21:55Z |
+| 02 | add-api-host-deployment-config | Infrastructure | done | 2026-05-14T03:06:10Z |
+| 03 | configure-staging-api-environment | Infrastructure | done | 2026-05-14T03:06:10Z |
 | 04 | verify-staging-api-health | Code | open | 2026-05-13T23:21:55Z |
 | 05 | document-api-operations | Code | open | 2026-05-13T23:21:55Z |
 <!-- STATUS-TABLE-END -->
