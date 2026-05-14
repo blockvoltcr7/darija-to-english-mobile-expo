@@ -6,9 +6,10 @@ Record any intentional deviation from PRD `05-technical-specifications.md`.
 
 - Field: `build.staging.environment`
 - PRD value: `preview`
-- Implemented value: `staging`
-- Reason: keep owner-device preview and store-beta staging as separate QA lanes.
-- Follow-up impact: Epic 02 must configure a dedicated EAS `staging` environment with mobile-safe public values.
+- Earlier implemented value: `staging`
+- Current implemented value: `preview`
+- Reason: Epic 02 found custom EAS environments require a paid Expo Production or Enterprise plan. Use default `preview` for both preview and staging builds until the account supports a separate staging environment.
+- Follow-up impact: If the Expo account upgrades later, move `build.staging.environment` back to `staging` and configure separate mobile-safe public values there.
 
 ## Deviation Template
 

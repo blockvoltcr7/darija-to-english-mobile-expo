@@ -35,27 +35,20 @@ Source of truth: `eas.json`.
 | --- | --- | --- | --- | --- |
 | `development` | `internal` | `development` | `development` | Development client builds. |
 | `preview` | `internal` | `preview` | `preview` | Owner-device preview QA. |
-| `staging` | `store` | `staging` | `staging` | TestFlight / Google Play testing lane. |
+| `staging` | `store` | `preview` | `staging` | TestFlight / Google Play testing lane using the default preview EAS environment. |
 | `production` | store default | `production` | `production` | Public release lane. |
 
-The staging profile intentionally uses a dedicated `staging` EAS environment instead of sharing `preview`. Preview and staging should receive separate mobile-safe public environment values in the EAS environment setup epic.
+The staging profile uses the default `preview` EAS environment. A dedicated custom `staging` EAS environment was attempted in Epic 02, but custom environments require a paid Expo Production or Enterprise plan. Preview and staging therefore share mobile-safe public values until the account plan supports a separate staging environment.
 
 ## EAS Project Association
 
-The local source does not currently include `expo.extra.eas.projectId`. Running `npx eas-cli@latest init --non-interactive` failed because the shell is not logged in to Expo.
+The local source is linked to EAS with `expo.owner` and `expo.extra.eas.projectId`.
 
-Required external action:
+Current EAS project:
 
-```bash
-npx eas-cli@latest login
-npx eas-cli@latest init
-```
-
-For CI or non-interactive setup, use an Expo access token:
-
-```bash
-EXPO_TOKEN=<token> npx eas-cli@latest init --non-interactive
-```
+- Account: `blockvoltcr7`
+- Project: `darija-to-english-mobile`
+- Project ID: `70c597ff-6021-4069-bb43-9c301ac4baa2`
 
 Do not commit Expo access tokens or local credentials.
 
