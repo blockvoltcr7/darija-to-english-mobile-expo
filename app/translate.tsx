@@ -119,6 +119,26 @@ function createTraceId(prefix: string) {
   return `${prefix}-${Date.now().toString(36)}`;
 }
 
+function getApiTargetDetails(apiBaseUrl: string) {
+  try {
+    const parsed = new URL(apiBaseUrl);
+    const localHosts = new Set(['localhost', '127.0.0.1', '10.0.2.2']);
+    const isLocal = localHosts.has(parsed.hostname);
+
+    return {
+      label: isLocal ? 'Local API' : 'Staging API',
+      warning: isLocal
+        ? 'Local API target. Physical preview and staging builds need an HTTPS API URL.'
+        : null,
+    };
+  } catch {
+    return {
+      label: 'API target',
+      warning: 'API URL is not parseable. Confirm EXPO_PUBLIC_API_BASE_URL.',
+    };
+  }
+}
+
 function isAbortError(error: unknown) {
   return (
     typeof error === 'object' &&
@@ -168,6 +188,7 @@ export default function HomeScreen() {
     () => formatDuration(recorderState.durationMillis),
     [recorderState.durationMillis],
   );
+  const apiTarget = useMemo(() => getApiTargetDetails(CONFIG.API_BASE_URL), []);
   const accountLabel = 'Account';
 
   function appendDiagnostic(message: string, traceId?: string) {
@@ -177,6 +198,14 @@ export default function HomeScreen() {
     console.log(`[DarijaDebug] ${line}`);
     setDiagnostics((current) => [line, ...current].slice(0, MAX_DIAGNOSTIC_LINES));
   }
+
+  useEffect(() => {
+    appendDiagnostic(`${apiTarget.label}: ${CONFIG.API_BASE_URL}`);
+
+    if (apiTarget.warning) {
+      appendDiagnostic(apiTarget.warning);
+    }
+  }, [apiTarget]);
 
   function beginTranslationRequest() {
     activeRequestRef.current?.abort();
@@ -554,7 +583,7 @@ export default function HomeScreen() {
 
           <View style={styles.chipRow}>
             <View style={styles.chip}>
-              <Text style={styles.chipText}>Local API</Text>
+              <Text style={styles.chipText}>{apiTarget.label}</Text>
             </View>
             <View style={styles.chip}>
               <Text selectable style={styles.chipValueText}>
@@ -565,6 +594,15 @@ export default function HomeScreen() {
               <Text style={styles.chipText}>OpenAI + Darija</Text>
             </View>
           </View>
+
+          {apiTarget.warning ? (
+            <View style={styles.apiWarningPanel}>
+              <Ionicons name="alert-circle" size={16} color={palette.amber} />
+              <Text selectable style={styles.apiWarningText}>
+                {apiTarget.warning}
+              </Text>
+            </View>
+          ) : null}
         </View>
 
         <View style={styles.recorderPanel}>
@@ -926,6 +964,22 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '800',
     letterSpacing: 0.4,
+  },
+  apiWarningPanel: {
+    alignItems: 'center',
+    backgroundColor: '#2A2112',
+    borderColor: '#5B4522',
+    borderRadius: 12,
+    borderWidth: 1,
+    flexDirection: 'row',
+    gap: 8,
+    padding: 10,
+  },
+  apiWarningText: {
+    color: '#F1D79B',
+    flex: 1,
+    fontSize: 12,
+    lineHeight: 17,
   },
   recorderPanel: {
     backgroundColor: palette.card,

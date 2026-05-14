@@ -37,7 +37,7 @@ Ensure preview, staging, and production builds receive the correct public mobile
 | #  | Slug | Type | Status | Updated |
 |----|------|------|--------|---------|
 | 01 | configure-eas-public-environments | Infrastructure | done | 2026-05-14T04:22:53Z |
-| 02 | audit-mobile-secret-boundary | Infrastructure | open | 2026-05-14T03:39:33Z |
+| 02 | audit-mobile-secret-boundary | Infrastructure | done | 2026-05-14T04:27:25Z |
 | 03 | update-env-examples-and-agent-notes | Infrastructure | open | 2026-05-14T03:39:33Z |
-| 04 | add-non-local-api-diagnostics | Code | open | 2026-05-14T03:39:33Z |
+| 04 | add-non-local-api-diagnostics | Code | done | 2026-05-14T04:27:25Z |
 <!-- STATUS-TABLE-END -->
