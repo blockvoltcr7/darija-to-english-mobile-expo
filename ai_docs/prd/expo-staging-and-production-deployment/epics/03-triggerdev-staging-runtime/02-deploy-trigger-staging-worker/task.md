@@ -6,37 +6,38 @@ Infrastructure
 
 ## Context
 
-Queued translations previously remained queued when the local worker was not connected. This task deploys the staging worker so jobs are processed outside the developer machine.
+The app can already create queued translation jobs through the hosted API, but staging still depends on a deployed Trigger.dev worker to process those jobs without `trigger.dev dev`. This task satisfies the PRD Trigger Runtime Contract by deploying the existing `translate-audio-job` task to the Trigger staging environment and proving the deployment target is not local-only.
 
 ## Implementation
 
-- Run or document:
-  - `npm run trigger:deploy:staging`
-- Capture sanitized deployment output.
-- Confirm the deployed worker includes `translate-audio-job`.
-- Confirm deployment targets the intended Trigger environment.
-- Do not deploy production unless explicitly requested.
+- Re-read `trigger.config.mjs`, `trigger/translate-audio-job.mjs`, `package.json`, and the env checklist from Task 01 before deploying.
+- Run `npm run trigger:deploy:staging` from the repo root after Trigger auth/env blockers are cleared.
+- Confirm the deployment includes task id `translate-audio-job`, uses `trigger.config.mjs`, and targets the `staging` environment for the project ref in `TRIGGER_PROJECT_REF`.
+- Save only sanitized deployment evidence in this task folder; do not deploy production unless explicitly requested by the user.
 
 ## Acceptance Criteria
 
-- Staging Trigger worker deploys successfully or a precise auth/config blocker is recorded.
-- The deployed worker includes the translation job task.
-- Deployment evidence is saved without secrets.
-- Local `trigger.dev dev` is no longer required for staging queued jobs.
+- [ ] `npm run trigger:deploy:staging` succeeds, or a precise sanitized auth/config blocker is recorded.
+- [ ] Deployment evidence confirms `translate-audio-job` is part of the deployed worker bundle.
+- [ ] Deployment evidence identifies the intended Trigger project/environment without exposing secret values.
+- [ ] Local `trigger.dev dev` is not required for staging jobs after deployment.
+- [ ] Production deploy command/path remains documented but unexecuted.
 
 ## Dependencies
 
-- Depends On: configure-trigger-environments
+- Depends On: `configure-trigger-environments`
+- Blocks: `verify-trigger-claims-real-job`
 
 ## Technical Notes
 
-- Trigger CLI/auth may require user login.
-- If scripts are missing or stale, update `package.json` only as needed and document the change.
+- The deploy script is a wrapper around `trigger.dev deploy --config trigger.config.mjs --env staging`; keep any script change minimal and update the task references if it changes.
+- The Trigger task is intentionally thin: `trigger/translate-audio-job.mjs` logs job/run metadata and delegates provider orchestration to `server/translation-pipeline.mjs`.
+- `trigger/AGENTS.md` requires stable task identifiers and logs that include `jobId`, Trigger `runId`, and attempt number.
+- Deployment output is execution evidence; capture IDs, task names, and environment labels, but redact secret-like values.
 
 ## Artifact Slots
 
-- `artifacts/`: sanitized deployment output.
-- `references/`: Trigger script/config excerpts.
-- `resources/`: deploy commands.
-- `notes/`: Trigger account or environment blockers.
-
+- `artifacts/deployment-evidence-template.md`: template for sanitized deploy output, task list, and blocker details.
+- `references/deploy-source-map.md`: local files and scripts that define the deployment bundle.
+- `resources/deploy-commands.md`: staging/prod deploy and verification command checklist.
+- `notes/deployment-blockers.md`: Trigger account, CLI, or environment blockers discovered during execution.
