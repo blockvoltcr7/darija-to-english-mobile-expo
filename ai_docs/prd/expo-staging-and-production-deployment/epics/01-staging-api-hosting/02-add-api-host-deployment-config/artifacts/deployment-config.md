@@ -16,7 +16,7 @@
 
 ## Runtime Shape
 
-The container installs production Node dependencies, copies only `server/` and `trigger/`, exposes `8080`, and starts the existing API with `npm run api`.
+The container installs production Node dependencies with `npm ci --omit=dev --legacy-peer-deps`, copies only `server/` and `trigger/`, exposes `8080`, and starts the existing API with `npm run api`.
 
 Cloud Run injects `PORT`; `server/env.mjs` reads `PORT` and defaults `HOST` to `0.0.0.0`, so the existing server startup path is compatible with Cloud Run.
 
@@ -29,3 +29,4 @@ The Docker context excludes local secrets, native mobile projects, generated fol
 - `node --check server/index.mjs`: passed.
 - `node --check scripts/create-cloud-run-secrets.mjs`: passed.
 - Local Docker build: blocked because the Docker daemon was not running locally. Cloud Build remains the deployment build path for Phase 3.
+- First Cloud Build attempts failed with npm peer lockfile resolution errors when using plain `npm ci --omit=dev`; the Dockerfile now uses `--legacy-peer-deps` to match the repo's current dependency graph.
