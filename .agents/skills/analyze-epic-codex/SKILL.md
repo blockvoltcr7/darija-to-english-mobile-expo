@@ -74,7 +74,7 @@ Show:
 - parallel windows
 - branch/worktree suggestions
 
-Wait for confirmation before writing comments.
+Do not wait for confirmation before writing plan files. Continue directly to Step 6 in the same turn.
 
 ### 6. Write execution strategy plan files
 
@@ -122,6 +122,8 @@ Frontmatter field semantics:
 
 Point the user to:
 - `run-epic <epic_folder_path>`
+
+Report that plan files were written, including the task count and any notable sequential/parallel decisions.
 
 ## References
 
