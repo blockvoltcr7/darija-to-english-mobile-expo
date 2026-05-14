@@ -85,6 +85,8 @@ Google Play:
 
 EAS builds the mobile binary only. The app still talks to a separately hosted HTTPS Express API through `EXPO_PUBLIC_API_BASE_URL`.
 
+Staging API operations are documented in [api-hosting.md](api-hosting.md).
+
 Provider secrets stay server-side:
 
 - OpenAI API keys
