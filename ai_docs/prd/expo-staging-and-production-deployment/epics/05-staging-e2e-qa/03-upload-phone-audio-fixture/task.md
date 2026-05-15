@@ -27,7 +27,7 @@ The central staging proof is uploading real audio from a physical phone and conf
 ## Dependencies
 
 - Depends On: verify-history-isolation
-- Depends On: 03-triggerdev-staging-runtime/verify-trigger-claims-real-job
+- Depends On: 03-triggerdev-development-runtime/verify-trigger-claims-real-job
 
 ## Technical Notes
 
@@ -40,4 +40,3 @@ The central staging proof is uploading real audio from a physical phone and conf
 - `references/`: upload API contract and fixture notes.
 - `resources/`: audio fixture handling steps.
 - `notes/`: upload/network/provider blockers.
-

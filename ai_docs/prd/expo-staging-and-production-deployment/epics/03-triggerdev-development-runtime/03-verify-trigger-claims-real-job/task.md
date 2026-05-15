@@ -26,7 +26,7 @@ The development-only scope still needs real proof that an API-created job is cla
 
 ## Dependencies
 
-- Depends On: `deploy-trigger-staging-worker`
+- Depends On: `run-trigger-development-worker`
 - Blocks: `document-trigger-operations`
 - Blocks: `05-staging-e2e-qa/upload-phone-audio-fixture`
 
@@ -39,7 +39,7 @@ The development-only scope still needs real proof that an API-created job is cla
 
 ## Artifact Slots
 
-- `artifacts/staging-job-evidence-template.md`: sanitized structure for API response, polling timeline, Trigger run, and final status.
+- `artifacts/development-job-evidence-template.md`: sanitized structure for API response, polling timeline, Trigger run, and final status.
 - `references/api-trigger-contract.md`: local API/worker contract excerpts for job creation and polling.
-- `resources/staging-job-test-commands.md`: curl/client test recipe with token placeholders.
+- `resources/development-job-test-commands.md`: curl/client test recipe with token placeholders.
 - `notes/failure-classification.md`: task-specific failure taxonomy and remediation notes.

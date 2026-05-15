@@ -1,4 +1,4 @@
 2026-05-14T22:39:43Z configure-trigger-environments nil->open
-2026-05-14T22:39:43Z deploy-trigger-staging-worker nil->open
+2026-05-14T22:39:43Z run-trigger-development-worker nil->open
 2026-05-14T22:39:43Z verify-trigger-claims-real-job nil->open
 2026-05-14T22:39:43Z document-trigger-operations nil->open

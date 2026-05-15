@@ -23,8 +23,8 @@ Verify the async translation worker through Trigger.dev's included Development e
 | # | Task | Type | Depends On |
 | --- | --- | --- | --- |
 | 01 | `configure-trigger-environments` | Infrastructure | `01-staging-api-hosting/verify-staging-api-health` |
-| 02 | `deploy-trigger-staging-worker` | Infrastructure | `configure-trigger-environments` |
-| 03 | `verify-trigger-claims-real-job` | Code | `deploy-trigger-staging-worker` |
+| 02 | `run-trigger-development-worker` | Infrastructure | `configure-trigger-environments` |
+| 03 | `verify-trigger-claims-real-job` | Code | `run-trigger-development-worker` |
 | 04 | `document-trigger-operations` | Code | `verify-trigger-claims-real-job` |
 
 ## Verification
@@ -37,7 +37,7 @@ Verify the async translation worker through Trigger.dev's included Development e
 | #  | Slug                           | Type           | Status | Updated              |
 |----|--------------------------------|----------------|--------|----------------------|
 | 01 | configure-trigger-environments | Infrastructure | open   | 2026-05-14T22:39:43Z |
-| 02 | deploy-trigger-staging-worker  | Infrastructure | open   | 2026-05-14T22:39:43Z |
+| 02 | run-trigger-development-worker | Infrastructure | open   | 2026-05-14T22:39:43Z |
 | 03 | verify-trigger-claims-real-job | Code           | open   | 2026-05-14T22:39:43Z |
 | 04 | document-trigger-operations    | Code           | open   | 2026-05-14T22:39:43Z |
 <!-- STATUS-TABLE-END -->

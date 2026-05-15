@@ -140,7 +140,7 @@ The app expects final detail to include:
 
 ## Trigger Runtime Contract
 
-The deployed Trigger worker must:
+The Trigger worker must:
 
 1. Claim a stored translation job.
 2. Download stored audio from Supabase Storage.
@@ -153,9 +153,11 @@ The deployed Trigger worker must:
 Existing scripts:
 
 ```bash
-npm run trigger:deploy:staging
+npm run trigger:dev -- --env-file .env.local --skip-update-check
 npm run trigger:deploy:prod
 ```
+
+The current no-paid-environment scope uses Trigger.dev's included Development environment via `trigger.dev dev`. Trigger.dev Staging/Preview environments require an account upgrade and are deferred.
 
 ## API Host Environment Variables
 

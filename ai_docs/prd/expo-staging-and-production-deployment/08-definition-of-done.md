@@ -9,7 +9,7 @@
 - [ ] Staging API host is selected and documented.
 - [ ] Staging API deploys `server/index.mjs` and returns expected `/health`.
 - [ ] Production API deployment path is documented even if production deploy is deferred.
-- [ ] Trigger.dev staging worker is deployed.
+- [ ] Trigger.dev Development worker is connected and verified.
 - [ ] Trigger.dev production deployment command/path is documented.
 - [ ] Preview iOS build installs on a physical iPhone.
 - [ ] Preview build diagnostics show a non-local HTTPS API URL.
@@ -41,7 +41,7 @@ curl https://<staging-api>/health
 | API refactor | Defer Expo Router API route migration. | Avoids unnecessary runtime migration before beta. |
 | Environment config | Use EAS env vars for `EXPO_PUBLIC_API_BASE_URL`. | Prevents local defaults from leaking into phone builds. |
 | Secrets boundary | Keep OpenAI, Modal, Supabase service role, Clerk secret, and Trigger secrets server-side. | Mobile clients cannot safely hold paid-service or service-role credentials. |
-| Trigger deployment | Treat Trigger.dev as a separate deployable runtime. | Queued jobs require a deployed/connected worker. |
+| Trigger runtime | Use Trigger.dev Development for this no-paid scope; document production deployment separately. | Queued jobs require a connected worker, and paid Staging/Preview environments are deferred. |
 | QA gate | Fresh Clerk user staging E2E is required before production rollout. | Confirms auth isolation, storage, Trigger, provider calls, polling, and UI result rendering. |
 
 ## Handoff Command

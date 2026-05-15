@@ -4,7 +4,7 @@ worktree_mode: main
 conflict_risk: none
 branch: feat/triggerdev-01-configure-trigger-environments
 depends_on: []
-blocks: [deploy-trigger-staging-worker]
+blocks: [run-trigger-development-worker]
 ---
 
 # Execution Strategy - configure-trigger-environments

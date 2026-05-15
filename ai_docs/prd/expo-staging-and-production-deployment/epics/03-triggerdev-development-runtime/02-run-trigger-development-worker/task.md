@@ -37,7 +37,7 @@ The app can already create queued translation jobs, but this account does not in
 
 ## Artifact Slots
 
-- `artifacts/deployment-evidence-template.md`: template for sanitized local-worker output, task list, and blocker details.
-- `references/deploy-source-map.md`: local files and scripts that define the worker bundle.
-- `resources/deploy-commands.md`: development worker and future production command checklist.
-- `notes/deployment-blockers.md`: Trigger account, CLI, or environment blockers discovered during execution.
+- `artifacts/development-worker-evidence-template.md`: template for sanitized local-worker output, task list, and blocker details.
+- `references/development-worker-source-map.md`: local files and scripts that define the worker bundle.
+- `resources/development-worker-commands.md`: development worker and future production command checklist.
+- `notes/development-worker-blockers.md`: Trigger account, CLI, or environment blockers discovered during execution.

@@ -2,7 +2,7 @@
 
 ## Objective
 
-Prove the production-like phone workflow works end to end with a fresh Clerk user, staged API, deployed Trigger worker, Supabase persistence/storage, Modal Darija ASR, OpenAI, and visible app results.
+Prove the production-like phone workflow works end to end with a fresh Clerk user, staged API, connected Trigger.dev Development worker, Supabase persistence/storage, Modal Darija ASR, OpenAI, and visible app results.
 
 ## Scope
 
@@ -25,7 +25,7 @@ Prove the production-like phone workflow works end to end with a fresh Clerk use
 | --- | --- | --- | --- |
 | 01 | `run-fresh-clerk-user-auth-qa` | Code | `04-preview-device-build/verify-preview-app-diagnostics` |
 | 02 | `verify-history-isolation` | Code | `run-fresh-clerk-user-auth-qa` |
-| 03 | `upload-phone-audio-fixture` | Code | `verify-history-isolation`, `03-triggerdev-staging-runtime/verify-trigger-claims-real-job` |
+| 03 | `upload-phone-audio-fixture` | Code | `verify-history-isolation`, `03-triggerdev-development-runtime/verify-trigger-claims-real-job` |
 | 04 | `verify-translation-result-sections` | Code | `upload-phone-audio-fixture` |
 | 05 | `capture-staging-qa-evidence` | Code | `verify-translation-result-sections` |
 
@@ -36,4 +36,3 @@ Prove the production-like phone workflow works end to end with a fresh Clerk use
 - Uploaded audio creates a queued job and then succeeds.
 - App displays English translation, consolidated Darija, raw STT outputs, and model metadata.
 - QA evidence includes build profile, API URL, job ID, Trigger run ID, and final status.
-

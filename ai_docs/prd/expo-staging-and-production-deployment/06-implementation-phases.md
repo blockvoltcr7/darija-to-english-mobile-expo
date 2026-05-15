@@ -81,21 +81,21 @@ Parallelization:
 
 - Can begin with placeholder API URL, but final verification requires Phase 2.
 
-## Phase 4 — Deploy Trigger.dev Worker
+## Phase 4 — Run Trigger.dev Development Worker
 
-Goal: ensure queued staging jobs are consumed outside local `trigger.dev dev`.
+Goal: ensure queued jobs are consumed by the included Trigger.dev Development environment without paying for additional staging/preview environments.
 
 Tasks:
 
-- Configure Trigger.dev staging/prod environment secrets.
-- Run `npm run trigger:deploy:staging`.
-- Trigger one staging job through API.
+- Configure Trigger.dev Development environment secrets.
+- Run `npm run trigger:dev -- --env-file .env.local --skip-update-check`.
+- Trigger one development-runtime job through API.
 - Verify Trigger run reaches success.
 - Document Trigger dashboard evidence and failure modes.
 
 Deliverable:
 
-- Staging Trigger run succeeds for a real uploaded audio fixture.
+- Development-environment Trigger run succeeds for a real uploaded audio fixture.
 
 Dependencies:
 

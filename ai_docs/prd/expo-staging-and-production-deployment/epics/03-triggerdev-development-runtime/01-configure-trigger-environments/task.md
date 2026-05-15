@@ -28,7 +28,7 @@ The Trigger.dev account currently includes Development and Production, while add
 ## Dependencies
 
 - Depends On: `01-staging-api-hosting/verify-staging-api-health`
-- Blocks: `deploy-trigger-staging-worker`
+- Blocks: `run-trigger-development-worker`
 
 ## Technical Notes
 

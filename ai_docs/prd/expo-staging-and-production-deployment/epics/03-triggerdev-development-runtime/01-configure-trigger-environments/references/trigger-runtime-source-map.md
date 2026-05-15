@@ -9,7 +9,7 @@
 ## Local Config Anchors
 
 - `trigger.config.mjs`: reads `TRIGGER_PROJECT_REF` and defines `dirs: ['./trigger']`, retry defaults, and `maxDuration: 900`.
-- `package.json`: defines `trigger:dev`, `trigger:deploy:staging`, and `trigger:deploy:prod`; this scope uses `trigger:dev`.
+- `package.json`: defines `trigger:dev` and `trigger:deploy:prod`; this scope uses `trigger:dev`.
 - `.env.example`: documents `TRIGGER_PROJECT_REF`, `TRIGGER_SECRET_KEY`, and `TRIGGER_ENVIRONMENT` without real values.
 - `server/env.mjs`: exposes `TRIGGER_CONFIGURED` from `TRIGGER_SECRET_KEY` and defaults `TRIGGER_ENVIRONMENT` to `dev`.
 - `ai_docs/deployment/api-hosting.md`: Cloud Run staging API exists for reachability; verify its Trigger secret/environment matches the Development worker before using it in this scope.
