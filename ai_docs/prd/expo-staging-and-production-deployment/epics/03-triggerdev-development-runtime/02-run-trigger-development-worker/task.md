@@ -30,7 +30,7 @@ The app can already create queued translation jobs, but this account does not in
 
 ## Technical Notes
 
-- The local worker command should use `trigger.dev dev --config trigger.config.mjs`; keep any script change minimal and update task references if it changes.
+- The local worker command should use `trigger dev --config trigger.config.mjs`; keep any script change minimal and update task references if it changes.
 - The Trigger task is intentionally thin: `trigger/translate-audio-job.mjs` logs job/run metadata and delegates provider orchestration to `server/translation-pipeline.mjs`.
 - `trigger/AGENTS.md` requires stable task identifiers and logs that include `jobId`, Trigger `runId`, and attempt number.
 - Worker connection output is execution evidence; capture IDs, task names, and environment labels, but redact secret-like values.

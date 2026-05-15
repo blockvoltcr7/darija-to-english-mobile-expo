@@ -33,7 +33,7 @@ The Trigger.dev account currently includes Development and Production, while add
 ## Technical Notes
 
 - `trigger.config.mjs` currently defaults `project` from `TRIGGER_PROJECT_REF` with fallback `proj_tehveeweadzwantwpvpr` and loads task dirs from `./trigger`.
-- `package.json` defines `trigger:dev` as `trigger.dev dev --config trigger.config.mjs`; run it with `--env-file .env.local` when local secrets are needed.
+- `package.json` defines `trigger:dev` as `trigger dev --config trigger.config.mjs`; run it with `--env-file .env.local` when local secrets are needed.
 - `trigger.dev deploy --env` supports paid/release deployment lanes such as `prod` and `staging`; do not use that path for this development-only scope.
 - `server/env.mjs` treats `TRIGGER_SECRET_KEY` as the async dispatch gate and defaults `TRIGGER_ENVIRONMENT` to `dev`.
 - The worker imports server pipeline code from `trigger/translate-audio-job.mjs`, so Trigger runtime env must satisfy both Trigger SDK needs and `server/translation-pipeline.mjs` provider/Supabase needs.

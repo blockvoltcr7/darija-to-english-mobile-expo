@@ -13,7 +13,7 @@
 `package.json` currently defines:
 
 ```bash
-trigger.dev dev --config trigger.config.mjs
+trigger dev --config trigger.config.mjs
 ```
 
 Run it through npm with local env loading:
