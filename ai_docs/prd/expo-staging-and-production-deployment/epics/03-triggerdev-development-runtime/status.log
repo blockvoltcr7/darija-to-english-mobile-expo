@@ -2,3 +2,5 @@
 2026-05-14T22:39:43Z run-trigger-development-worker nil->open
 2026-05-14T22:39:43Z verify-trigger-claims-real-job nil->open
 2026-05-14T22:39:43Z document-trigger-operations nil->open
+2026-05-15T18:36:13Z configure-trigger-environments open->in_progress
+2026-05-15T18:37:01Z configure-trigger-environments in_progress->done

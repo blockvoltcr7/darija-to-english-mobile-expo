@@ -9,10 +9,12 @@
 
 ## Decisions To Confirm During Execution
 
-- Whether the API path used for QA dispatches to the same Trigger.dev Development environment as the local worker.
-- Whether development runtime should share the current Supabase project with the hosted API.
-- Whether production Trigger deployment is only documented or also prepared with empty/unconfigured secrets.
-- Who owns Trigger.dev account login and project access for CLI deployment.
+- API path for this epic: local API at `http://localhost:8787`, loaded from `.env.local`.
+- Trigger worker path for this epic: local `trigger.dev dev` process using `.env.local`.
+- Rationale: the hosted Cloud Run API runbook still documents `TRIGGER_ENVIRONMENT=staging`, so it is not the clean Development-environment match for this no-paid Trigger scope.
+- Supabase resources: local API and local worker share the Supabase project configured in `.env.local`.
+- Production Trigger deployment: documented as a future release path only; do not run it in this epic.
+- Trigger.dev account login/project access: verified in Phase 2 by the local worker command, not by printing account details here.
 
 ## Deferred Paid Scope
 
