@@ -5,14 +5,18 @@
 - Trigger project fallback in `trigger.config.mjs`: `proj_tehveeweadzwantwpvpr`.
 - API staging host: Google Cloud Run service `darija-api-staging`.
 - API staging URL: `https://darija-api-staging-nwjxqrn2ra-uc.a.run.app`.
-- Cloud Run staging API uses `TRIGGER_ENVIRONMENT=staging`.
+- Development scope uses `TRIGGER_ENVIRONMENT=dev`.
 
 ## Decisions To Confirm During Execution
 
-- Whether Trigger.dev `staging` and `prod` environments already exist for the project.
-- Whether staging Trigger should share the current Supabase project with the staging API.
+- Whether the API path used for QA dispatches to the same Trigger.dev Development environment as the local worker.
+- Whether development runtime should share the current Supabase project with the hosted API.
 - Whether production Trigger deployment is only documented or also prepared with empty/unconfigured secrets.
 - Who owns Trigger.dev account login and project access for CLI deployment.
+
+## Deferred Paid Scope
+
+Trigger.dev Staging and Preview environments require an account upgrade. Do not require them for this epic.
 
 ## Blocker Recording Rule
 

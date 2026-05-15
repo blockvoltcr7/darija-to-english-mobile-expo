@@ -1,6 +1,6 @@
 # Failure Classification
 
-Use this taxonomy when the real staging job does not reach `succeeded`.
+Use this taxonomy when the real development-runtime job does not reach `succeeded`.
 
 ## API
 
@@ -11,7 +11,7 @@ Use this taxonomy when the real staging job does not reach `succeeded`.
 ## Trigger
 
 - No deployed worker claims the run.
-- Wrong Trigger project or environment.
+- Wrong Trigger project or environment; the API and local worker are not both using Development.
 - Worker bundle cannot import server pipeline modules.
 
 ## Supabase
@@ -30,7 +30,7 @@ Use this taxonomy when the real staging job does not reach `succeeded`.
 
 ## Auth
 
-- Clerk session token missing, expired, or not accepted by staging API.
+- Clerk session token missing, expired, or not accepted by the API path used for QA.
 
 ## Fixture Or Body Size
 

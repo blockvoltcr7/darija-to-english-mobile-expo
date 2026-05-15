@@ -1,4 +1,4 @@
-# Deploy Commands
+# Development Worker Commands
 
 Run from the repo root.
 
@@ -10,17 +10,17 @@ node --check server/translation-pipeline.mjs
 rg -n "translate-audio-job|TRIGGER_PROJECT_REF|trigger:deploy" trigger.config.mjs trigger package.json server
 ```
 
-## Staging Deploy
+## Development Worker
 
 ```bash
-npm run trigger:deploy:staging
+npm run trigger:dev -- --env-file .env.local --skip-update-check
 ```
 
 Capture sanitized output:
 
 - project/environment label
-- deployed task id
-- deployment id or version if present
+- registered task id
+- worker connection or run id if present
 - URL/dashboard pointer if present
 - no secret values
 

@@ -6,11 +6,11 @@ Code
 
 ## Context
 
-Deployment is not sufficient for release readiness. The PRD Definition of Done requires a real staging audio upload to queue a job, return a Trigger run ID, get claimed by the deployed worker, and reach a terminal status that the mobile app can poll. This task proves the production-like path from Clerk-authenticated API request through Supabase Storage, Trigger.dev, OpenAI, Modal Darija ASR, and persisted translation results.
+The development-only scope still needs real proof that an API-created job is claimed by the Trigger.dev Development worker and reaches a terminal status the mobile app can poll. This task proves the current development path from Clerk-authenticated API request through Supabase Storage, local Trigger.dev worker, OpenAI, Modal Darija ASR, and persisted translation results.
 
 ## Implementation
 
-- Use the hosted staging API from `ai_docs/deployment/api-hosting.md` and a non-sensitive `.m4a` fixture.
+- Use the API path selected in Task 01, either local API for simulator QA or the hosted Cloud Run API if it dispatches to the same Trigger.dev Development environment.
 - Create a Clerk-authenticated `POST /v1/translations` request matching `server/AGENTS.md` and `lib/api.ts`; capture `jobId`, `triggerRunId`, and `detailUrl`.
 - Poll `GET /v1/translations/:id` until `succeeded` or `failed`, refreshing Clerk session tokens if using mobile/client tooling.
 - Cross-check Trigger logs for `translate-audio-job`, stored-job claim, audio download, provider completion, consolidation, translation, and final status.
@@ -18,8 +18,8 @@ Deployment is not sufficient for release readiness. The PRD Definition of Done r
 
 ## Acceptance Criteria
 
-- [ ] A real staging API request returns `202`, `jobId`, `triggerRunId`, `status: queued`, and `detailUrl`.
-- [ ] Trigger staging logs show the deployed worker claimed the same job ID and run ID.
+- [ ] A real development-runtime API request returns `202`, `jobId`, `triggerRunId`, `status: queued`, and `detailUrl`.
+- [ ] Trigger Development logs show the local worker claimed the same job ID and run ID.
 - [ ] API polling reaches `succeeded` with English translation, consolidated Darija, raw OpenAI transcript, raw Darija transcript, and model metadata, or records a precise owner for failure.
 - [ ] Sanitized evidence includes API URL, build/runtime context, job ID, Trigger run ID, terminal status, and timestamps.
 - [ ] No Clerk session token, API key, private audio content, or full transcript is committed.

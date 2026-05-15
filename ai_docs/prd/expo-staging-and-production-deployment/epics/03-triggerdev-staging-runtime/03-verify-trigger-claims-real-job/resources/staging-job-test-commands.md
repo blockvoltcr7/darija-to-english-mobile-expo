@@ -1,12 +1,15 @@
-# Staging Job Test Commands
+# Development Runtime Job Test Commands
 
 These commands are templates. Replace placeholders locally and do not commit tokens or audio contents.
 
 ## Health Check
 
 ```bash
-curl -sS https://darija-api-staging-nwjxqrn2ra-uc.a.run.app/health
+API_BASE_URL="http://localhost:8787"
+curl -sS "${API_BASE_URL}/health"
 ```
+
+Use the hosted Cloud Run API URL only if Task 01 confirms it dispatches to the same Trigger.dev Development environment as the local worker.
 
 ## Create Base64 Payload
 
@@ -18,20 +21,22 @@ base64 -i /absolute/path/to/non-sensitive-audio.m4a > /tmp/darija-audio.b64
 
 ```bash
 TOKEN="<clerk-session-token>"
+API_BASE_URL="http://localhost:8787"
 AUDIO_BASE64="$(cat /tmp/darija-audio.b64)"
 
-curl -sS -X POST https://darija-api-staging-nwjxqrn2ra-uc.a.run.app/v1/translations \
+curl -sS -X POST "${API_BASE_URL}/v1/translations" \
   -H "Authorization: Bearer ${TOKEN}" \
   -H "Content-Type: application/json" \
-  --data "$(jq -n --arg filename "staging-fixture.m4a" --arg audio_base64 "$AUDIO_BASE64" '{filename:$filename,audio_base64:$audio_base64}')"
+  --data "$(jq -n --arg filename "development-fixture.m4a" --arg audio_base64 "$AUDIO_BASE64" '{filename:$filename,audio_base64:$audio_base64}')"
 ```
 
 ## Poll Translation
 
 ```bash
 JOB_ID="<job-id>"
+API_BASE_URL="http://localhost:8787"
 
-curl -sS https://darija-api-staging-nwjxqrn2ra-uc.a.run.app/v1/translations/${JOB_ID} \
+curl -sS "${API_BASE_URL}/v1/translations/${JOB_ID}" \
   -H "Authorization: Bearer ${TOKEN}"
 ```
 

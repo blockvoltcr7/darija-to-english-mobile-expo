@@ -5,7 +5,8 @@ Execution-time artifact. Fill after creating or updating `ai_docs/deployment/tri
 ## Coverage
 
 - [ ] Runtime shape explained.
-- [ ] Local dev and staging deploy commands included.
+- [ ] Development worker command included.
+- [ ] Paid Staging/Preview environments marked deferred.
 - [ ] Production deploy path documented as deferred or explicit.
 - [ ] Required env vars listed by name only.
 - [ ] Job/run correlation explained.
@@ -17,7 +18,7 @@ Execution-time artifact. Fill after creating or updating `ai_docs/deployment/tri
 - [ ] Matches `trigger.config.mjs`.
 - [ ] Matches `package.json` scripts.
 - [ ] Matches `server/index.mjs` API dispatch contract.
-- [ ] Matches verified staging run evidence.
+- [ ] Matches verified development-runtime run evidence.
 - [ ] Links to `ai_docs/deployment/api-hosting.md`.
 
 ## Redaction

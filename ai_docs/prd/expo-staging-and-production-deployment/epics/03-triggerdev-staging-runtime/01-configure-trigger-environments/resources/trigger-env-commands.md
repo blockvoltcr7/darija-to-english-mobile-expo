@@ -19,14 +19,21 @@ npx trigger.dev dev --config trigger.config.mjs --env-file .env.local --skip-upd
 
 Local dev is not staging verification. Use it only to compare known-good worker behavior.
 
-## Deployment Commands
+## Development Worker Command
 
 ```bash
-npm run trigger:deploy:staging
+npm run trigger:dev -- --env-file .env.local --skip-update-check
+```
+
+This is the execution path for the current no-paid-environment scope.
+
+## Future Deployment Commands
+
+```bash
 npm run trigger:deploy:prod
 ```
 
-Production is documentation-only for this epic unless the user explicitly asks to deploy it.
+Paid additional environments such as Staging/Preview are deferred unless the account is upgraded. Production is documentation-only for this epic unless the user explicitly asks to deploy it.
 
 ## Secret Checklist
 
@@ -34,7 +41,7 @@ Configure by name only in Trigger.dev:
 
 - `TRIGGER_PROJECT_REF`
 - `TRIGGER_SECRET_KEY`
-- `TRIGGER_ENVIRONMENT`
+- `TRIGGER_ENVIRONMENT` (`dev` for this scope)
 - `SUPABASE_URL`
 - `SUPABASE_SECRET_KEY` or accepted service-role fallback
 - `SUPABASE_AUDIO_ORIGINALS_BUCKET`

@@ -6,7 +6,7 @@ Use this file during execution if deployment cannot complete.
 
 - Trigger CLI not authenticated.
 - User lacks access to project ref from `TRIGGER_PROJECT_REF`.
-- `staging` environment does not exist or is named differently.
+- CLI is pointed at a paid additional environment instead of Development.
 - Required Trigger env vars are missing.
 - Bundle cannot resolve server-side imports from `trigger/translate-audio-job.mjs`.
 

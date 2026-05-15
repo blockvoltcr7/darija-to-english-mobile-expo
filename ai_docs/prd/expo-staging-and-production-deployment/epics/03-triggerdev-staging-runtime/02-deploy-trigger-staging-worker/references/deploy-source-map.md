@@ -8,18 +8,24 @@
 - `package.json`: deploy scripts and Trigger package versions.
 - `trigger/AGENTS.md`: logging and task-identifier rules.
 
-## Deploy Script
+## Development Worker Script
 
 `package.json` currently defines:
 
 ```bash
-trigger.dev deploy --config trigger.config.mjs --env staging
+trigger.dev dev --config trigger.config.mjs
 ```
 
-The production script uses the same config with `--env prod`.
+Run it through npm with local env loading:
+
+```bash
+npm run trigger:dev -- --env-file .env.local --skip-update-check
+```
+
+The production script uses the same config with `deploy --env prod`, but production is out of scope.
 
 ## Verification Anchors
 
-- Deployed task id must remain `translate-audio-job`.
+- Registered task id must remain `translate-audio-job`.
 - The worker must log `jobId`, Trigger `runId`, and attempt number at task start.
 - Production deployment is out of scope unless explicitly requested.

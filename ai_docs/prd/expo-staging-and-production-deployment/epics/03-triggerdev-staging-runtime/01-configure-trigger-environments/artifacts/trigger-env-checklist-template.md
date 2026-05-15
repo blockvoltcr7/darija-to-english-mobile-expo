@@ -5,7 +5,7 @@ Execution-time artifact. Fill this only while configuring Trigger.dev.
 ## Trigger Project
 
 - Project ref:
-- Environment checked:
+- Environment checked: Development
 - CLI/user account:
 - Date/time:
 
@@ -23,9 +23,9 @@ Do not paste values.
 
 ## Compatibility
 
-- [ ] Worker targets same staging Supabase resources as Cloud Run API.
+- [ ] Worker targets the same Supabase resources as the API path used for QA.
 - [ ] Worker can access private storage buckets used by queued jobs.
-- [ ] Environment label matches deploy command target.
+- [ ] Environment label matches Development runtime scope.
 
 ## Blockers
 

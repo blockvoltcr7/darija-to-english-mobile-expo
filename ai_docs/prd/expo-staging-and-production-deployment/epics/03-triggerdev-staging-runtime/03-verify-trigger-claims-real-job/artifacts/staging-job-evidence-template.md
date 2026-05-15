@@ -1,6 +1,6 @@
-# Staging Job Evidence Template
+# Development Runtime Job Evidence Template
 
-Execution-time artifact. Fill after running a real staging job.
+Execution-time artifact. Fill after running a real job through the Development worker.
 
 ## Request
 

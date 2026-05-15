@@ -1,11 +1,11 @@
-# Deployment Evidence Template
+# Development Worker Evidence Template
 
-Execution-time artifact. Fill after attempting staging deploy.
+Execution-time artifact. Fill after attempting to connect the Development worker.
 
 ## Command
 
 ```bash
-npm run trigger:deploy:staging
+npm run trigger:dev -- --env-file .env.local --skip-update-check
 ```
 
 ## Result
@@ -13,7 +13,7 @@ npm run trigger:deploy:staging
 - Status: success | blocked | failed
 - Trigger project:
 - Environment:
-- Deployment id/version:
+- Worker connection id/version:
 - Task id present: `translate-audio-job` yes | no
 - Timestamp:
 
@@ -23,5 +23,5 @@ Paste only non-secret lines or a summary of the output.
 
 ## Follow-Up
 
-- [ ] Proceed to real staging job verification.
+- [ ] Proceed to real development-runtime job verification.
 - [ ] Update blocker notes if deploy did not complete.

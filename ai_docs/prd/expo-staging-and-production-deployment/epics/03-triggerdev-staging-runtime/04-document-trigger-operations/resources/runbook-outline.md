@@ -4,13 +4,13 @@ Suggested sections for `ai_docs/deployment/triggerdev.md`.
 
 ## Runtime Shape
 
-- Local dev worker versus deployed staging worker.
+- Development worker path and why paid Staging/Preview environments are deferred.
 - How API dispatch, Trigger task, Supabase Storage, and provider pipeline connect.
 
 ## Commands
 
 - Local dev: `npx trigger.dev dev --config trigger.config.mjs --env-file .env.local`
-- Staging deploy: `npm run trigger:deploy:staging`
+- Development worker: `npm run trigger:dev -- --env-file .env.local --skip-update-check`
 - Production path: `npm run trigger:deploy:prod`
 
 ## Environment Variables
@@ -21,7 +21,7 @@ Suggested sections for `ai_docs/deployment/triggerdev.md`.
 ## Verification
 
 - Health check staging API.
-- Submit authenticated staging job.
+- Submit authenticated development-runtime job.
 - Poll API status.
 - Inspect Trigger run logs.
 
@@ -40,4 +40,4 @@ Suggested sections for `ai_docs/deployment/triggerdev.md`.
 - Provider call failure.
 - Supabase storage/result write failure.
 - Auth/token failure.
-- Staging API and worker environment drift.
+- API and worker environment drift.
