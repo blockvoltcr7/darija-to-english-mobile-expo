@@ -6,25 +6,26 @@ Infrastructure
 
 ## Context
 
-Android release readiness should be tracked separately so iOS development-device QA can proceed without hiding Android gaps. This task creates an Android preview or development build when Android is in active scope.
+Android should be tracked separately so iOS development-device QA can proceed without hiding Android gaps. This task either creates an Android internal preview build or explicitly defers Android with rationale. It should not block iPhone install and diagnostics unless the user makes Android active for this phase.
 
 ## Implementation
 
-- Confirm Android package identifier in `app.json`.
-- Confirm preview or development env values apply to Android builds.
-- Confirm this task does not depend on a custom paid EAS environment; default EAS environments available on the account are `development`, `preview`, and `production`.
-- Run:
-  - `npx eas-cli@latest build -p android --profile preview`
-- If a development-client Android build is the desired path, document the switch to:
-  - `npx eas-cli@latest build -p android --profile development`
-- Capture build ID or record why Android is deferred.
-- Do not block iOS development QA if the user explicitly scopes Android later.
+- Confirm Android package in `app.json` is `com.samisabiridrissi.darijatoenglish`.
+- Confirm `build.preview` in `eas.json` uses `distribution: "internal"`, `environment: "preview"`, and `channel: "preview"`.
+- Confirm EAS auth with `npx eas-cli@latest whoami`; record login/`EXPO_TOKEN` blocker if missing.
+- Confirm preview env has non-local HTTPS API URL and Clerk publishable key presence without printing key values.
+- If Android is active, run `npx eas-cli@latest build -p android --profile preview`.
+- Confirm the output is installable for internal testing; Android device/emulator install evidence should use an APK, not only an AAB.
+- If Android is deferred, fill the artifact template with the deferral reason and next trigger.
 
 ## Acceptance Criteria
 
-- Android preview build succeeds or is explicitly deferred with rationale.
-- Android build uses preview or development env values.
-- Build evidence or blocker notes are captured.
+- [ ] Android scope is explicitly active or deferred in notes.
+- [ ] Android package, preview profile, EAS environment, and channel are verified.
+- [ ] If active, Android build succeeds with build ID or URL and installable artifact type.
+- [ ] If deferred, rationale and next action are recorded without blocking iOS Task 02 or Task 04.
+- [ ] Evidence records sanitized build metadata, API URL, package, artifact type, and blocker/deferral status.
+- [ ] No credentials, Clerk key values, `.env` values, or public internal install links are committed.
 
 ## Dependencies
 
@@ -33,13 +34,14 @@ Android release readiness should be tracked separately so iOS development-device
 
 ## Technical Notes
 
-- Android emulator local API default is `http://10.0.2.2:8787`; physical-device preview/development builds should use the development HTTPS API.
-- The EAS environment name may be `preview` or `development`; the app diagnostics are the source of truth for the API target.
-- If Play Store setup is missing, internal APK/AAB preview evidence may still be useful.
+- Android emulator local API default is `http://10.0.2.2:8787`; physical-device preview/development builds should use the configured non-local HTTPS API URL.
+- Current `preview` profile is internal distribution and should produce an installable APK for device/emulator checks; AAB-only evidence is not enough for direct install.
+- `npx eas-cli@latest build:run -p android` can be used after a successful APK build when emulator/device install validation is desired.
+- Internal build URLs are sensitive/shareable operational evidence and should not be pasted into public docs.
 
 ## Artifact Slots
 
-- `artifacts/`: EAS Android build output or deferral note.
-- `references/`: Android profile/package excerpts.
-- `resources/`: Android build command.
-- `notes/`: Android release-scope decisions.
+- `references/android-preview-config.md`: package/profile/env evidence and official Expo doc links.
+- `resources/android-preview-build-commands.md`: preflight, build, optional install, and deferral commands.
+- `artifacts/android-preview-build-evidence-template.md`: sanitized Android build or deferral evidence.
+- `notes/android-scope-decision.md`: active/deferred decision and rationale.

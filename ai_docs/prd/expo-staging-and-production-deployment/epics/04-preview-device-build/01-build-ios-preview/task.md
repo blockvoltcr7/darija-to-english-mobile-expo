@@ -6,43 +6,45 @@ Infrastructure
 
 ## Context
 
-The app must be installed on a physical iPhone before public release. EAS preview builds provide the fastest owner-device path once profiles and environment values are ready. EAS development-client builds are also valid for device QA when we need the default `development` environment instead of the default `preview` environment.
+PRD Phase 5 and Definition of Done require an installable iOS build on a physical iPhone before fresh-user E2E QA. The current account has default EAS environments only: `development`, `preview`, and `production`. For this epic, the primary path is an EAS `preview` internal-distribution build that bakes the configured development HTTPS API URL into the app. An EAS `development` client build is allowed only as a documented fallback when the owner-device QA path needs the default EAS `development` environment.
 
 ## Implementation
 
-- Confirm `eas.json` preview profile exists.
-- Confirm EAS preview or development env points at the development HTTPS API.
-- Confirm this epic does not depend on a custom paid EAS environment; default EAS environments available on the account are `development`, `preview`, and `production`.
-- Confirm iOS identifier in `app.json` is final for preview.
-- Run:
-  - `npx eas-cli@latest build -p ios --profile preview`
-- If the preview profile is not the desired path for this account, document the switch to:
-  - `npx eas-cli@latest build -p ios --profile development`
-- If Apple device registration or credentials block the build, capture exact next steps.
-- Save build URL or build ID when available.
+- Read `eas.json`, `app.json`, Epic 00 verification notes, and Epic 02 EAS env evidence before building.
+- Confirm `build.preview` has `distribution: "internal"`, `environment: "preview"`, and `channel: "preview"`.
+- Confirm native identity remains `com.samisabiridrissi.darijatoenglish`, Apple team `57JWLP426D`, owner `blockvoltcr7`, and EAS project ID `70c597ff-6021-4069-bb43-9c301ac4baa2`.
+- Run preflight commands from `resources/ios-preview-build-runbook.md`; do not print secret values.
+- Build with `npx eas-cli@latest build -p ios --profile preview`.
+- If switching to `--profile development`, record the reason in notes and keep Task 04's API diagnostics as the pass/fail gate.
+- Save sanitized build metadata in the artifact template.
 
 ## Acceptance Criteria
 
-- iOS preview build succeeds, or credential/device registration blocker is documented.
-- Build uses the preview profile.
-- Build evidence includes EAS build ID or URL.
-- No backend or provider secrets are embedded in the build.
+- [ ] EAS auth preflight succeeds, or the blocker names whether login/`EXPO_TOKEN` is missing.
+- [ ] iOS preview config is verified from `eas.json`: internal distribution, `preview` environment, and `preview` channel.
+- [ ] EAS public env evidence confirms a non-local HTTPS API URL and Clerk publishable key presence without exposing key values.
+- [ ] iOS build succeeds with build ID or build URL, or Apple credential/device-registration blocker is documented with next action.
+- [ ] Evidence records profile, environment, channel, bundle ID, Apple team, project ID, API URL, and command summary.
+- [ ] No backend/provider secrets, Clerk session tokens, private `.env` values, or private account pages are committed.
 
 ## Dependencies
 
 - Depends On: 00-eas-project-and-build-profiles/verify-eas-config
 - Depends On: 02-eas-environments-and-config-safety/add-non-local-api-diagnostics
+- Blocks: install-preview-on-iphone
+- Blocks: verify-preview-app-diagnostics
 
 ## Technical Notes
 
-- This may require Apple Developer access and device registration.
-- Do not switch to production profile for owner-device QA.
-- Verify the active API target in the app diagnostics instead of relying only on EAS environment names.
-- Use the EAS `development` profile when the goal is an installed development-client build; use the EAS `preview` profile when the goal is an internal preview binary.
+- `eas.json` is the source of truth for build profile shape.
+- `app.json` owns native IDs, Apple team, Expo owner, and EAS project ID.
+- Epic 02 evidence shows default `development` and `preview` EAS envs are configured with public mobile values; custom EAS env names are plan-gated.
+- `npx expo-doctor` currently has known Expo SDK patch-version drift from Epic 00; record it if it affects cloud build confidence.
+- Internal iOS distribution may require Apple Developer access and UDID/ad hoc provisioning before install.
 
 ## Artifact Slots
 
-- `artifacts/`: EAS build output, build URL, blocker evidence.
-- `references/`: preview/development profile excerpt.
-- `resources/`: build command.
-- `notes/`: Apple credential or UDID setup notes.
+- `references/eas-ios-preview-profile.md`: local profile, identity, env evidence, and official Expo doc links.
+- `resources/ios-preview-build-runbook.md`: command sequence and redaction rules.
+- `artifacts/ios-preview-build-evidence-template.md`: sanitized build evidence structure.
+- `notes/apple-device-registration.md`: Apple/UDID/provisioning decisions and blockers.
