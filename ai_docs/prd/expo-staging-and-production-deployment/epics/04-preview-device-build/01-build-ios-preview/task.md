@@ -18,6 +18,14 @@ PRD Phase 5 and Definition of Done require an installable iOS build on a physica
 - If switching to `--profile development`, record the reason in notes and keep Task 04's API diagnostics as the pass/fail gate.
 - Save sanitized build metadata in the artifact template.
 
+## Human-In-The-Loop
+
+- Human must log in to Expo/EAS or provide `EXPO_TOKEN` if `npx eas-cli@latest whoami` fails.
+- Human must approve or complete Apple Developer account prompts, 2FA, team selection, or credential setup if EAS cannot proceed non-interactively.
+- Human must decide whether to continue with the primary `preview` profile or explicitly authorize the `development` profile fallback if the preview path is blocked.
+- Human must approve any browser/UI action that creates persistent Apple/EAS credentials, changes account settings, or transmits sensitive account information.
+- Codex can run local config checks, EAS CLI preflights, and the build command once authentication and account prerequisites are available.
+
 ## Acceptance Criteria
 
 - [ ] EAS auth preflight succeeds, or the blocker names whether login/`EXPO_TOKEN` is missing.
@@ -41,6 +49,7 @@ PRD Phase 5 and Definition of Done require an installable iOS build on a physica
 - Epic 02 evidence shows default `development` and `preview` EAS envs are configured with public mobile values; custom EAS env names are plan-gated.
 - `npx expo-doctor` currently has known Expo SDK patch-version drift from Epic 00; record it if it affects cloud build confidence.
 - Internal iOS distribution may require Apple Developer access and UDID/ad hoc provisioning before install.
+- If Computer Use is used for Expo or Apple web UI, pause before credential creation, permission changes, uploads, or sensitive data entry unless the user has given specific action-time approval.
 
 ## Artifact Slots
 

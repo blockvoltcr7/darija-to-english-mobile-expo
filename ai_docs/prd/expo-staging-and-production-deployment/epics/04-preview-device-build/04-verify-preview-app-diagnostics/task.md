@@ -18,6 +18,14 @@ Before fresh-user E2E QA, the installed iPhone build must prove it is using a no
 - Record build profile/channel/environment from Task 01 evidence, not from an invented app-side signal.
 - Verify auth entry is reachable without copying Clerk tokens or session IDs.
 
+## Human-In-The-Loop
+
+- Human must operate the physical iPhone unless a connected device automation path is explicitly available.
+- Human must sign in or create/use a test user on-device when required to reach `translate.tsx`; do not share Clerk session tokens, passwords, or verification codes in evidence.
+- Human must capture or provide screenshots of the API chip, expanded diagnostics panel, auth entry, and health-check evidence when Codex cannot directly view the phone.
+- Human must confirm before any Computer Use action that types credentials, verification codes, or sensitive account data into a UI.
+- Codex can review screenshots, classify pass/fail, correlate build evidence from earlier tasks, and fill the diagnostics artifact.
+
 ## Acceptance Criteria
 
 - [ ] Installed iPhone build shows a non-local HTTPS API URL in the visible app UI.
@@ -41,6 +49,7 @@ Before fresh-user E2E QA, the installed iPhone build must prove it is using a no
 - The app does not currently display EAS build profile, channel, app version, or Clerk publishable-key environment.
 - `app/AGENTS.md` requires diagnostics to preserve base URLs, health checks, queued job IDs, Trigger run IDs, and final UI state without token values.
 - A development-client fallback may be acceptable only if Task 01 and Task 02 documented that path and Task 04 still verifies a non-local HTTPS API URL.
+- Computer Use can help with Mac/browser evidence, but physical-device observations must come from a connected automation path or human-provided screenshots.
 
 ## Artifact Slots
 

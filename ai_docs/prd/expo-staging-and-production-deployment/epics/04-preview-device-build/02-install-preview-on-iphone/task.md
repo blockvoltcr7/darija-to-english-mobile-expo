@@ -18,6 +18,14 @@ PRD Phase 5 requires real-device iOS validation before E2E QA. A successful EAS 
 - Launch the app from the iPhone home screen and confirm landing/sign-in is reachable.
 - Record sanitized install evidence in the artifact template.
 
+## Human-In-The-Loop
+
+- Human must physically operate the iPhone for install, QR scanning, profile trust prompts, home-screen launch, and any iOS confirmation dialogs.
+- Human must provide or confirm the target iPhone device registration/UDID status if EAS or Apple account access cannot verify it programmatically.
+- Human must approve any Apple/EAS browser action that changes device registration, re-signs an artifact, or modifies account/provisioning state.
+- Human must provide screenshots or live observations from the iPhone when Codex cannot inspect the physical screen directly.
+- Codex can inspect EAS build metadata, run device/build listing commands, classify blockers, and fill sanitized evidence after the human/device steps.
+
 ## Acceptance Criteria
 
 - [ ] Physical iPhone install succeeds, or the blocker identifies device registration, provisioning, credentials, or build artifact access.
@@ -38,6 +46,7 @@ PRD Phase 5 requires real-device iOS validation before E2E QA. A successful EAS 
 - Newly registered devices may require a rebuild or re-sign before installation works.
 - Expo internal-distribution builds launch without a development server; a development-client fallback may have different runtime expectations and must be documented.
 - `app/translate.tsx` already exposes the active API URL in the header chip and diagnostics panel for Task 04.
+- Computer Use can help inspect EAS web UI, but it cannot complete the physical iPhone install or bypass iOS device prompts.
 
 ## Artifact Slots
 
