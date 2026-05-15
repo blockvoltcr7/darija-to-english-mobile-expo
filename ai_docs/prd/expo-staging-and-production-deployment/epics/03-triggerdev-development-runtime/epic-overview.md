@@ -38,6 +38,6 @@ Verify the async translation worker through Trigger.dev's included Development e
 |----|--------------------------------|----------------|--------|----------------------|
 | 01 | configure-trigger-environments | Infrastructure | done   | 2026-05-15T18:37:01Z |
 | 02 | run-trigger-development-worker | Infrastructure | done   | 2026-05-15T18:38:55Z |
-| 03 | verify-trigger-claims-real-job | Code           | open   | 2026-05-14T22:39:43Z |
+| 03 | verify-trigger-claims-real-job | Code           | done   | 2026-05-15T18:42:31Z |
 | 04 | document-trigger-operations    | Code           | open   | 2026-05-14T22:39:43Z |
 <!-- STATUS-TABLE-END -->

@@ -6,3 +6,5 @@
 2026-05-15T18:37:01Z configure-trigger-environments in_progress->done
 2026-05-15T18:37:21Z run-trigger-development-worker open->in_progress
 2026-05-15T18:38:55Z run-trigger-development-worker in_progress->done
+2026-05-15T18:39:46Z verify-trigger-claims-real-job open->in_progress
+2026-05-15T18:42:31Z verify-trigger-claims-real-job in_progress->done
