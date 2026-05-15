@@ -6,22 +6,24 @@ Infrastructure
 
 ## Context
 
-Android release readiness should be tracked separately so iOS staging can proceed without hiding Android gaps. This task creates an Android preview build when Android is in active scope.
+Android release readiness should be tracked separately so iOS development-device QA can proceed without hiding Android gaps. This task creates an Android preview or development build when Android is in active scope.
 
 ## Implementation
 
 - Confirm Android package identifier in `app.json`.
-- Confirm preview env values apply to Android builds.
-- Confirm staging-profile builds also use EAS `preview` env values until custom EAS environments are available.
+- Confirm preview or development env values apply to Android builds.
+- Confirm this task does not depend on a custom paid EAS environment; default EAS environments available on the account are `development`, `preview`, and `production`.
 - Run:
   - `npx eas-cli@latest build -p android --profile preview`
+- If a development-client Android build is the desired path, document the switch to:
+  - `npx eas-cli@latest build -p android --profile development`
 - Capture build ID or record why Android is deferred.
-- Do not block iOS staging E2E if the user explicitly scopes Android later.
+- Do not block iOS development QA if the user explicitly scopes Android later.
 
 ## Acceptance Criteria
 
 - Android preview build succeeds or is explicitly deferred with rationale.
-- Android build uses preview env values.
+- Android build uses preview or development env values.
 - Build evidence or blocker notes are captured.
 
 ## Dependencies
@@ -31,8 +33,8 @@ Android release readiness should be tracked separately so iOS staging can procee
 
 ## Technical Notes
 
-- Android emulator local API default is `http://10.0.2.2:8787`; preview builds should use HTTPS staging API.
-- The EAS environment name may be `preview` while the API target is still the staging Cloud Run API.
+- Android emulator local API default is `http://10.0.2.2:8787`; physical-device preview/development builds should use the development HTTPS API.
+- The EAS environment name may be `preview` or `development`; the app diagnostics are the source of truth for the API target.
 - If Play Store setup is missing, internal APK/AAB preview evidence may still be useful.
 
 ## Artifact Slots

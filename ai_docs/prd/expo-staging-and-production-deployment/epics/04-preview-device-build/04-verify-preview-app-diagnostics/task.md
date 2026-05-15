@@ -6,7 +6,7 @@ Code
 
 ## Context
 
-Before E2E QA, the installed preview app must prove it is using the staging API and safe public config. This prevents false failures caused by local URLs on a physical phone.
+Before E2E QA, the installed preview app must prove it is using the development HTTPS API and safe public config. This prevents false failures caused by local simulator URLs on a physical phone.
 
 ## Implementation
 
@@ -18,14 +18,14 @@ Before E2E QA, the installed preview app must prove it is using the staging API 
 - Confirm API URL is HTTPS and non-local.
 - Confirm sign-in/sign-up entry is reachable.
 - If the app shows `localhost`, stop and fix EAS env config before E2E QA.
-- Treat the app diagnostic API URL as source of truth; current staging-profile builds may read from EAS `preview` env.
+- Treat the app diagnostic API URL as source of truth; the installed build may read from EAS `preview` or `development` env depending on the chosen profile.
 
 ## Acceptance Criteria
 
 - Preview app diagnostics show a non-local HTTPS API URL.
 - App can reach auth entry.
 - Any local URL usage blocks E2E QA and is documented.
-- Evidence is captured for the staging QA package.
+- Evidence is captured for the development QA package.
 
 ## Dependencies
 
@@ -35,7 +35,7 @@ Before E2E QA, the installed preview app must prove it is using the staging API 
 
 - Do not include tokens or session IDs in screenshots.
 - The diagnostic evidence should be safe to share internally.
-- Do not fail verification merely because the EAS environment name is `preview`; fail only if the app targets a local or wrong API URL.
+- Do not fail verification merely because the EAS environment name is `preview` or `development`; fail only if the app targets a local or wrong API URL.
 
 ## Artifact Slots
 
