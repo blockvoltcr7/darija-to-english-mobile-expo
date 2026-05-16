@@ -15,8 +15,27 @@
 
 ## Execution-Time Notes
 
-- Apple account action taken:
-- Device registration status:
-- Rebuild required:
-- Re-sign required:
-- Owner/blocker:
+- Apple account action taken: none; non-interactive CLI stopped before credential creation
+- Device registration status: unknown
+- Rebuild required: likely after credentials/device profile are configured
+- Re-sign required: not applicable until an IPA exists
+- Owner/blocker: human must run the iOS build interactively or configure suitable iOS internal-distribution credentials in EAS/Apple
+
+## 2026-05-16 Build Attempt
+
+Command:
+
+```bash
+npx eas-cli@latest build -p ios --profile preview --non-interactive
+```
+
+Sanitized result:
+
+- EAS auth succeeded.
+- EAS initialized remote iOS build number to `1`.
+- EAS warned that `ios.infoPlist.ITSAppUsesNonExemptEncryption` is missing.
+- EAS used remote iOS credentials, then failed credential setup because no suitable internal-distribution credentials were available in non-interactive mode.
+
+Next action:
+
+- Human should rerun the build interactively and complete Apple credential/device prompts, or preconfigure the required iOS internal-distribution credentials before retrying non-interactively.

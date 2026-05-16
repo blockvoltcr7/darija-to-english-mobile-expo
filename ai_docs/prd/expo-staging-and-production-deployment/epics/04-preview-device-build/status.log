@@ -2,3 +2,7 @@
 2026-05-15T19:33:08Z install-preview-on-iphone nil->open
 2026-05-15T19:33:08Z build-android-preview nil->open
 2026-05-15T19:33:08Z verify-preview-app-diagnostics nil->open
+2026-05-16T15:23:00Z build-ios-preview open->in_progress
+2026-05-16T15:23:00Z build-android-preview open->in_progress
+2026-05-16T15:25:21Z build-ios-preview in_progress->done
+2026-05-16T15:25:21Z build-android-preview in_progress->done
