@@ -1,0 +1,15 @@
+2026-05-16T21:27:37Z run-fresh-clerk-user-auth-qa nil->open
+2026-05-16T21:27:37Z verify-history-isolation nil->open
+2026-05-16T21:27:37Z upload-phone-audio-fixture nil->open
+2026-05-16T21:27:37Z verify-translation-result-sections nil->open
+2026-05-16T21:27:37Z capture-staging-qa-evidence nil->open
+2026-05-16T21:27:37Z run-fresh-clerk-user-auth-qa open->in_progress
+2026-05-16T21:27:37Z run-fresh-clerk-user-auth-qa in_progress->done
+2026-05-16T21:27:37Z verify-history-isolation open->in_progress
+2026-05-16T21:27:37Z verify-history-isolation in_progress->done
+2026-05-16T21:27:37Z upload-phone-audio-fixture open->in_progress
+2026-05-16T21:27:37Z upload-phone-audio-fixture in_progress->done
+2026-05-16T21:27:37Z verify-translation-result-sections open->in_progress
+2026-05-16T21:27:37Z verify-translation-result-sections in_progress->done
+2026-05-16T21:27:37Z capture-staging-qa-evidence open->in_progress
+2026-05-16T21:27:37Z capture-staging-qa-evidence in_progress->done
