@@ -22,6 +22,8 @@ Fill during execution. Do not pre-fill with speculative results.
 - `npx eas-cli@latest config --profile preview --platform ios --non-interactive`: passed; loaded `EXPO_PUBLIC_API_BASE_URL` and `EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY` from preview env
 - `npx eas-cli@latest env:list --environment preview --format long`: not used because output can include values; `env:get` was used with Clerk value redirected/redacted
 - `npx eas-cli@latest build -p ios --profile preview --non-interactive`: blocked during credentials setup
+- Human interactive `npx eas-cli@latest build -p ios --profile preview`: installed `expo-updates`, configured EAS Update, then stopped because the build command must be rerun
+- Retry `npx eas-cli@latest build -p ios --profile preview --non-interactive`: created EAS update channel/branch `preview`, then blocked during credentials setup
 
 ## Result
 
@@ -31,7 +33,9 @@ Fill during execution. Do not pre-fill with speculative results.
 - Artifact type: none
 - Install URL captured privately: no
 - Development-profile fallback used: no
-- Fallback reason: not attempted; primary blocker is missing suitable iOS internal-distribution credentials for non-interactive build
+- Fallback reason: not attempted; primary blocker remains missing suitable iOS internal-distribution credentials for non-interactive build
+- EAS Update configured: yes, `expo-updates` added and `updates.url` / `runtimeVersion` configured
+- EAS channel/branch side effect: `preview` update channel and branch created
 
 ## Blockers
 
@@ -39,7 +43,7 @@ Fill during execution. Do not pre-fill with speculative results.
 - Apple credentials: blocked; EAS CLI reported no suitable credentials for internal distribution in non-interactive mode
 - Device registration: unknown; credential setup must be completed first
 - Dependency/version drift: `npx expo-doctor` still reports Expo SDK patch-version drift
-- Other: EAS CLI warned that `ios.infoPlist.ITSAppUsesNonExemptEncryption` is missing and must be handled before App Store Connect testing
+- Other: `ios.infoPlist.ITSAppUsesNonExemptEncryption` is now configured as `false`
 
 ## Redaction Check
 

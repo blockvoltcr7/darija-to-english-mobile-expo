@@ -12,7 +12,10 @@
     "ios": {
       "bundleIdentifier": "com.samisabiridrissi.darijatoenglish",
       "appleTeamId": "57JWLP426D",
-      "supportsTablet": true
+      "supportsTablet": true,
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
       "package": "com.samisabiridrissi.darijatoenglish",
@@ -53,6 +56,12 @@
         "projectId": "70c597ff-6021-4069-bb43-9c301ac4baa2"
       }
     },
-    "owner": "blockvoltcr7"
+    "owner": "blockvoltcr7",
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/70c597ff-6021-4069-bb43-9c301ac4baa2"
+    }
   }
 }
