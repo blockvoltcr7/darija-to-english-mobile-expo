@@ -4,46 +4,46 @@ Fill during execution. Keep screenshots private if they expose account/device de
 
 ## Build
 
-- iOS build ID:
-- Build profile:
-- EAS environment:
-- Channel:
-- Bundle ID:
-- Build URL stored privately: yes/no
+- iOS build ID: `32823c20-98fe-46ea-bed9-991f4b38ff27`
+- Build profile: `preview`
+- EAS environment: `preview`
+- Channel: `preview`
+- Bundle ID: `com.samisabiridrissi.darijatoenglish`
+- Build URL stored privately: yes
 
 ## Device
 
-- Device model:
-- iOS version:
-- Device registration confirmed: yes/no/unknown
-- Apple team:
+- Device model: not captured in screenshot
+- iOS version: not captured in screenshot
+- Device registration confirmed: yes
+- Apple team: `57JWLP426D`
 
 ## Install
 
 - Install method: EAS Install link / QR / Expo Orbit / other
-- Install status:
-- Launch status:
-- Auth entry reachable:
-- Visible API chip non-local: yes/no
+- Install status: succeeded on physical iPhone
+- Launch status: app opened to signed-out landing screen
+- Auth entry reachable: yes; Create account and Sign in buttons visible
+- Visible API chip non-local: not visible on landing screen; defer to Task 04 signed-in diagnostics
 
 ## Evidence
 
-- Screenshot filenames or private references:
-- Notes:
+- Screenshot filenames or private references: user-provided iPhone screenshot, `Screenshot 2026-05-16 at 4.23.04 PM.png`
+- Notes: Landing screen displayed "Darija to English" with Create account and Sign in actions on physical iPhone.
 
 ## Blocker Classification
 
-- None:
-- EAS auth:
-- Apple credentials:
-- Device registration/provisioning:
-- Artifact access:
-- App launch:
-- Other:
+- None: install and launch path passed
+- EAS auth: passed
+- Apple credentials: passed
+- Device registration/provisioning: passed
+- Artifact access: passed
+- App launch: passed
+- Other: Task 04 still must verify signed-in diagnostics and non-local HTTPS API target
 
 ## Redaction Check
 
-- [ ] No tokens
-- [ ] No secret values
-- [ ] No private account details
-- [ ] No public install URL in public-ready docs
+- [x] No tokens
+- [x] No secret values
+- [x] No private account details
+- [x] No public install URL in public-ready docs
