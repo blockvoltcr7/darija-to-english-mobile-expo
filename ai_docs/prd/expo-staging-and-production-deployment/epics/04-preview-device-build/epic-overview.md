@@ -37,7 +37,7 @@ Build and install preview app binaries on real devices, with diagnostics proving
 | #  | Slug                           | Type           | Status | Updated              |
 |----|--------------------------------|----------------|--------|----------------------|
 | 01 | build-ios-preview              | Infrastructure | done   | 2026-05-16T15:25:21Z |
-| 02 | install-preview-on-iphone      | Infrastructure | open   | 2026-05-15T19:33:08Z |
+| 02 | install-preview-on-iphone      | Infrastructure | open   | 2026-05-16T15:25:44Z |
 | 03 | build-android-preview          | Infrastructure | done   | 2026-05-16T15:25:21Z |
 | 04 | verify-preview-app-diagnostics | Code           | open   | 2026-05-15T19:33:08Z |
 <!-- STATUS-TABLE-END -->

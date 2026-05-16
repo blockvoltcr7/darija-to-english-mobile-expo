@@ -6,3 +6,4 @@
 2026-05-16T15:23:00Z build-android-preview open->in_progress
 2026-05-16T15:25:21Z build-ios-preview in_progress->done
 2026-05-16T15:25:21Z build-android-preview in_progress->done
+2026-05-16T15:25:44Z install-preview-on-iphone open->open # blocker: no installable iOS preview artifact; EAS/Apple internal-distribution credentials must be completed interactively before rebuild
