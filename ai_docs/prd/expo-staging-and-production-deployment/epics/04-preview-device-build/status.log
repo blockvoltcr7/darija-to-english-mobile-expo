@@ -7,3 +7,4 @@
 2026-05-16T15:25:21Z build-ios-preview in_progress->done
 2026-05-16T15:25:21Z build-android-preview in_progress->done
 2026-05-16T15:25:44Z install-preview-on-iphone open->open # blocker: no installable iOS preview artifact; EAS/Apple internal-distribution credentials must be completed interactively before rebuild
+2026-05-16T20:10:52Z install-preview-on-iphone open->open # blocker: iOS preview build 3efc8b55 failed in EAS INSTALL_DEPENDENCIES; local npm peer-resolution config added and build must be rerun

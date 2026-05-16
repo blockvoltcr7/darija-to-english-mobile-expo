@@ -24,24 +24,29 @@ Fill during execution. Do not pre-fill with speculative results.
 - `npx eas-cli@latest build -p ios --profile preview --non-interactive`: blocked during credentials setup
 - Human interactive `npx eas-cli@latest build -p ios --profile preview`: installed `expo-updates`, configured EAS Update, then stopped because the build command must be rerun
 - Retry `npx eas-cli@latest build -p ios --profile preview --non-interactive`: created EAS update channel/branch `preview`, then blocked during credentials setup
+- Human interactive `npx eas-cli@latest build -p ios --profile preview`: created Apple distribution credentials, registered the physical iPhone for ad hoc/internal distribution, then failed in the remote `INSTALL_DEPENDENCIES` phase
+- `npx eas-cli@latest build:list --platform ios --limit 1 --json`: captured failed EAS build metadata for dependency-log diagnosis
+- `npx npm@10.9.3 ci --include=dev --dry-run`: passed after adding npm peer-resolution config
 
 ## Result
 
-- Build status: blocked before build creation
-- EAS build ID: none
-- EAS build URL: none
+- Build status: failed during dependency install; local dependency config updated and ready for rerun
+- EAS build ID: `3efc8b55-e708-4aee-bd9e-2254699936a3`
+- EAS build URL: `https://expo.dev/accounts/blockvoltcr7/projects/darija-to-english-mobile/builds/3efc8b55-e708-4aee-bd9e-2254699936a3`
 - Artifact type: none
 - Install URL captured privately: no
 - Development-profile fallback used: no
-- Fallback reason: not attempted; primary blocker remains missing suitable iOS internal-distribution credentials for non-interactive build
+- Fallback reason: not attempted; primary path is still EAS internal distribution after dependency-install fix
 - EAS Update configured: yes, `expo-updates` added and `updates.url` / `runtimeVersion` configured
 - EAS channel/branch side effect: `preview` update channel and branch created
+- Device registration: physical iPhone UDID registered through Expo's device-registration flow
 
 ## Blockers
 
 - EAS auth: passed
-- Apple credentials: blocked; EAS CLI reported no suitable credentials for internal distribution in non-interactive mode
-- Device registration: unknown; credential setup must be completed first
+- Apple credentials: passed interactively; EAS created distribution certificate/profile material
+- Device registration: passed interactively for the physical iPhone
+- Remote dependency install: failed because EAS/npm 10 rejected peer lock resolution around Clerk/React; fixed locally with `.npmrc` `legacy-peer-deps=true` while keeping Expo SDK React pins
 - Dependency/version drift: `npx expo-doctor` still reports Expo SDK patch-version drift
 - Other: `ios.infoPlist.ITSAppUsesNonExemptEncryption` is now configured as `false`
 
