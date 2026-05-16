@@ -62,6 +62,8 @@ Tasks:
 
 - Set `EXPO_PUBLIC_API_BASE_URL` for preview/staging/production.
 - Set Clerk publishable keys for the right environment.
+- Use the default EAS `development` environment for cloud-built development clients.
+- Use the default EAS `preview` environment for both preview builds and the staging build profile until the Expo account supports custom `staging` environments.
 - Verify no secrets are configured as Expo public variables.
 - Update `.env.example` with non-secret examples.
 - Optionally add a config assertion/test that non-local EAS builds cannot silently use localhost.
@@ -73,26 +75,27 @@ Deliverable:
 Dependencies:
 
 - Phase 2 staging API URL.
+- Current Expo account plan supports only default EAS environments: `development`, `preview`, and `production`.
 
 Parallelization:
 
 - Can begin with placeholder API URL, but final verification requires Phase 2.
 
-## Phase 4 — Deploy Trigger.dev Worker
+## Phase 4 — Run Trigger.dev Development Worker
 
-Goal: ensure queued staging jobs are consumed outside local `trigger.dev dev`.
+Goal: ensure queued jobs are consumed by the included Trigger.dev Development environment without paying for additional staging/preview environments.
 
 Tasks:
 
-- Configure Trigger.dev staging/prod environment secrets.
-- Run `npm run trigger:deploy:staging`.
-- Trigger one staging job through API.
+- Configure Trigger.dev Development environment secrets.
+- Run `npm run trigger:dev -- --env-file .env.local --skip-update-check`.
+- Trigger one development-runtime job through API.
 - Verify Trigger run reaches success.
 - Document Trigger dashboard evidence and failure modes.
 
 Deliverable:
 
-- Staging Trigger run succeeds for a real uploaded audio fixture.
+- Development-environment Trigger run succeeds for a real uploaded audio fixture.
 
 Dependencies:
 

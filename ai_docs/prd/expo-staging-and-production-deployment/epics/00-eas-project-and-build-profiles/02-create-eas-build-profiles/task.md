@@ -35,7 +35,7 @@ PRD `05-technical-specifications.md` defines four EAS build lanes: local develop
 
 ## Technical Notes
 
-- The PRD example uses `environment: "preview"` for staging, but a dedicated `staging` EAS environment may be cleaner. If changed, document the decision in this task's notes and future deployment docs.
+- The PRD example uses `environment: "preview"` for staging. Epic 02 confirmed this project should use `preview` for the staging profile until the Expo account supports custom `staging` environments.
 - Do not add API URLs in `eas.json`; environment values are handled in Epic 02.
 - `package.json` currently has no EAS scripts. Keep scripts unchanged unless a wrapper materially improves repeatability.
 - Later tasks should use `npx eas-cli@latest build -p ios --profile preview` and Android equivalent from this profile set.

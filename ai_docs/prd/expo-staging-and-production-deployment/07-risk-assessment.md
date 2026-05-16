@@ -6,7 +6,7 @@
 | --- | --- | --- |
 | Preview/staging build points to `localhost` | Physical phone cannot reach API; all uploads fail before backend. | Set `EXPO_PUBLIC_API_BASE_URL` through EAS env and verify diagnostics before E2E QA. |
 | Secrets leak into mobile public env | OpenAI, Modal, Supabase service role, or Clerk secret could be exposed in the app bundle. | Explicitly audit EAS env variables; only `EXPO_PUBLIC_*` values go to mobile, and provider keys stay on API/Trigger hosts. |
-| Trigger worker not deployed or not connected | API queues jobs, but translations stay `queued`. | Deploy Trigger staging worker and make Trigger success a required QA artifact. |
+| Trigger worker not connected | API queues jobs, but translations stay `queued`. | Run the Trigger.dev Development worker with `trigger.dev dev` for this no-paid scope and make Trigger success a required QA artifact. |
 
 ## Medium Risks
 

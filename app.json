@@ -12,11 +12,20 @@
     "ios": {
       "bundleIdentifier": "com.samisabiridrissi.darijatoenglish",
       "appleTeamId": "57JWLP426D",
-      "supportsTablet": true
+      "supportsTablet": true,
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
       "package": "com.samisabiridrissi.darijatoenglish",
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "permissions": [
+        "android.permission.RECORD_AUDIO",
+        "android.permission.MODIFY_AUDIO_SETTINGS",
+        "android.permission.FOREGROUND_SERVICE",
+        "android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK"
+      ]
     },
     "web": {
       "bundler": "metro",
@@ -40,6 +49,19 @@
     ],
     "experiments": {
       "typedRoutes": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "70c597ff-6021-4069-bb43-9c301ac4baa2"
+      }
+    },
+    "owner": "blockvoltcr7",
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/70c597ff-6021-4069-bb43-9c301ac4baa2"
     }
   }
 }

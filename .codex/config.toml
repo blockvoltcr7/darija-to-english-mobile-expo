@@ -11,9 +11,3 @@ memories = true
 multi_agent = true 
 
 personality = true 
-
-
-[profiles.deep-review]
-model = "gpt-5-pro"
-model_reasoning_effort = "high"
-approval_policy = "never"

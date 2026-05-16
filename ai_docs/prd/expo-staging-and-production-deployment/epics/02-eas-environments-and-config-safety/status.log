@@ -1,0 +1,13 @@
+2026-05-14T03:39:33Z configure-eas-public-environments nil->open
+2026-05-14T03:39:33Z audit-mobile-secret-boundary nil->open
+2026-05-14T03:39:33Z update-env-examples-and-agent-notes nil->open
+2026-05-14T03:39:33Z add-non-local-api-diagnostics nil->open
+2026-05-14T03:58:52Z configure-eas-public-environments open->in_progress
+2026-05-14T03:59:45Z configure-eas-public-environments in_progress->in_progress # blocker: EAS CLI is not logged in and EXPO_TOKEN is missing
+2026-05-14T04:22:53Z configure-eas-public-environments in_progress->done
+2026-05-14T04:23:25Z audit-mobile-secret-boundary open->in_progress
+2026-05-14T04:23:25Z add-non-local-api-diagnostics open->in_progress
+2026-05-14T04:27:25Z audit-mobile-secret-boundary in_progress->done
+2026-05-14T04:27:25Z add-non-local-api-diagnostics in_progress->done
+2026-05-14T04:27:47Z update-env-examples-and-agent-notes open->in_progress
+2026-05-14T04:28:46Z update-env-examples-and-agent-notes in_progress->done

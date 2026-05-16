@@ -20,7 +20,7 @@ Without a staging deployment path:
 - Add EAS build and submit configuration for `development`, `preview`, `staging`, and `production`.
 - Define and configure environment-specific `EXPO_PUBLIC_API_BASE_URL` values.
 - Deploy the existing Node/Express API at a reachable HTTPS staging endpoint and later a production endpoint.
-- Deploy Trigger.dev staging and production workers using the existing project scripts.
+- Run Trigger.dev through the included Development environment for this no-paid scope, and document production deployment as a future release path.
 - Preserve server-owned secrets for OpenAI, Modal, Clerk, Supabase, and Trigger.dev.
 - Add deployment and QA runbooks for iOS physical device, TestFlight, Android internal testing, and production release.
 - Verify fresh Clerk user signup, audio upload, async Trigger execution, and translated result display against a staging API.

@@ -21,7 +21,7 @@
 | Staging API URL | Phone builds cannot reach `localhost:8787`. | Deploy the Express API to HTTPS and set `EXPO_PUBLIC_API_BASE_URL`. |
 | API hosting decision | Expo native builds do not host the standalone Express API. | Choose a Node API host and document deployment. |
 | EAS environment configuration | Builds need environment-specific public config. | Set EAS env values for preview/staging/production. |
-| Trigger.dev deployment | The async worker must run outside local `trigger.dev dev`. | Deploy Trigger staging/prod environments. |
+| Trigger.dev runtime | The async worker must be connected while jobs are queued. | Use Trigger.dev Development with `trigger.dev dev` for the current no-paid scope; defer paid staging/prod deployment. |
 | Release QA runbook | Current QA is local-dev oriented. | Add staging phone QA and release-candidate checks. |
 | Observability checklist | Failures must be traceable across app, API, Trigger, Supabase, Modal, and OpenAI. | Define logs and proof artifacts. |
 

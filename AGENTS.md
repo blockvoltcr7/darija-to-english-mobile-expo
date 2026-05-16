@@ -36,6 +36,11 @@ This is a single Expo React Native project with a local Node/Express API. Treat 
 - iOS simulator API URL: `EXPO_PUBLIC_API_BASE_URL=http://localhost:8787`
 - Android emulator API URL: `EXPO_PUBLIC_API_BASE_URL=http://10.0.2.2:8787`
 - Physical device API URL: `EXPO_PUBLIC_API_BASE_URL=http://<mac-lan-ip>:8787`
+- EAS development-client builds use the default `development` EAS environment.
+- EAS preview builds use the default `preview` EAS environment.
+- EAS staging builds currently also use the default `preview` EAS environment because custom EAS environments require a paid Expo Production or Enterprise plan.
+- EAS production env values should not be configured until a production API URL exists.
+- EAS public env must only contain mobile-safe public values such as `EXPO_PUBLIC_API_BASE_URL` and `EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY`.
 
 ## Cross-Domain Workflow
 
