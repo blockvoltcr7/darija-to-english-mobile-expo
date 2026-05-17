@@ -43,5 +43,5 @@ Prepare TestFlight, Google Play testing, production API documentation, and rollb
 | 02 | create-store-beta-builds        | Infrastructure | done   | 2026-05-17T05:46:13Z |
 | 03 | document-production-api-path    | Infrastructure | done   | 2026-05-17T05:44:05Z |
 | 04 | add-release-rollback-checklist  | Code           | done   | 2026-05-17T05:48:02Z |
-| 05 | verify-release-readiness-gates  | Code           | open   | 2026-05-17T05:18:33Z |
+| 05 | verify-release-readiness-gates  | Code           | done   | 2026-05-17T05:49:58Z |
 <!-- STATUS-TABLE-END -->

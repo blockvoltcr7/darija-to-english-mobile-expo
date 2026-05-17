@@ -25,9 +25,11 @@ Assign each blocker to exactly one primary owner in the final report:
 
 ## Current Audit Bias
 
-As of this support-material audit, the safest default recommendation is:
+As of the 2026-05-17 execution report, the recommendation is:
 
-- Store beta: pending Epic 06 task 01-04 evidence and fresh command/API checks.
-- Public release: no-go until production API/Trigger decisions and separate usage-control Epic 04 verification are complete.
+- Internal development QA: go.
+- Store beta: conditional no-go until human App Store Connect / Google Play setup is completed and the release owner explicitly accepts either staging-backed runtime or a deployed beta runtime.
+- Wider external beta: no-go until store beta install evidence, hosted runtime decision, and usage controls are verified.
+- Public release: no-go until production API/Trigger decisions, usage controls, legal/privacy, account deletion, and store release approvals are complete.
 
 Update this note only with new source-grounded evidence.

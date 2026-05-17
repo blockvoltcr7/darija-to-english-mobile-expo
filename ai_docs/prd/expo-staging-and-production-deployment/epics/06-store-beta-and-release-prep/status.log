@@ -11,3 +11,5 @@
 2026-05-17T05:46:13Z create-store-beta-builds in_progress->done
 2026-05-17T05:46:42Z add-release-rollback-checklist open->in_progress
 2026-05-17T05:48:02Z add-release-rollback-checklist in_progress->done
+2026-05-17T05:48:29Z verify-release-readiness-gates open->in_progress
+2026-05-17T05:49:58Z verify-release-readiness-gates in_progress->done
