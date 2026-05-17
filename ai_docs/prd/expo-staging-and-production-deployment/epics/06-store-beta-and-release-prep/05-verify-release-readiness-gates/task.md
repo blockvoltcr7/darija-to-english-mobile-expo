@@ -6,29 +6,23 @@ Code
 
 ## Context
 
-This final gate determines whether the app is ready for store beta or whether it should remain in staging. It must distinguish deployment readiness from full public-release readiness.
+This final Epic 06 gate decides what kind of release is justified by evidence. The app can be store-beta ready while still being public-release no-go. The gate must separate verified facts from blockers: real-device E2E passed in Epic 05, but production API, Trigger production deploy, usage controls, store metadata, privacy/legal, and account-deletion readiness may still be incomplete.
 
 ## Implementation
 
-- Review completion evidence from all previous epics.
-- Verify required commands pass where applicable:
-  - `node --check server/index.mjs`
-  - `node --check trigger/translate-audio-job.mjs`
-  - `npm run typecheck`
-  - `npm run lint`
-  - `npx expo-doctor`
-  - `curl https://<staging-api>/health`
-- Confirm staging E2E succeeded with fresh Clerk user.
-- Confirm store beta build status.
-- Check whether usage-control Epic 04 is complete before recommending wider beta/public release.
-- Write a go/no-go recommendation.
+- Review Epic 04/05 evidence, current `eas.json`, `app.json`, deployment runbooks, store-beta build artifacts, production API plan, and release checklist.
+- Run or record blockers for `node --check server/index.mjs`, `node --check trigger/translate-audio-job.mjs`, `npm run typecheck`, `npm run lint`, `npx expo-doctor`, and `curl <api>/health`.
+- Confirm the latest QA evidence includes fresh Clerk auth, upload, microphone recording, translation success, history visibility, Trigger run ID, and API URL.
+- Confirm store beta status per platform: not attempted, blocked, uploaded/processing, available to testers, or tested by user.
+- Produce a concise go/no-go report with separate verdicts for internal development QA, store beta, wider external beta, and public release.
 
 ## Acceptance Criteria
 
-- Release-readiness summary exists.
-- Go/no-go recommendation is explicit.
-- Staging E2E, API health, Trigger success, and build status are represented.
-- Any blockers are assigned to the correct domain: mobile, API, Trigger, provider, EAS/store, or usage controls.
+- [ ] Release-readiness report exists in task artifacts or deployment docs.
+- [ ] Verdicts are explicit for internal QA, TestFlight/Play store beta, wider beta, and public release.
+- [ ] Report includes command results or precise blockers for syntax, typecheck, lint, expo-doctor, API health, Trigger, and store build status.
+- [ ] Report references staging E2E evidence without exposing private transcripts, audio, tokens, or secrets.
+- [ ] Blockers are assigned to domains: mobile, API, Trigger, Supabase/storage, Clerk/auth, Modal/OpenAI provider, EAS/store, usage controls, or legal/privacy.
 
 ## Dependencies
 
@@ -36,13 +30,14 @@ This final gate determines whether the app is ready for store beta or whether it
 
 ## Technical Notes
 
-- A store beta go may still be a public-release no-go if usage controls, legal docs, or account deletion are incomplete.
-- Do not overclaim production readiness from preview-only evidence.
+- Verification commands are listed in root `AGENTS.md`; use those as the default technical gate.
+- `npx expo-doctor` may surface dependency/version drift; classify the result instead of ignoring it.
+- If the Trigger worker is still local Development only, call that out as a beta/production runtime blocker instead of marking backend readiness as complete.
+- Do not include full transcript text, private audio details, Clerk session tokens, or secret values in the final readiness artifact.
 
 ## Artifact Slots
 
-- `artifacts/`: final readiness report and command output summary.
-- `references/`: prior epic evidence links.
-- `resources/`: verification command list.
-- `notes/`: go/no-go decision and residual risks.
-
+- `artifacts/`: final readiness report, command-output summary, and go/no-go matrix.
+- `references/`: prior epic evidence links, deployment source maps, and release checklist references.
+- `resources/`: verification command list and evidence capture checklist.
+- `notes/`: decision rationale, human actions, and residual risks.

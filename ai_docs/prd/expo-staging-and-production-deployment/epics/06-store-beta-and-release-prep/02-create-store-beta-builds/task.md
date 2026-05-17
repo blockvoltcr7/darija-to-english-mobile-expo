@@ -6,37 +6,39 @@ Infrastructure
 
 ## Context
 
-Store beta builds are closer to production than internal preview installs. This task creates TestFlight and/or Google Play testing builds after staging E2E succeeds.
+The app has already been installed and verified on a physical iPhone through internal distribution. Store beta is the next distribution level: production-signed binaries uploaded to TestFlight and/or Google Play testing while still avoiding public release. The PRD Phase 7 deliverable is a release candidate distributed through store testing, with API/Trigger/runtime assumptions documented before any wider beta.
 
 ## Implementation
 
-- Build iOS staging profile for TestFlight when Apple setup is ready.
-- Build Android staging/production-like test profile when Google Play setup is ready.
-- Submit builds through EAS Submit if configured.
-- Verify build environment targets the intended staging or production API.
-- For the current Expo plan, remember that the `staging` build profile uses EAS `preview` env values; verify the API target via app diagnostics.
-- Capture build IDs and store beta status.
+- Start from `eas.json`: use `npx eas-cli@latest build -p ios --profile staging` for TestFlight-intended iOS and `npx eas-cli@latest build -p android --profile staging` for Play testing when account prerequisites are ready.
+- Confirm the build loads the expected public env before submission with `npx eas-cli@latest config --profile staging --platform <ios|android>` and app diagnostics after installation/TestFlight availability.
+- Submit only through configured EAS Submit, for example `npx eas-cli@latest submit -p ios --profile staging --latest`; otherwise record the exact blocker from Task 01.
+- Capture EAS build IDs, submit IDs, store processing state, tester availability, API URL evidence, and any account/manual blocker.
+- Do not claim public-release readiness from a TestFlight/Play test upload; this task only proves store beta distribution.
 
 ## Acceptance Criteria
 
-- TestFlight or Google Play testing build is created when credentials are available.
-- Build target API URL is documented.
-- Store beta status is captured.
-- Any missing store account setup is documented as a blocker, not treated as success.
+- [ ] iOS TestFlight build is created/submitted or blocked with a precise Apple/App Store Connect reason.
+- [ ] Android Google Play testing build is created/submitted or blocked with a precise Play Console/service account reason.
+- [ ] Build IDs, submit IDs when present, build profile, channel, EAS environment, and API target are captured in sanitized artifacts.
+- [ ] The build is verified to target a non-local HTTPS API, or the task is marked blocked before tester rollout.
+- [ ] Any missing account setup is documented as a blocker and not treated as a passing beta build.
 
 ## Dependencies
 
 - Depends On: configure-eas-submit
+- Blocks: add-release-rollback-checklist
 
 ## Technical Notes
 
-- Store beta should not bypass staging E2E evidence.
-- If production API is not ready, staging store beta should explicitly target staging API.
-- Do not assume an EAS environment named `staging` exists unless the Expo account has been upgraded and `eas.json` has been changed back.
+- Current source uses EAS `staging` as a store-distribution profile backed by the default `preview` EAS environment. Keep that distinction visible in artifacts.
+- `app.json` already has `expo-updates` URL and `runtimeVersion.policy = "appVersion"`; any native dependency/runtime change after a store build requires a new build, not only an update.
+- Store builds cannot be installed like internal ad hoc builds; use TestFlight / Google Play testing surfaces unless Android is intentionally built as an APK for a separate reason.
+- Preserve the known npm peer-resolution guard: remote build installs rely on the repo dependency setup that fixed the earlier EAS install failure.
 
 ## Artifact Slots
 
-- `artifacts/`: EAS build/submit IDs and store beta screenshots.
-- `references/`: build profile and submit profile excerpts.
-- `resources/`: build/submit commands.
-- `notes/`: store-review or account blockers.
+- `artifacts/`: EAS build/submit evidence template, sanitized store processing notes, and tester availability notes.
+- `references/`: build profile, submit profile, app identity, and prior physical-device QA references.
+- `resources/`: exact build, config, submit, and build-list commands.
+- `notes/`: store account blockers, API-target decisions, and platform deferrals.
