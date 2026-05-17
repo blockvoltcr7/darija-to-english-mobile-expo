@@ -17,6 +17,8 @@ Confirm:
 - `submit.staging` and `submit.production` exist.
 - `staging` build profile remains store-distribution and uses the default EAS `preview` environment until the Expo plan supports a custom staging environment.
 - Production submit is not attempted until a production API URL and production public EAS env values exist.
+- `app.json` still resolves iOS bundle identifier and Android package as `com.samisabiridrissi.darijatoenglish`.
+- Any `ai_docs/deployment/README.md` identity drift is corrected before using docs as the source for store account setup.
 
 ## iOS Readiness
 
@@ -32,6 +34,12 @@ Expected command shape after readiness is confirmed:
 
 ```bash
 npx eas-cli@latest submit -p ios --profile staging
+```
+
+Interactive configuration command shape, only while the account owner is present:
+
+```bash
+npx eas-cli@latest submit:configure --platform ios
 ```
 
 ## Android Readiness
@@ -51,6 +59,12 @@ Expected command shape after readiness is confirmed:
 npx eas-cli@latest submit -p android --profile staging
 ```
 
+Interactive configuration command shape, only while the account owner is present:
+
+```bash
+npx eas-cli@latest submit:configure --platform android
+```
+
 ## Safe Stop Conditions
 
 Stop and record a blocker instead of continuing if:
@@ -59,3 +73,4 @@ Stop and record a blocker instead of continuing if:
 - App Store Connect app ID or Play Console package ownership is unknown.
 - Production API URL is still pending but the action would configure or submit a production release lane.
 - The command would expose tokens, service-account JSON, app-specific passwords, `.p8` key material, or private account details in committed files.
+- The user is not present for login, 2FA, paid account, app-record, agreement, or credential prompts.

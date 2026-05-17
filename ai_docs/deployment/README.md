@@ -19,10 +19,13 @@ Source of truth: `app.json`.
 
 Fields currently absent from source config:
 
-- `expo.owner`
-- `expo.runtimeVersion`
 - `ios.buildNumber`
 - `android.versionCode`
+
+Fields now present in source config and required for EAS linkage:
+
+- `expo.owner`
+- `expo.runtimeVersion`
 - `expo.extra.eas.projectId`
 
 Do not change the app name, slug, URL scheme, iOS bundle identifier, Apple Team ID, or Android package as part of normal deployment execution. Any identity change can create a separate native app for EAS credentials, Apple Developer, TestFlight, Google Play, installed app data, and deep links.
@@ -78,7 +81,7 @@ Google Play:
 
 EAS builds the mobile binary only. The app still talks to a separately hosted HTTPS Express API through `EXPO_PUBLIC_API_BASE_URL`.
 
-Staging API operations are documented in [api-hosting.md](api-hosting.md).
+Staging API operations are documented in [api-hosting.md](api-hosting.md). The deferred production API decision path is documented in [production-api.md](production-api.md).
 
 Provider secrets stay server-side:
 

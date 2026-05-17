@@ -3,3 +3,7 @@
 2026-05-17T05:18:33Z document-production-api-path nil->open
 2026-05-17T05:18:33Z add-release-rollback-checklist nil->open
 2026-05-17T05:18:33Z verify-release-readiness-gates nil->open
+2026-05-17T05:38:05Z configure-eas-submit open->in_progress
+2026-05-17T05:38:05Z document-production-api-path open->in_progress
+2026-05-17T05:44:05Z configure-eas-submit in_progress->done
+2026-05-17T05:44:05Z document-production-api-path in_progress->done

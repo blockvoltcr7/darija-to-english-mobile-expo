@@ -18,6 +18,7 @@
 
 ## Official Docs Anchors
 
+- Reviewed on 2026-05-17 against Expo documentation.
 - Expo EAS Submit introduction: https://docs.expo.dev/submit/introduction/
 - Expo EAS Submit with `eas.json`: https://docs.expo.dev/submit/eas-json/
 - Expo EAS `submit` schema reference: https://docs.expo.dev/eas/json/#eas-submit
@@ -31,3 +32,7 @@ Key doc points for this task:
 - Android submit needs Google Play Console app access, a Google Service Account key, an Android package name, a store-ready build, and an initial manual upload before the Google Play API can be used.
 - iOS submit needs Apple Developer/App Store Connect access, the bundle identifier, a store-ready build, and App Store Connect app information such as `ascAppId`.
 - CI/non-interactive submit requires credentials to be configured ahead of time; otherwise the CLI may prompt for account-owned values.
+
+## Local Drift Note
+
+- `ai_docs/deployment/README.md` currently lists `expo.owner`, `expo.runtimeVersion`, and `expo.extra.eas.projectId` as absent, but `app.json` contains those fields. This is a deployment-doc cleanup item outside this task's owned write scope.
