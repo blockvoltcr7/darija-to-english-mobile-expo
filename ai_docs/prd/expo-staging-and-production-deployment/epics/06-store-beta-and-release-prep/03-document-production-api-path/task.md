@@ -16,12 +16,21 @@ The mobile binary does not host the backend. `lib/api.ts` talks to `EXPO_PUBLIC_
 - Explicitly decide whether production shares or separates Cloud Run service, Supabase project/buckets, Clerk instance/keys, Trigger environment, Modal endpoint, and EAS production public env values.
 - Preserve the no-secret rule: list variable names and operational owners, never values.
 
+## Human In The Loop
+
+- Required level: medium.
+- Programmatic work: map the current staging API, Trigger, Supabase, Clerk, Modal, OpenAI, and EAS boundaries; draft production runbooks; prepare command placeholders; and identify risks.
+- Human decisions: choose whether production is a separate Cloud Run service or shared staging service, whether production uses separate Supabase/Clerk/Trigger/Modal/OpenAI resources, whether Convex migration happens before production, and whether a store beta may temporarily target the staging-backed API.
+- Pause points: stop before applying production env vars, creating production cloud resources, changing EAS production public env, deploying Trigger production, or marking a production URL ready without explicit user approval.
+- Computer-use option: Codex can assist with cloud-console navigation if needed, but the user must approve account/project choices, billing/resource creation, and production secret configuration.
+
 ## Acceptance Criteria
 
 - [ ] Production API runbook exists or `api-hosting.md` has a clearly separated production section.
 - [ ] The doc names required production env vars without exposing values.
 - [ ] The doc states whether production API deploy is ready, deferred, or blocked, and why.
 - [ ] The doc makes production mobile builds no-go until `EXPO_PUBLIC_API_BASE_URL` has a chosen production HTTPS target.
+- [ ] Human-owned infrastructure decisions are recorded with the chosen option, owner, and unresolved blockers.
 - [ ] Shared-resource risks and rollback paths are explicit across API, Supabase/storage, Trigger, Clerk, Modal, and OpenAI.
 
 ## Dependencies
@@ -35,6 +44,7 @@ The mobile binary does not host the backend. `lib/api.ts` talks to `EXPO_PUBLIC_
 - `server/env.mjs` is the source of truth for server env validation and forbidden public secret names.
 - `server/index.mjs` owns `/health`, `/health/supabase`, authenticated translation routes, and Trigger dispatch.
 - Trigger production deploy is currently represented by `npm run trigger:deploy:prod`; production rollout remains deferred until production API, secrets, and storage decisions are made.
+- Documentation-only production planning can complete without deploying production, as long as deferred decisions are explicit.
 
 ## Artifact Slots
 

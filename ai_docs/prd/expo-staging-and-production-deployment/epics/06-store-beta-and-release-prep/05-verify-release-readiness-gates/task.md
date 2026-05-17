@@ -16,6 +16,14 @@ This final Epic 06 gate decides what kind of release is justified by evidence. T
 - Confirm store beta status per platform: not attempted, blocked, uploaded/processing, available to testers, or tested by user.
 - Produce a concise go/no-go report with separate verdicts for internal development QA, store beta, wider external beta, and public release.
 
+## Human In The Loop
+
+- Required level: medium.
+- Programmatic work: run verification commands, collect sanitized evidence, summarize store/API/Trigger status, classify blockers, and draft the go/no-go report.
+- Human decisions: approve the final recommendation for store beta, wider external beta, and public release; decide whether a staging-backed beta is acceptable; decide whether production API/Trigger/usage-control gaps block the next release lane.
+- Pause points: stop before declaring `go` for public release, inviting external testers, publishing to production tracks, or accepting residual risk without explicit user approval.
+- Computer-use option: Codex can help inspect dashboards and status pages, but the user owns final release approval and any portal action that exposes the app to testers or the public.
+
 ## Acceptance Criteria
 
 - [ ] Release-readiness report exists in task artifacts or deployment docs.
@@ -23,6 +31,7 @@ This final Epic 06 gate decides what kind of release is justified by evidence. T
 - [ ] Report includes command results or precise blockers for syntax, typecheck, lint, expo-doctor, API health, Trigger, and store build status.
 - [ ] Report references staging E2E evidence without exposing private transcripts, audio, tokens, or secrets.
 - [ ] Blockers are assigned to domains: mobile, API, Trigger, Supabase/storage, Clerk/auth, Modal/OpenAI provider, EAS/store, usage controls, or legal/privacy.
+- [ ] Final go/no-go decisions identify which items were automated evidence and which required human approval.
 
 ## Dependencies
 
@@ -34,6 +43,7 @@ This final Epic 06 gate decides what kind of release is justified by evidence. T
 - `npx expo-doctor` may surface dependency/version drift; classify the result instead of ignoring it.
 - If the Trigger worker is still local Development only, call that out as a beta/production runtime blocker instead of marking backend readiness as complete.
 - Do not include full transcript text, private audio details, Clerk session tokens, or secret values in the final readiness artifact.
+- A programmatic verification pass can produce a recommendation, but final release approval is human-owned.
 
 ## Artifact Slots
 

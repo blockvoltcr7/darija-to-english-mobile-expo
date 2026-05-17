@@ -16,12 +16,21 @@ Epic 05 proved the app works only when the full chain is healthy: mobile build, 
 - Distinguish fast rollback from new binary requirement. Native changes, runtime-version changes, store metadata mistakes, and app identity changes may require a new build or store action.
 - Include a no-go warning for wider beta/public release until usage controls and production API decisions are complete.
 
+## Human In The Loop
+
+- Required level: low.
+- Programmatic work: write the release checklist, map rollback commands to existing runbooks, add redaction rules, and connect Epic 05 evidence to release gates.
+- Human decisions: review whether the documented rollback assumptions match the team's actual Apple, Google, Expo, Cloud Run, Trigger, and provider access.
+- Pause points: stop before claiming rollback coverage for a surface that has not been verified, especially production Trigger deploy, public store release, production API rollback, or account-level store actions.
+- Computer-use option: usually not needed; this is mostly docs work unless the user wants portal screens checked for available rollback/release controls.
+
 ## Acceptance Criteria
 
 - [ ] `ai_docs/deployment/release-checklist.md` exists and is linked or easy to discover from deployment docs.
 - [ ] Checklist covers pre-release, release, rollback, and post-release verification for mobile, EAS Update, API, Trigger, env/config, and providers.
 - [ ] Checklist references Epic 05 staging E2E evidence and requires job ID / Trigger run ID / API URL correlation without secrets.
 - [ ] Checklist clearly says store beta can be go while public release remains no-go if usage controls, production API, legal/privacy, or account deletion are incomplete.
+- [ ] Human review points and unverified rollback assumptions are called out directly.
 - [ ] Rollback steps use command shapes and source files already present in the repo, not generic advice.
 
 ## Dependencies
@@ -36,6 +45,7 @@ Epic 05 proved the app works only when the full chain is healthy: mobile build, 
 - Use `eas update:rollback` only for compatible JS updates; `app.json` currently uses `runtimeVersion.policy = "appVersion"`.
 - The Trigger no-paid QA path uses `npm run trigger:dev -- --env-file .env.local --skip-update-check`; production deploy remains separate through `npm run trigger:deploy:prod`.
 - This is an internal operations document, not app-store release notes or marketing copy.
+- Mark unknown portal-only rollback steps as human-owned instead of filling them with generic instructions.
 
 ## Artifact Slots
 

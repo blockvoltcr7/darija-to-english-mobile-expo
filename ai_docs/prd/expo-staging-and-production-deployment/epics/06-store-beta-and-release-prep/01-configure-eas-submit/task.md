@@ -16,10 +16,19 @@ Epic 06 turns the verified real-phone QA path into a controlled store-beta path.
 - Keep credentials, service account JSON, Expo tokens, Apple passwords, and private key material out of source control and screenshots.
 - Add task-local support notes/checklists that make the next store-beta build task executable without guessing.
 
+## Human In The Loop
+
+- Required level: high.
+- Programmatic work: inspect local config, run safe EAS config checks, prepare submit commands, update task artifacts, and document exact blockers.
+- Human actions: sign in to Apple Developer, App Store Connect, Google Play Console, and Expo/EAS when prompted; complete 2FA; accept agreements; create or confirm app records; approve API key/service-account credential setup.
+- Pause points: stop before creating, uploading, or storing any Apple API key, Google service-account JSON, app-specific password, private key, or production submit configuration unless the user explicitly approves the action in the active session.
+- Computer-use option: Codex can guide or navigate visible portal screens, but the user must remain present for login, 2FA, agreements, payment/account ownership, and credential approval.
+
 ## Acceptance Criteria
 
 - [ ] `eas.json` submit profiles are reviewed against current `staging` and `production` build profiles.
 - [ ] EAS Submit is configured only if required store accounts/app records are available, or blockers are documented with the owning human action.
+- [ ] Human-owned account actions and pause points are recorded in `notes/` or the submit review artifact.
 - [ ] App identity remains unchanged: iOS bundle ID and Android package stay `com.samisabiridrissi.darijatoenglish`.
 - [ ] No store credential, token, service account JSON, password, private key, or secret value is committed or printed in artifacts.
 - [ ] The follow-up build task has clear iOS and Android submit commands or clear no-go blockers.
@@ -35,6 +44,7 @@ Epic 06 turns the verified real-phone QA path into a controlled store-beta path.
 - Current `staging` build profile uses `distribution: "store"`, `channel: "staging"`, and EAS `environment: "preview"` because custom Expo staging environments require a paid plan.
 - EAS Submit uploads binaries into App Store Connect / Google Play distribution flows; it does not by itself approve public release.
 - Human-in-loop is normal here for Apple login, App Store Connect agreements, app record creation, Google Play Console registration, and service account authorization.
+- Do not ask the user to paste passwords, verification codes, app-specific passwords, or service-account JSON into chat.
 
 ## Artifact Slots
 
