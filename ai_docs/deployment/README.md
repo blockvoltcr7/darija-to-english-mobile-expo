@@ -81,7 +81,7 @@ Google Play:
 
 EAS builds the mobile binary only. The app still talks to a separately hosted HTTPS Express API through `EXPO_PUBLIC_API_BASE_URL`.
 
-Staging API operations are documented in [api-hosting.md](api-hosting.md). The deferred production API decision path is documented in [production-api.md](production-api.md).
+Staging API operations are documented in [api-hosting.md](api-hosting.md). The deferred production API decision path is documented in [production-api.md](production-api.md). Release and rollback gates are documented in [release-checklist.md](release-checklist.md).
 
 Provider secrets stay server-side:
 
