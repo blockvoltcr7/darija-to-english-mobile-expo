@@ -40,7 +40,7 @@ Prepare TestFlight, Google Play testing, production API documentation, and rollb
 | #  | Slug                            | Type           | Status | Updated              |
 |----|---------------------------------|----------------|--------|----------------------|
 | 01 | configure-eas-submit            | Infrastructure | done   | 2026-05-17T05:44:05Z |
-| 02 | create-store-beta-builds        | Infrastructure | open   | 2026-05-17T05:18:33Z |
+| 02 | create-store-beta-builds        | Infrastructure | done   | 2026-05-17T05:46:13Z |
 | 03 | document-production-api-path    | Infrastructure | done   | 2026-05-17T05:44:05Z |
 | 04 | add-release-rollback-checklist  | Code           | open   | 2026-05-17T05:18:33Z |
 | 05 | verify-release-readiness-gates  | Code           | open   | 2026-05-17T05:18:33Z |

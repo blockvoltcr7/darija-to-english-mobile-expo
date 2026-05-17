@@ -7,3 +7,5 @@
 2026-05-17T05:38:05Z document-production-api-path open->in_progress
 2026-05-17T05:44:05Z configure-eas-submit in_progress->done
 2026-05-17T05:44:05Z document-production-api-path in_progress->done
+2026-05-17T05:44:51Z create-store-beta-builds open->in_progress
+2026-05-17T05:46:13Z create-store-beta-builds in_progress->done
