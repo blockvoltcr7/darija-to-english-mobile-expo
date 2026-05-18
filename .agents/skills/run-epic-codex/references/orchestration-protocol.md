@@ -18,6 +18,8 @@ Parse the local epic folder to extract:
 - full task body and `## Acceptance Criteria`
 - current status per slug from `status.log`
 
+Plan files are required for every non-`done` task. If any required `plan.md` or legacy `*.plan.md` file is missing, stop before execution and tell the user to run `analyze-epic <epic_folder>`.
+
 ### 2. Filter Completed
 
 Skip any task whose latest `status.log` entry is `done`. If an entire phase is already `done`, skip to the next phase.
@@ -29,7 +31,8 @@ For each phase:
 - If all remaining tasks are sequential, execute them directly in the parent session.
 - If the phase has parallel-safe tasks and the user explicitly requested Codex subagents, spawn one subagent per parallel-safe task.
 - If the phase has parallel-safe tasks but the user did not explicitly request subagents, show the parallel window and ask before spawning.
-- If a task has `worktree_mode: parallel`, use a separate worktree/branch or otherwise keep its write scope isolated.
+- If a task has `worktree_mode: parallel`, create a separate git worktree before spawning a `worker` subagent.
+- If worktree creation fails, do not delegate that task in parallel; collapse it to sequential parent execution.
 - If write scopes overlap, collapse those tasks back to sequential execution.
 
 Codex subagent workflows use bounded delegation. Each subagent receives one scoped task and reports back to the parent session for verification, merge decisions, status updates, and phase completion.
@@ -54,10 +57,10 @@ Use these role defaults:
 
 When delegating implementation:
 
-- state the task slug, spec path, plan path, worktree path if any, and exact write ownership
+- state the task slug, spec path, plan path, required worktree path, and exact write ownership
 - tell the subagent it is not alone in the codebase and must not revert unrelated edits
 - tell the subagent not to edit `status.log` or `epic-overview.md`
-- require a concise completion/blocker report with changed file paths and validation performed
+- require a concise `done`, `blocked`, or `failed` report with changed file paths and validation performed
 
 ### 6. Monitor And Integrate
 
@@ -83,7 +86,7 @@ After every remaining task in the phase is done, create the phase checkpoint com
 
 | Event | Log append |
 |---|---|
-| Task initialized by finalize-epic | `<ts> <slug> nil->open` |
+| Task initialized by prepare-epic | `<ts> <slug> nil->open` |
 | Task execution starts | `<ts> <slug> open->in_progress` |
 | Task completion verified | `<ts> <slug> in_progress->done` |
 | Task has a blocker | `<ts> <slug> in_progress->in_progress # blocker: <reason>` |
@@ -93,22 +96,23 @@ The log is source of truth. The overview status table is derived from the log.
 
 ## Worktree Lifecycle
 
-For each delegated parallel task that uses a worktree:
+For each delegated parallel task:
 
-1. Spawn:
+1. Create the git worktree before spawning the subagent:
    ```bash
    git worktree add ../<epic-name>-<slug> <branch>
    ```
-2. Spawn a Codex `worker` subagent with the worktree path, spec, plan, and ownership rules.
-3. Wait for its completion or blocker report.
-4. Verify acceptance criteria in the worktree.
-5. Merge the branch back into the parent branch.
-6. Remove the worktree and delete the branch if safe:
+2. If worktree creation fails, stop parallel delegation for that task and collapse it to sequential parent execution.
+3. Spawn a Codex `worker` subagent with the worktree path, spec, plan, and ownership rules.
+4. Wait for its completion or blocker report.
+5. Verify acceptance criteria in the worktree.
+6. Merge the branch back into the parent branch.
+7. Remove the worktree and delete the branch if safe:
    ```bash
    git worktree remove ../<epic-name>-<slug>
    git branch -d <branch>
    ```
-7. Append `in_progress->done` and regenerate the overview status table.
+8. Append `in_progress->done` and regenerate the overview status table.
 
 If cleanup fails after a successful merge, warn with the worktree path but do not mark the task blocked solely because cleanup needs manual follow-up.
 
@@ -136,6 +140,8 @@ When finished, report:
 - acceptance criteria satisfied
 - validation run
 - integration notes or blockers
+
+The parent session verifies your report and decides any `status.log` transition.
 ```
 
 ## Error Recovery
@@ -144,9 +150,10 @@ When finished, report:
 |---|---|
 | Delegated work reports blocker | Inspect dependency state, append same-state blocker entry, and stop downstream work if needed |
 | Parallel work starts conflicting | Stop further parallel dispatch and collapse remaining tasks to sequential execution |
+| Worktree creation fails | Do not spawn the parallel worker; collapse the task to sequential parent execution |
 | Status log append fails | Stop and surface the file error; do not blindly retry appends |
 | Worktree merge conflict | Resolve in the parent session or escalate to the user |
 | Worktree cleanup fails after merge | Warn with the worktree path and continue |
-| Plan files missing | Warn and fall back to sequential execution |
+| Plan files missing | Stop before execution and tell the user to run `analyze-epic <epic_folder>` |
 | Status log has unparseable lines | Warn, skip bad lines, and use last good entry per slug |
 | Crash mid-task | Use the completed, abandoned, or rollback recovery flow from `SKILL.md` |

@@ -5,7 +5,7 @@ description: Execute an analyzed local epic folder phase by phase in Codex using
 
 # Run Epic Codex
 
-Execute an analyzed local epic folder using task specs and execution strategy plans produced by `enrich-epic` and `analyze-epic`. The epic's append-only `status.log` is the source of truth, and the parent Codex session is the only writer.
+Execute a prepared and analyzed local epic folder using enriched task specs, `status.log` initialized by `prepare-epic`, and execution strategy plans produced by `analyze-epic`. The epic's append-only `status.log` is the source of truth, and the parent Codex session is the only writer.
 
 Preferred task shape:
 
@@ -35,7 +35,9 @@ Parse one argument:
 
 If it is missing, ask for it.
 
-Refuse to run if `status.log` is not present. Tell the user to run `finalize-epic <epic_folder_path>` first.
+Refuse to run if `status.log` is not present. Tell the user to run `prepare-epic <epic_folder_path>` first.
+
+Refuse to run if any open task is missing its plan file. Tell the user to run `analyze-epic <epic_folder_path>` first.
 
 ## Codex orchestration model
 
@@ -45,9 +47,11 @@ Use Codex's parent-session orchestration model.
 - The parent may execute sequential work directly.
 - The parent may spawn Codex subagents for parallel-safe work when the user has explicitly asked for Codex subagent or parallel-agent execution.
 - Prefer `worker` subagents for bounded implementation slices and `explorer` subagents for read-heavy mapping or verification.
-- Keep delegated write scopes disjoint. Do not assign two subagents to the same files unless the plan intentionally uses separate worktrees and explicit merge handling.
+- Keep delegated write scopes disjoint. For `worktree_mode: parallel`, the parent must create a separate git worktree before spawning a `worker` subagent.
+- If worktree creation fails for a parallel implementation task, do not delegate that task in parallel; collapse it to sequential parent execution.
 - Subagents never append `status.log`, regenerate the overview table, create checkpoint commits, or decide that a phase is complete.
 - Subagents report findings or completed work back to the parent session for verification and integration.
+- Subagents report `done`, `blocked`, or `failed`; the parent verifies acceptance criteria and decides the status transition.
 - If a custom Codex agent is added later under `.codex/agents`, it must reference this skill instead of replacing it.
 
 ## Workflow
@@ -62,14 +66,14 @@ If both shapes exist for the same slug, use the folder task and warn about the l
 
 For each folder-shaped task, read:
 - `task.md`
-- sibling `plan.md` if present
+- sibling `plan.md`
 - task-local `references/`, `resources/`, and `notes/` when needed for implementation context
 
-For each legacy flat task, read the spec file and sibling `<NN>-<slug>.plan.md` if present.
+For each legacy flat task, read the spec file and sibling `<NN>-<slug>.plan.md`.
 
 Read `status.log`. Sort entries by timestamp. For each slug, take the last entry as current status. Skip slugs whose current status is `done`.
 
-If plan files are missing, warn and fall back to conservative sequential execution.
+If any non-`done` task is missing its required plan file, stop before execution. Report the missing plan paths and tell the user to run `analyze-epic <epic_folder_path>`.
 
 Crash recovery: detect any slug whose current status is `in_progress` with no terminal entry. For each such slug:
 
@@ -100,7 +104,7 @@ For each phase:
 1. Append `open->in_progress` for every task selected in the phase.
 2. Regenerate the status table in `epic-overview.md`.
 3. Execute sequential tasks directly in the parent session.
-4. For parallel-safe tasks, spawn one bounded Codex subagent per task when explicit subagent execution is confirmed.
+4. For parallel-safe tasks, create the required worktree and spawn one bounded Codex `worker` subagent per task when explicit subagent execution is confirmed.
 5. Wait for delegated results only when the phase cannot progress without them.
 6. Verify each task against its `## Acceptance Criteria` before marking it done.
 7. Merge and clean up any worktrees before appending `in_progress->done`.

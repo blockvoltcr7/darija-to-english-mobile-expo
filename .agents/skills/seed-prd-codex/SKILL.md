@@ -49,7 +49,7 @@ Select the rest of the pages from `references/prd-structure.md` based on the eff
 
 ### 4. Keep the PRD implementation-ready
 
-The PRD must be specific enough for `seed-epic` to parse into tasks. In particular:
+The PRD must be specific enough for `seed-epics` to parse into epics and tasks. In particular:
 - implementation phases must be explicit
 - files, APIs, schemas, and constraints should be concrete
 - decisions and scope cuts should be recorded
@@ -59,7 +59,7 @@ The PRD must be specific enough for `seed-epic` to parse into tasks. In particul
 After writing the PRD, report:
 - output folder
 - pages written
-- the next step: `seed-epic <prd_path>`
+- the next step: `seed-epics <prd_path>`
 
 ## Writing rules
 

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Prepare Epic"
+  short_description: "Validate a local epic folder and prepare it for analysis and execution"
+  default_prompt: "Prepare this local epic folder for analysis and execution"

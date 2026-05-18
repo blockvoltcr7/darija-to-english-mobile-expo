@@ -2,6 +2,14 @@
 
 Map epic task characteristics to Codex subagent roles. This is intentionally conservative: assign one scoped responsibility per subagent and keep final integration in the parent Codex session.
 
+Role policy:
+- Use `explorer` for read-heavy research, mapping, triage, verification, and documentation checks.
+- Use `worker` for bounded implementation or bug fixes. In `run-epic-codex`, a parallel `worker` task requires a dedicated git worktree before delegation.
+- Use `default` only when the task is mixed or unclear and cannot be split cleanly into exploration or implementation.
+- `enrich-epic` subagents use read-only research behavior; `run-epic-codex` uses `worker` subagents only for implementation.
+
+The worktree requirement is this repo workflow's safety policy for parallel writes. It is inferred from Codex's support for worktrees, Codex guidance to be careful with parallel write-heavy workflows, and this epic runner's conflict risk. It is not a direct OpenAI platform requirement.
+
 ## Built-in Roles
 
 | Task signal | Codex role | Reason |

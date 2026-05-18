@@ -1,6 +1,6 @@
 ---
 name: analyze-epic
-description: Analyze a local epic folder to determine dependency phases, parallelization safety, and execution strategy plan files for later implementation. Run after enrich-epic and before run-epic.
+description: Analyze a prepared local epic folder to determine dependency phases, parallelization safety, and execution strategy plan files for later implementation. Run after prepare-epic and before run-epic-codex.
 ---
 
 # Analyze Epic
@@ -26,11 +26,11 @@ Plan files never modify task specs.
 ## Input
 
 Parse one argument:
-- `epic_folder_path`: path to the finalized epic folder
+- `epic_folder_path`: path to the prepared epic folder
 
 If it is missing, ask for it.
 
-Refuse to run if `status.log` is not present in the folder — that means the epic has not been finalized. Tell the user to run `finalize-epic <epic_folder_path>` first.
+Refuse to run if `status.log` is not present in the folder — that means the epic has not been prepared for analysis/execution. Tell the user to run `prepare-epic <epic_folder_path>` first.
 
 ## Workflow
 
@@ -92,7 +92,7 @@ For each legacy flat task, write the sidecar plan file at:
 
 Use overwrite-safe writes. This skill is the only writer for plan files, so re-running cleanly replaces previous plans without touching specs or support folders.
 
-Plan file format — YAML frontmatter for the structured fields run-epic reads, then a free-text body for human-readable rationale:
+Plan file format — YAML frontmatter for the structured fields `run-epic-codex` reads, then a free-text body for human-readable rationale:
 
 ```markdown
 ---
@@ -118,12 +118,23 @@ Frontmatter field semantics:
 - `depends_on`: list of slugs this task depends on (within this epic only)
 - `blocks`: list of slugs this task blocks (within this epic only)
 
-### 7. Handoff
+### 7. Auto-commit
+
+Stage the generated plan files and create a checkpoint commit:
+
+```bash
+git add <epic_folder_path>
+git commit -m "Analyze epic: <epic_name>"
+```
+
+Skip the commit only if re-running analysis produced no changes.
+
+### 8. Handoff
 
 Point the user to:
-- `run-epic <epic_folder_path>`
+- `run-epic-codex <epic_folder_path>`
 
-Report that plan files were written, including the task count and any notable sequential/parallel decisions.
+Report that plan files were written and checkpointed, including the task count and any notable sequential/parallel decisions.
 
 ## References
 

@@ -1,4 +1,0 @@
-interface:
-  display_name: "Seed Epic"
-  short_description: "Turn a PRD or session context into reviewed local epic and task folders"
-  default_prompt: "Seed local epic folders and task folders from the provided PRD or current session context"
