@@ -4,10 +4,17 @@ Use this checklist when verifying that sign-out, new Clerk user creation, and as
 
 ## Setup
 
+Start the API and Trigger worker in separate terminals:
+
 ```bash
-npm run api
+ENABLE_TTS=true npm run api
+```
+
+```bash
 npx trigger.dev dev --env-file .env.local
 ```
+
+Use `ENABLE_TTS=true` for the API process when verifying generated English audio. If you are verifying text-only fallback behavior, document that TTS was disabled.
 
 Load a non-sensitive audio fixture into the booted iOS Simulator:
 
@@ -33,6 +40,9 @@ Load a non-sensitive audio fixture into the booted iOS Simulator:
 3. Upload the simulator audio fixture.
 4. Wait for `Complete`.
 5. Verify the result screen shows English translation, consolidated Darija, raw OpenAI transcript, raw Darija transcript, and model metadata.
+6. When TTS is enabled and `tts.status === "succeeded"`, verify the English translation audio row appears, shows the AI-generated voice disclosure, and plays only after tapping Play.
+7. Open History, select the completed translation, and verify the same English audio playback control appears in the detail view.
+8. If TTS fails, verify the English translation remains visible and diagnostics/API detail show safe voice failure metadata.
 
 ## Log Evidence
 
@@ -43,6 +53,9 @@ Capture only sanitized evidence:
 - Trigger run ID.
 - Modal ASR HTTP 200.
 - OpenAI STT, consolidation, and translation completion.
+- TTS milestone when enabled: artifact row created/running, OpenAI TTS completion or safe failure, private artifact upload, and playback route check.
 - Final translation status `succeeded`.
+- TTS artifact status: `succeeded` or `failed`, recorded separately from text translation status.
+- Playback route result for the owning user and any negative-path checks performed.
 
-Do not copy Clerk tokens, `.env` values, API keys, or private audio contents into QA notes.
+Do not copy Clerk tokens, `.env` values, API keys, private audio contents, full transcripts, or generated audio bytes into QA notes.

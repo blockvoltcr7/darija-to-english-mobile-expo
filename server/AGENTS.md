@@ -32,15 +32,19 @@ The Trigger worker owns provider execution:
 4. Require both transcripts to be non-empty.
 5. Send both transcripts to OpenAI consolidation.
 6. Send consolidated Arabic/Darija transcript to OpenAI translation.
-7. Persist raw transcripts, consolidated transcript, English translation, aliases, model metadata, and final status.
+7. Persist raw transcripts, consolidated transcript, English translation, aliases, and model metadata.
+8. If `ENABLE_TTS=true`, generate OpenAI English TTS after text result persistence, store generated audio in private Supabase Storage, and persist `translation_artifacts` metadata.
+9. Final translation job status remains text-first: a TTS failure records failed artifact metadata but must not hide the English translation.
 
 ## Backend Rules
 
 - Keep OpenAI and Modal credentials server-side only.
 - Do not translate from only one STT source unless the user explicitly changes the product requirement.
 - Keep consolidation and translation as separate OpenAI calls for traceability.
+- Keep OpenAI TTS optional and server-side; mobile may only receive safe artifact metadata and authenticated API playback URLs.
 - Keep structured trace logs, but do not log secrets.
-- Do not log full transcripts by default in production-ready work; log lengths, model names, timings, and trace IDs.
+- Do not log full transcripts or generated audio bytes by default in production-ready work; log lengths, byte counts, model names, timings, artifact IDs, and trace IDs.
+- Do not expose private Supabase bucket/object keys in public API responses.
 - Any future auth, paywall, entitlement, and usage-meter checks must happen before model calls.
 - Keep `/health` public.
 
@@ -53,9 +57,10 @@ During a fresh-user E2E test, verify the API logs show:
 - Async translation request received with filename, byte counts, and MIME type.
 - Async translation queued with `jobId` and `triggerRunId`.
 - History detail polling transitions from `queued` to `running` to `succeeded`.
+- If TTS is enabled: TTS artifact running/succeeded or failed status, OpenAI TTS completion or safe failure, artifact upload metadata, and playback route result.
 - No `Unauthorized`, `clerk_session_missing`, storage, Trigger dispatch, Modal, or OpenAI errors.
 
-Do not log full transcripts, Clerk session tokens, or secret env values while collecting evidence.
+Do not log full transcripts, generated audio bytes, Clerk session tokens, or secret env values while collecting evidence.
 
 ## Environment
 
@@ -70,6 +75,12 @@ Model defaults:
 - `OPENAI_TRANSCRIPTION_MODEL=gpt-4o-mini-transcribe`
 - `OPENAI_CONSOLIDATION_MODEL=gpt-5.5`
 - `OPENAI_TRANSLATION_MODEL=gpt-5.5`
+- `ENABLE_TTS=false`
+- `TTS_PROVIDER=openai`
+- `TTS_LANGUAGE=en`
+- `TTS_RESPONSE_FORMAT=aac`
+- `OPENAI_TTS_MODEL=gpt-4o-mini-tts`
+- `OPENAI_TTS_VOICE=marin`
 
 ## Verification
 
