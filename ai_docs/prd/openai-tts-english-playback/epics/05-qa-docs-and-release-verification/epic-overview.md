@@ -60,6 +60,6 @@ This epic closes the feature with documentation updates and evidence-based verif
 |----|------|------|--------|---------|
 | 01 | update-tts-qa-and-agent-docs | Code | done | 2026-05-21T21:08:03Z |
 | 02 | run-static-and-api-verification | Code | done | 2026-05-21T21:11:23Z |
-| 03 | run-fresh-user-tts-qa | Code | open | 2026-05-21T19:32:00Z |
-| 04 | verify-failure-and-cross-user-access-paths | Code | open | 2026-05-21T19:32:00Z |
+| 03 | run-fresh-user-tts-qa | Code | in_progress | 2026-05-21T21:11:50Z |
+| 04 | verify-failure-and-cross-user-access-paths | Code | open | 2026-05-21T21:11:50Z |
 <!-- STATUS-TABLE-END -->
