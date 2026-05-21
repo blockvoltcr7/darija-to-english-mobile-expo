@@ -1,0 +1,56 @@
+# Epic 05: QA Docs And Release Verification
+
+## Objective
+
+Update operational docs and capture evidence that TTS is safe, authenticated, resilient, and visible in the mobile app.
+
+## Scope
+
+- Update QA and agent docs for the new TTS workflow.
+- Run static checks and `/health`.
+- Run fresh Clerk user QA with `ENABLE_TTS=true`.
+- Verify forced TTS failure and cross-user playback denial.
+
+## Out Of Scope
+
+- Implementing missing feature work from earlier epics.
+- Publishing production env values before a production API URL exists.
+
+## Tasks
+
+| # | Task | Type | Depends On |
+|---|---|---|---|
+| 01 | `update-tts-qa-and-agent-docs` | Code | `04-mobile-playback-ui/add-history-detail-playback-control` |
+| 02 | `run-static-and-api-verification` | Code | `update-tts-qa-and-agent-docs` |
+| 03 | `run-fresh-user-tts-qa` | Code | `run-static-and-api-verification` |
+| 04 | `verify-failure-and-cross-user-access-paths` | Code | `run-fresh-user-tts-qa` |
+
+## Verification
+
+- Static checks from the PRD definition of done pass or documented blockers are captured.
+- Fresh-user QA includes text results, metadata, diagnostics, and English audio playback.
+- Logs and docs do not include secrets, tokens, private audio contents, or full generated audio bytes.
+
+<!-- ENRICHED-OVERVIEW-START -->
+## Enriched Overview
+
+### Scope
+
+This epic closes the feature with documentation updates and evidence-based verification. It confirms the PRD goals that TTS is server-side, authenticated, optional, failure-isolated, and visible only when generated audio exists.
+
+### Task Summary
+
+| # | Slug | Type | Summary | Key Dependencies |
+|---|---|---|---|---|
+| 01 | `update-tts-qa-and-agent-docs` | Code | Update fresh-user QA and agent docs with TTS workflow, evidence requirements, and privacy boundaries. | Epic 04 UI complete; `ai_docs/fresh-clerk-user-qa.md`; `server/AGENTS.md`. |
+| 02 | `run-static-and-api-verification` | Code | Run server syntax checks, typecheck, lint, Expo Doctor, and `/health`, capturing safe blocker summaries if needed. | Task 01; local API runtime. |
+| 03 | `run-fresh-user-tts-qa` | Code | Run the iOS development-build fresh Clerk user path with `ENABLE_TTS=true` and verify audio playback plus existing text results. | Task 02; API and Trigger worker; simulator fixture loading. |
+| 04 | `verify-failure-and-cross-user-access-paths` | Code | Force/simulate TTS failure and cross-user playback requests to prove text success and private audio access controls. | Task 03; second Clerk test user; playback route. |
+
+### Execution Notes
+
+- Shared files likely touched: `ai_docs/fresh-clerk-user-qa.md`, `server/AGENTS.md`, possibly `AGENTS.md`, and task artifacts containing safe QA evidence.
+- Durable evidence should include command names, statuses, job IDs, Trigger run IDs, fixture filename/size, and redacted identity. Do not include tokens, secrets, private audio contents, full transcripts, or generated audio bytes.
+- This epic is verification and documentation work; it should not backfill implementation defects silently. Capture blockers clearly if earlier epics are incomplete.
+
+<!-- ENRICHED-OVERVIEW-END -->

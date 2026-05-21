@@ -1,0 +1,54 @@
+# Epic 02: Pipeline TTS Integration
+
+## Objective
+
+Run TTS after successful English translation while preserving text-first completion semantics and avoiding duplicate paid calls.
+
+## Scope
+
+- Invoke TTS from `server/translation-pipeline.mjs` only after `writeTranslationResult(...)`.
+- Skip generation when a successful matching artifact already exists.
+- Persist TTS failure state without failing the completed text translation.
+
+## Out Of Scope
+
+- Schema creation.
+- OpenAI provider implementation.
+- Playback route or mobile UI.
+
+## Tasks
+
+| # | Task | Type | Depends On |
+|---|---|---|---|
+| 01 | `run-tts-after-translation-success` | Code | `01-openai-tts-provider-and-storage/add-translation-artifact-storage-helpers` |
+| 02 | `skip-existing-successful-tts-artifacts` | Code | `run-tts-after-translation-success` |
+| 03 | `record-tts-failure-without-failing-text-result` | Code | `skip-existing-successful-tts-artifacts` |
+
+## Verification
+
+- Trigger job still succeeds when text translation succeeds and TTS is disabled.
+- Trigger job creates a TTS artifact when `ENABLE_TTS=true`.
+- Forced TTS failure records artifact failure and leaves the translation job/result usable.
+
+<!-- ENRICHED-OVERVIEW-START -->
+## Enriched Overview
+
+### Scope
+
+This epic integrates TTS into the existing Trigger-owned provider pipeline after English text persistence. The key product alignment is preserving text-first translation success while adding optional audio generation that is idempotent and failure-isolated.
+
+### Task Summary
+
+| # | Slug | Type | Summary | Key Dependencies |
+|---|---|---|---|---|
+| 01 | `run-tts-after-translation-success` | Code | Call the TTS router after `writeTranslationResult(...)`, upload generated audio, and mark artifact success with safe metadata. | Epic 00 repository; Epic 01 provider/storage helpers; `server/translation-pipeline.mjs`. |
+| 02 | `skip-existing-successful-tts-artifacts` | Code | Check for an existing successful artifact by idempotency hash before making any paid provider call. | Task 01; artifact unique index; `server/tts/index.mjs`. |
+| 03 | `record-tts-failure-without-failing-text-result` | Code | Catch TTS-specific failures, mark artifact failure safely, and keep completed text result/job usable. | Task 02; artifact lifecycle helpers; current job success/failure boundaries. |
+
+### Execution Notes
+
+- Shared files likely touched: `server/translation-pipeline.mjs`, `server/artifacts.mjs`, `server/tts/index.mjs`, `server/storage.mjs`, and possibly `server/translations.mjs`.
+- The main sequencing rule is strict: STT -> consolidation -> English translation -> `writeTranslationResult(...)` -> optional TTS.
+- Do not allow TTS exceptions after text persistence to escape into `markTranslationJobFailed(...)` for the completed text workflow.
+
+<!-- ENRICHED-OVERVIEW-END -->
