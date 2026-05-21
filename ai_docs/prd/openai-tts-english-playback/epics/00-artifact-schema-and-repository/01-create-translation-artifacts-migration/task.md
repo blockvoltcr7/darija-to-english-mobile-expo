@@ -10,6 +10,8 @@ OpenAI TTS output needs durable state that is separate from the existing transla
 
 This table is the security foundation for later playback work. The mobile app must never receive service-role access or private Supabase object keys.
 
+The existing `public.translation_jobs` schema is assumed to be present before this task starts.
+
 ## Implementation
 
 - Create `supabase/migrations/<timestamp>_create_translation_artifacts.sql` using the repo migration naming convention.
@@ -30,13 +32,13 @@ This table is the security foundation for later playback work. The mobile app mu
 
 ## Dependencies
 
-- Depends On: existing translation job schema
 - Blocks: add-artifact-repository-helpers
 - Blocks: add-server-tts-env-contract
 
 ## Technical Notes
 
 - Use `clerk_user_id text` as the ownership column, consistent with the Clerk-native app data model.
+- Confirm the live `public.translation_jobs(id)` type before writing the foreign key so the artifact table matches the existing schema.
 - Keep generated audio in a private `translation-artifacts` bucket; this migration should store metadata, not create public access.
 - Do not add permissive RLS policies for mobile clients. All access should go through authenticated server routes.
 
@@ -46,4 +48,3 @@ This table is the security foundation for later playback work. The mobile app mu
 - `references/`: excerpts from `06-technical-specifications.md` and existing migration conventions.
 - `resources/`: SQL inspection queries for constraints, indexes, grants, and RLS status.
 - `notes/`: decisions about updated-at trigger reuse, index shape, and retention assumptions.
-
