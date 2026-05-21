@@ -6,3 +6,5 @@
 2026-05-21T20:52:16Z add-server-tts-env-contract in_progress->done
 2026-05-21T20:52:38Z add-openai-tts-provider open->in_progress
 2026-05-21T20:53:30Z add-openai-tts-provider in_progress->done
+2026-05-21T20:53:51Z add-tts-provider-router-and-idempotency open->in_progress
+2026-05-21T20:54:51Z add-tts-provider-router-and-idempotency in_progress->done

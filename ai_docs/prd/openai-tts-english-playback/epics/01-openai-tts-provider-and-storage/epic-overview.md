@@ -62,6 +62,6 @@ This epic adds the server-only generation and private storage building blocks fo
 |----|------|------|--------|---------|
 | 01 | add-server-tts-env-contract | Infrastructure | done | 2026-05-21T20:52:16Z |
 | 02 | add-openai-tts-provider | Code | done | 2026-05-21T20:53:30Z |
-| 03 | add-tts-provider-router-and-idempotency | Code | open | 2026-05-21T19:32:00Z |
+| 03 | add-tts-provider-router-and-idempotency | Code | done | 2026-05-21T20:54:51Z |
 | 04 | add-translation-artifact-storage-helpers | Code | open | 2026-05-21T19:32:00Z |
 <!-- STATUS-TABLE-END -->
