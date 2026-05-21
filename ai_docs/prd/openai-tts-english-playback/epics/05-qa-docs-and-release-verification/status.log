@@ -4,3 +4,5 @@
 2026-05-21T19:32:00Z verify-failure-and-cross-user-access-paths nil->open
 2026-05-21T21:05:45Z update-tts-qa-and-agent-docs open->in_progress
 2026-05-21T21:08:03Z update-tts-qa-and-agent-docs in_progress->done
+2026-05-21T21:08:25Z run-static-and-api-verification open->in_progress
+2026-05-21T21:11:23Z run-static-and-api-verification in_progress->done
