@@ -25,6 +25,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { EnglishAudioPlayback } from '@/components/EnglishAudioPlayback';
 import { translateAudioFile } from '@/lib/api';
 import { CONFIG } from '@/lib/config';
 import type { TranslationResult, WorkStatus } from '@/lib/types';
@@ -720,6 +721,10 @@ export default function HomeScreen() {
             <Text selectable style={styles.translationText}>
               {englishTranslation || 'Waiting for translation.'}
             </Text>
+            <EnglishAudioPlayback
+              getToken={() => getToken()}
+              tts={result?.tts}
+            />
           </View>
 
           <View style={styles.resultPanel}>

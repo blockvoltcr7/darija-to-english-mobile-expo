@@ -4,6 +4,7 @@ import type {
   TranslationHistoryDetail,
   TranslationHistoryListResponse,
   TranslationResult,
+  TranslationTtsArtifact,
 } from '@/lib/types';
 
 interface TranslateAudioParams {
@@ -163,6 +164,31 @@ function sleep(milliseconds: number, signal?: AbortSignal) {
   });
 }
 
+function resolveApiRelativeUrl(value?: string | null) {
+  if (!value) {
+    return null;
+  }
+
+  if (/^https?:\/\//i.test(value)) {
+    return value;
+  }
+
+  return `${CONFIG.API_BASE_URL}${value.startsWith('/') ? value : `/${value}`}`;
+}
+
+function normalizeTtsArtifact(
+  tts?: TranslationTtsArtifact | null,
+): TranslationTtsArtifact | null {
+  if (!tts) {
+    return null;
+  }
+
+  return {
+    ...tts,
+    audioUrl: resolveApiRelativeUrl(tts.audioUrl),
+  };
+}
+
 function toTranslationResult(detail: TranslationHistoryDetail): TranslationResult {
   const models =
     detail.result?.modelMetadata &&
@@ -217,6 +243,7 @@ function toTranslationResult(detail: TranslationHistoryDetail): TranslationResul
       filename: detail.filename || undefined,
       audio_bytes: detail.sourceAudioBytes || undefined,
     },
+    tts: normalizeTtsArtifact(detail.tts),
   };
 }
 
@@ -364,5 +391,10 @@ export async function getTranslation({
     );
   }
 
-  return (await res.json()) as TranslationHistoryDetail;
+  const detail = (await res.json()) as TranslationHistoryDetail;
+
+  return {
+    ...detail,
+    tts: normalizeTtsArtifact(detail.tts),
+  };
 }

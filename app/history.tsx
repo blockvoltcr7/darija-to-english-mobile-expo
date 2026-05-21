@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { EnglishAudioPlayback } from '@/components/EnglishAudioPlayback';
 import { getTranslation, listTranslations } from '@/lib/api';
 import type {
   TranslationHistoryDetail,
@@ -366,6 +367,10 @@ export default function HistoryScreen() {
                           <Text selectable style={styles.detailPrimary}>
                             {detail.result?.englishText || detail.errorMessage || 'Pending'}
                           </Text>
+                          <EnglishAudioPlayback
+                            getToken={() => getTokenRef.current()}
+                            tts={detail.tts}
+                          />
 
                           <Text style={styles.detailLabel}>Darija</Text>
                           <Text selectable style={styles.detailSecondary}>

@@ -2,3 +2,11 @@
 2026-05-21T19:32:00Z add-authenticated-audio-playback-helper nil->open
 2026-05-21T19:32:00Z add-translate-result-playback-control nil->open
 2026-05-21T19:32:00Z add-history-detail-playback-control nil->open
+2026-05-21T21:02:53Z add-client-tts-types-and-api-mapping open->in_progress
+2026-05-21T21:02:53Z add-authenticated-audio-playback-helper open->in_progress
+2026-05-21T21:02:53Z add-translate-result-playback-control open->in_progress
+2026-05-21T21:02:53Z add-history-detail-playback-control open->in_progress
+2026-05-21T21:04:49Z add-client-tts-types-and-api-mapping in_progress->done
+2026-05-21T21:04:49Z add-authenticated-audio-playback-helper in_progress->done
+2026-05-21T21:04:49Z add-translate-result-playback-control in_progress->done
+2026-05-21T21:04:49Z add-history-detail-playback-control in_progress->done

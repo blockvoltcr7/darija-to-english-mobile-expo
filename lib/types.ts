@@ -1,3 +1,28 @@
+export type TranslationTtsStatus =
+  | 'queued'
+  | 'running'
+  | 'succeeded'
+  | 'failed'
+  | 'canceled'
+  | string;
+
+export interface TranslationTtsArtifact {
+  status: TranslationTtsStatus;
+  provider?: string | null;
+  model?: string | null;
+  voice?: string | null;
+  language?: string | null;
+  format?: 'aac' | 'mp3' | string | null;
+  mimeType?: string | null;
+  byteSize?: number | null;
+  durationSeconds?: number | null;
+  audioUrl?: string | null;
+  errorCode?: string | null;
+  errorMessage?: string | null;
+  createdAt?: string | null;
+  updatedAt?: string | null;
+}
+
 export interface TranslationResult {
   jobId?: string;
   translationJobId?: string;
@@ -34,6 +59,7 @@ export interface TranslationResult {
     audio_bytes?: number;
     duration_seconds?: number;
   };
+  tts?: TranslationTtsArtifact | null;
 }
 
 export interface TranslationHistoryListItem {
@@ -105,6 +131,7 @@ export interface TranslationHistoryDetail {
     createdAt?: string | null;
     updatedAt?: string | null;
   } | null;
+  tts?: TranslationTtsArtifact | null;
   providerRuns: TranslationProviderRunSummary[];
 }
 
