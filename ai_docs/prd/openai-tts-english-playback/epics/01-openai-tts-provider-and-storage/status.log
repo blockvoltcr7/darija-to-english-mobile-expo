@@ -2,3 +2,5 @@
 2026-05-21T19:32:00Z add-openai-tts-provider nil->open
 2026-05-21T19:32:00Z add-tts-provider-router-and-idempotency nil->open
 2026-05-21T19:32:00Z add-translation-artifact-storage-helpers nil->open
+2026-05-21T20:51:04Z add-server-tts-env-contract open->in_progress
+2026-05-21T20:52:16Z add-server-tts-env-contract in_progress->done
