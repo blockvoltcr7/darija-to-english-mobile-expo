@@ -394,3 +394,24 @@ export async function getEnglishTtsArtifactForUser({ clerkUserId, translationId 
 
   return normalizeArtifact(data);
 }
+
+export async function getLatestEnglishTtsArtifactForUser({
+  clerkUserId,
+  translationId,
+}) {
+  const { data, error } = await getSupabaseAdminClient()
+    .from('translation_artifacts')
+    .select(ARTIFACT_COLUMNS)
+    .eq('job_id', normalizeRequiredString(translationId, 'translationId'))
+    .eq('clerk_user_id', normalizeRequiredString(clerkUserId, 'clerkUserId'))
+    .eq('kind', TRANSLATION_ARTIFACT_KIND.ENGLISH_TTS_AUDIO)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (error) {
+    throw createArtifactRepositoryError('get_latest_english_tts_artifact_for_user', error);
+  }
+
+  return normalizeArtifact(data);
+}
