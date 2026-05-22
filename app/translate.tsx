@@ -718,13 +718,13 @@ export default function HomeScreen() {
               <Text style={styles.panelLabel}>English Translation</Text>
               <Ionicons name="language-outline" size={18} color={palette.stone} />
             </View>
-            <Text selectable style={styles.translationText}>
-              {englishTranslation || 'Waiting for translation.'}
-            </Text>
             <EnglishAudioPlayback
               getToken={() => getToken()}
               tts={result?.tts}
             />
+            <Text maxFontSizeMultiplier={1.15} selectable style={styles.translationText}>
+              {englishTranslation || 'Waiting for translation.'}
+            </Text>
           </View>
 
           <View style={styles.resultPanel}>
@@ -1182,9 +1182,9 @@ const styles = StyleSheet.create({
   },
   translationText: {
     color: palette.text,
-    fontSize: 24,
+    fontSize: 17,
     fontWeight: '800',
-    lineHeight: 32,
+    lineHeight: 25,
   },
   diagnosticsPanel: {
     backgroundColor: palette.cardRaised,

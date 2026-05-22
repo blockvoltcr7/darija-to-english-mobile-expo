@@ -80,7 +80,7 @@ Model defaults:
 - `TTS_LANGUAGE=en`
 - `TTS_RESPONSE_FORMAT=aac`
 - `OPENAI_TTS_MODEL=gpt-4o-mini-tts`
-- `OPENAI_TTS_VOICE=marin`
+- `OPENAI_TTS_VOICE=cedar`
 
 ## Verification
 

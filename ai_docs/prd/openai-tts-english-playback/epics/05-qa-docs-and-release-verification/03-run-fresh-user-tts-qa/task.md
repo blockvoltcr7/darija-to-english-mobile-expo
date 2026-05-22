@@ -13,8 +13,8 @@ The repo’s acceptance path requires fresh Clerk user QA before release-readine
 - Start the API and Trigger worker:
 
 ```bash
-npm run api
-npx trigger.dev dev --env-file .env.local
+ENABLE_TTS=true npm run api
+ENABLE_TTS=true npx trigger.dev dev --env-file .env.local
 ```
 
 - Ensure TTS is enabled in the server runtime for this QA pass.
@@ -48,4 +48,3 @@ npx trigger.dev dev --env-file .env.local
 - `references/`: `ai_docs/fresh-clerk-user-qa.md` and root AGENTS fresh-user path.
 - `resources/`: fixture metadata and simulator file-loading command.
 - `notes/`: QA blockers, build details, and provider/config observations.
-

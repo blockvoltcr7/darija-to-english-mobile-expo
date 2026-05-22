@@ -11,10 +11,10 @@ ENABLE_TTS=true npm run api
 ```
 
 ```bash
-npx trigger.dev dev --env-file .env.local
+ENABLE_TTS=true npx trigger.dev dev --env-file .env.local
 ```
 
-Use `ENABLE_TTS=true` for the API process when verifying generated English audio. If you are verifying text-only fallback behavior, document that TTS was disabled.
+Use `ENABLE_TTS=true` for both the API process and the Trigger worker when verifying generated English audio. The worker runs the stored translation pipeline and owns TTS generation. If you are verifying text-only fallback behavior, document that TTS was disabled.
 
 Load a non-sensitive audio fixture into the booted iOS Simulator:
 

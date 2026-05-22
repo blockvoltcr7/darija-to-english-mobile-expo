@@ -14,6 +14,14 @@ interface UseAuthenticatedTtsPlaybackParams {
   getToken: () => Promise<string | null>;
 }
 
+function pauseIfAvailable(player: ReturnType<typeof useAudioPlayer>) {
+  try {
+    player.pause();
+  } catch {
+    // expo-audio can dispose the native shared object before React cleanup runs.
+  }
+}
+
 export function useAuthenticatedTtsPlayback({
   getToken,
 }: UseAuthenticatedTtsPlaybackParams) {
@@ -40,7 +48,7 @@ export function useAuthenticatedTtsPlayback({
 
   useEffect(() => {
     return () => {
-      player.pause();
+      pauseIfAvailable(player);
     };
   }, [player]);
 
@@ -54,7 +62,7 @@ export function useAuthenticatedTtsPlayback({
         setError(null);
 
         if (activeUrl === tts.audioUrl && playerStatus.playing) {
-          player.pause();
+          pauseIfAvailable(player);
           setStatus('paused');
           return;
         }
@@ -66,7 +74,7 @@ export function useAuthenticatedTtsPlayback({
         }
 
         if (activeUrl !== tts.audioUrl) {
-          player.pause();
+          pauseIfAvailable(player);
           player.replace({
             uri: tts.audioUrl,
             headers: {
@@ -92,7 +100,7 @@ export function useAuthenticatedTtsPlayback({
   );
 
   const resetPlayback = useCallback(() => {
-    player.pause();
+    pauseIfAvailable(player);
     setActiveUrl(null);
     setStatus('idle');
     setError(null);

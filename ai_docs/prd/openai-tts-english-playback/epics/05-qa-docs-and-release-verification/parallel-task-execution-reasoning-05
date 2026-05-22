@@ -1,0 +1,40 @@
+# Parallel Task Execution Reasoning - Epic 05
+
+Epic: `05-qa-docs-and-release-verification`
+Task count: 4
+
+## Phase Summary
+
+| Phase | Task | Mode | Risk | Reason |
+|---|---|---|---|---|
+| 1 | `update-tts-qa-and-agent-docs` | main | medium | Defines the expected QA path and safe evidence rules before verification starts. |
+| 2 | `run-static-and-api-verification` | main | low | Runs cheap static/API checks before slower device QA. |
+| 3 | `run-fresh-user-tts-qa` | main | medium | Proves the happy path after static/API checks pass. |
+| 4 | `verify-failure-and-cross-user-access-paths` | main | high | Runs negative-path and trust-boundary checks after happy-path success. |
+
+## Parallel-Safe Tasks
+
+None approved in this epic.
+
+## Why Tasks Cannot Be Parallelized
+
+- Static/API verification should use the docs and evidence rules created in Phase 1.
+- Fresh-user QA should not start until static checks pass, because device QA is slower and depends on a runnable API/mobile build.
+- Failure and cross-user access tests should run after the happy path succeeds so failures can be interpreted clearly.
+- Negative-path verification often uncovers fixes in shared server trust-boundary code and should be the final gate.
+
+## Shared Contract Surfaces
+
+- `ai_docs/fresh-clerk-user-qa.md`
+- `server/AGENTS.md`
+- root `AGENTS.md`, if updated
+- verification artifacts under task-local `artifacts/`
+- runtime API, Trigger.dev, Clerk test users, and iOS development build evidence
+
+## Cross-Epic Gates
+
+This epic depends on Epic 04 completing the mobile playback UI. It should not backfill implementation defects silently; blockers should be recorded and fixed in the owning prior epic/task.
+
+## Recommendation
+
+Run this epic sequentially after Epic 04. Treat it as release-readiness evidence, not a parallel implementation lane.

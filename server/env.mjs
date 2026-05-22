@@ -268,7 +268,7 @@ function loadEnv(rawEnv = process.env) {
       'OPENAI_TTS_MODEL',
       'gpt-4o-mini-tts',
     ),
-    OPENAI_TTS_VOICE: readString(rawEnv, 'OPENAI_TTS_VOICE', 'marin'),
+    OPENAI_TTS_VOICE: readString(rawEnv, 'OPENAI_TTS_VOICE', 'cedar'),
     SUPABASE_URL: supabaseUrl,
     SUPABASE_SECRET_KEY: supabaseSecretKey || supabaseServiceRoleKey,
     SUPABASE_AUDIO_ORIGINALS_BUCKET: readString(

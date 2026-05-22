@@ -61,8 +61,8 @@ Use this acceptance path before moving from Epic 03 into Epic 04 release-readine
 1. Start the API and Trigger worker:
 
 ```bash
-npm run api
-npx trigger.dev dev --env-file .env.local
+ENABLE_TTS=true npm run api
+ENABLE_TTS=true npx trigger.dev dev --env-file .env.local
 ```
 
 2. Load a non-sensitive audio fixture into the iOS Simulator Files app with the project skill:

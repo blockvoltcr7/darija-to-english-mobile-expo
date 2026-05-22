@@ -43,6 +43,22 @@ export function EnglishAudioPlayback({ getToken, tts }: EnglishAudioPlaybackProp
     );
   }
 
+  if (tts.status === 'failed') {
+    return (
+      <View style={styles.statusRow}>
+        <Ionicons name="warning-outline" size={16} color={palette.red} />
+        <View style={styles.copy}>
+          <Text style={styles.statusText}>English voice unavailable</Text>
+          {tts.errorMessage ? (
+            <Text numberOfLines={2} style={styles.error}>
+              {tts.errorMessage}
+            </Text>
+          ) : null}
+        </View>
+      </View>
+    );
+  }
+
   if (tts.status !== 'succeeded' || !tts.audioUrl) {
     return null;
   }
