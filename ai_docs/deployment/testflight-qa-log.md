@@ -26,3 +26,19 @@ Do not record Clerk session tokens, API keys, private audio contents, full trans
 - App-visible result for the retry job: false timeout, `Translation job did not finish within 180 seconds.`
 - Diagnosis: the backend succeeded, but the TestFlight client timed out because the 180-second polling window included the time spent queued before the local Development worker started.
 - Follow-up code change in this branch: increase mobile polling timeout from 180 seconds to 420 seconds.
+
+### 2026-05-23 Build 4 Deployment
+
+- Git commit deployed to EAS Build: `a7583f9f94feb1cd95a3e8820412a54f35168659`.
+- App version: 1.0.0.
+- TestFlight build number: 4.
+- EAS build ID: `3c73d1cb-a3d1-4bc7-8435-06d7ef9c6a33`.
+- EAS build profile: `staging`.
+- EAS channel: `staging`.
+- EAS environment: `preview`.
+- EAS build result: finished.
+- IPA artifact: `https://expo.dev/artifacts/eas/8sXZY5nEWCGiReqdz122y8.ipa`.
+- App Store Connect app ID: `6770204437`.
+- EAS submission ID: `c8f5b56e-47d6-46ee-8727-e61114795c42`.
+- EAS submission result: binary uploaded successfully to App Store Connect; Apple processing pending.
+- TestFlight URL: `https://appstoreconnect.apple.com/apps/6770204437/testflight/ios`.
