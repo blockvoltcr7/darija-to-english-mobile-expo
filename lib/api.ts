@@ -42,7 +42,7 @@ interface HistoryDetailParams {
 }
 
 const POLL_INTERVAL_MS = 2500;
-const POLL_TIMEOUT_MS = 180000;
+const POLL_TIMEOUT_MS = 420000;
 
 function formatElapsedMs(startedAt?: string | null) {
   if (!startedAt) {

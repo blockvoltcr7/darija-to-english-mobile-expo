@@ -1,0 +1,28 @@
+# TestFlight QA Log
+
+Chronological notes for TestFlight runs against the staging API and Trigger.dev Development worker.
+
+Do not record Clerk session tokens, API keys, private audio contents, full transcripts, or generated audio bytes here.
+
+## 2026-05-23 Phone Retest
+
+- Test start recorded: 2026-05-23 10:46 AM EDT / 2026-05-23T14:46:37Z.
+- App version: 1.0.0.
+- TestFlight build: 3.
+- Release date: 2026-05-21.
+- Tester is rerunning the audio-upload/translation flow on a physical iPhone from TestFlight.
+- Previous observed failure mode: uploaded job reached `running`, OpenAI transcription and Modal Darija ASR succeeded, then Trigger.dev canceled the run with `TASK_RUN_STALLED_EXECUTING` after missing worker heartbeats during/after OpenAI consolidation.
+- Evidence to append after this retest: API target, `traceId`, `jobId`, `triggerRunId`, final job status, provider-run statuses, TTS status if present, and whether English audio playback appears.
+
+### 2026-05-23 10:46 AM EDT Retest Result
+
+- API target: `https://darija-api-staging-nwjxqrn2ra-uc.a.run.app`.
+- Initial phone diagnostics showed `traceId=upload-mpigotdt`, `jobId=625e7d5a-1236-44fb-8182-e95f1a6fb032`, and `triggerRunId=run_cmpigp1if3o960hlp7b5abrke`.
+- Initial state stayed `queued` because no local Trigger.dev Development worker was running.
+- Trigger worker was started locally at about 2026-05-23 10:49 AM EDT with `ENABLE_TTS=true npm run trigger:dev -- --env-file .env.local --skip-update-check`.
+- The app also created a second/retry job: `traceId=upload-mpigq1pl`, `jobId=a383040f-4280-4c4c-b7a4-5531ce59a49c`, `triggerRunId=run_cmpigq4gr3iwd0uognjq52gmy`.
+- Backend result for `625e7d5a-1236-44fb-8182-e95f1a6fb032`: `succeeded`; OpenAI STT, Modal Darija ASR, OpenAI consolidation, OpenAI translation, and OpenAI TTS all succeeded; English text, consolidated Darija, and English TTS artifact were present.
+- Backend result for `a383040f-4280-4c4c-b7a4-5531ce59a49c`: `succeeded`; OpenAI STT, Modal Darija ASR, OpenAI consolidation, OpenAI translation, and OpenAI TTS all succeeded; English text, consolidated Darija, and English TTS artifact were present.
+- App-visible result for the retry job: false timeout, `Translation job did not finish within 180 seconds.`
+- Diagnosis: the backend succeeded, but the TestFlight client timed out because the 180-second polling window included the time spent queued before the local Development worker started.
+- Follow-up code change in this branch: increase mobile polling timeout from 180 seconds to 420 seconds.
