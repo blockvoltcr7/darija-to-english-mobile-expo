@@ -1,6 +1,7 @@
 import { CONFIG } from '@/lib/config';
 import type {
   AsyncTranslationSubmitResponse,
+  QueuedTranslationJob,
   TranslationHistoryDetail,
   TranslationHistoryListResponse,
   TranslationResult,
@@ -15,6 +16,7 @@ interface TranslateAudioParams {
   traceId?: string;
   onTrace?: (message: string) => void;
   onJobStatus?: (status: string) => void;
+  onQueuedJob?: (job: QueuedTranslationJob) => void;
   signal?: AbortSignal;
 }
 
@@ -43,6 +45,19 @@ interface HistoryDetailParams {
 
 const POLL_INTERVAL_MS = 2500;
 const POLL_TIMEOUT_MS = 420000;
+
+interface PollTranslationParams extends HistoryDetailParams {
+  refreshAccessToken?: () => Promise<string | null>;
+  onJobStatus?: (status: string) => void;
+  startedAt: number;
+  triggerRunId?: string | null;
+  returnWhenTextReady?: boolean;
+}
+
+interface ContinueTranslationParams
+  extends Omit<PollTranslationParams, 'id' | 'startedAt'> {
+  jobId: string;
+}
 
 function formatElapsedMs(startedAt?: string | null) {
   if (!startedAt) {
@@ -83,6 +98,7 @@ export async function translateAudioFile({
   traceId,
   onTrace,
   onJobStatus,
+  onQueuedJob,
   signal,
 }: TranslateAudioParams): Promise<TranslationResult> {
   const endpoint = `${CONFIG.API_BASE_URL}/v1/translations`;
@@ -123,8 +139,18 @@ export async function translateAudioFile({
   }
 
   const queued = (await res.json()) as AsyncTranslationSubmitResponse;
+  const queuedJob: QueuedTranslationJob = {
+    jobId: queued.jobId,
+    translationJobId: queued.translationJobId,
+    status: queued.status,
+    triggerRunId: queued.triggerRunId || null,
+    traceId,
+    createdAt: queued.createdAt || null,
+    detailUrl: queued.detailUrl,
+  };
 
   onTrace?.(`Queued job ${queued.jobId} triggerRun=${queued.triggerRunId || 'n/a'}`);
+  onQueuedJob?.(queuedJob);
   onJobStatus?.('queued');
 
   return pollTranslationResult({
@@ -137,6 +163,31 @@ export async function translateAudioFile({
     onJobStatus,
     signal,
     startedAt,
+  });
+}
+
+export async function continuePollingTranslationJob({
+  accessToken,
+  refreshAccessToken,
+  jobId,
+  triggerRunId,
+  traceId,
+  onTrace,
+  onJobStatus,
+  signal,
+  returnWhenTextReady,
+}: ContinueTranslationParams): Promise<TranslationResult> {
+  return pollTranslationResult({
+    accessToken,
+    refreshAccessToken,
+    id: jobId,
+    triggerRunId,
+    traceId,
+    onTrace,
+    onJobStatus,
+    signal,
+    startedAt: Date.now(),
+    returnWhenTextReady,
   });
 }
 
@@ -185,8 +236,16 @@ function normalizeTtsArtifact(
 
   return {
     ...tts,
-    audioUrl: resolveApiRelativeUrl(tts.audioUrl),
+    audioUrl:
+      tts.status === 'succeeded' ? resolveApiRelativeUrl(tts.audioUrl) : null,
   };
+}
+
+function hasTextResult(detail: TranslationHistoryDetail) {
+  return Boolean(
+    detail.result?.englishText?.trim() &&
+      detail.result.consolidatedArabicText?.trim(),
+  );
 }
 
 function toTranslationResult(detail: TranslationHistoryDetail): TranslationResult {
@@ -257,14 +316,12 @@ async function pollTranslationResult({
   onJobStatus,
   signal,
   startedAt,
-}: HistoryDetailParams & {
-  refreshAccessToken?: () => Promise<string | null>;
-  onJobStatus?: (status: string) => void;
-  startedAt: number;
-  triggerRunId?: string | null;
-}): Promise<TranslationResult> {
+  returnWhenTextReady = true,
+}: PollTranslationParams): Promise<TranslationResult> {
   onJobStatus?.('polling');
   let currentAccessToken = accessToken;
+  let lastStatus = 'polling';
+  let lastTriggerRunId = triggerRunId || null;
 
   while (Date.now() - startedAt < POLL_TIMEOUT_MS) {
     if (refreshAccessToken) {
@@ -291,16 +348,9 @@ async function pollTranslationResult({
         detail.triggerRunId || triggerRunId || 'n/a'
       } queuedAge=${formatElapsedMs(detail.createdAt)} updated=${detail.updatedAt || 'n/a'}`,
     );
+    lastStatus = detail.status;
+    lastTriggerRunId = detail.triggerRunId || triggerRunId || lastTriggerRunId;
     onJobStatus?.(detail.status);
-
-    if (detail.status === 'succeeded') {
-      const result = toTranslationResult(detail);
-      onTrace?.(`Response keys: ${Object.keys(result).sort().join(', ')}`);
-      onTrace?.(
-        `Transcript chars: openai=${result.openaiArabicText?.length ?? result.transcripts?.openai?.length ?? 0} darija=${result.darijaArabicText?.length ?? result.transcripts?.darija?.length ?? result.transcripts?.modal?.length ?? 0} consolidated=${result.consolidatedArabicText?.length ?? result.transcript?.length ?? 0}`,
-      );
-      return result;
-    }
 
     if (
       detail.status === 'failed' ||
@@ -314,11 +364,37 @@ async function pollTranslationResult({
       );
     }
 
+    if (returnWhenTextReady && hasTextResult(detail)) {
+      const result = toTranslationResult(detail);
+      onTrace?.(
+        `Text result ready status=${detail.status} tts=${detail.tts?.status || 'none'}`,
+      );
+      onTrace?.(`Response keys: ${Object.keys(result).sort().join(', ')}`);
+      onTrace?.(
+        `Transcript chars: openai=${result.openaiArabicText?.length ?? result.transcripts?.openai?.length ?? 0} darija=${result.darijaArabicText?.length ?? result.transcripts?.darija?.length ?? result.transcripts?.modal?.length ?? 0} consolidated=${result.consolidatedArabicText?.length ?? result.transcript?.length ?? 0}`,
+      );
+      return result;
+    }
+
+    if (detail.status === 'succeeded') {
+      const result = toTranslationResult(detail);
+      onTrace?.(`Response keys: ${Object.keys(result).sort().join(', ')}`);
+      onTrace?.(
+        `Transcript chars: openai=${result.openaiArabicText?.length ?? result.transcripts?.openai?.length ?? 0} darija=${result.darijaArabicText?.length ?? result.transcripts?.darija?.length ?? result.transcripts?.modal?.length ?? 0} consolidated=${result.consolidatedArabicText?.length ?? result.transcript?.length ?? 0}`,
+      );
+      return result;
+    }
+
     await sleep(POLL_INTERVAL_MS, signal);
   }
 
+  onTrace?.(
+    `Polling timeout job=${id} triggerRun=${lastTriggerRunId || 'n/a'} lastStatus=${lastStatus}`,
+  );
   throw new Error(
-    `Translation job did not finish within ${Math.round(POLL_TIMEOUT_MS / 1000)} seconds.`,
+    `Translation job did not finish within ${Math.round(
+      POLL_TIMEOUT_MS / 1000,
+    )} seconds while ${lastStatus}.`,
   );
 }
 

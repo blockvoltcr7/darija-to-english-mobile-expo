@@ -95,6 +95,16 @@ export interface AsyncTranslationSubmitResponse {
   detailUrl: string;
 }
 
+export interface QueuedTranslationJob {
+  jobId: string;
+  translationJobId: string;
+  status?: string;
+  triggerRunId?: string | null;
+  traceId?: string;
+  createdAt?: string | null;
+  detailUrl?: string;
+}
+
 export interface TranslationProviderRunSummary {
   id: string;
   provider: string;
