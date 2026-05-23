@@ -42,3 +42,19 @@ Do not record Clerk session tokens, API keys, private audio contents, full trans
 - EAS submission ID: `c8f5b56e-47d6-46ee-8727-e61114795c42`.
 - EAS submission result: binary uploaded successfully to App Store Connect; Apple processing pending.
 - TestFlight URL: `https://appstoreconnect.apple.com/apps/6770204437/testflight/ios`.
+
+### 2026-05-23 Build 5 Deployment
+
+- Git commit deployed to EAS Build: `e2b96cd724098959f1b2f6faa65307d6c19687e9`.
+- App version: 1.0.0.
+- TestFlight build number: 5.
+- EAS build ID: `98c3b9e7-9e17-49e6-9b5c-8303d6b70cff`.
+- EAS build profile: `staging`.
+- EAS channel: `staging`.
+- EAS environment: `preview`.
+- EAS build result: finished at 2026-05-23T16:07:03Z.
+- App Store Connect app ID: `6770204437`.
+- EAS submission ID: `3cbcc03a-948a-42d8-a589-68b8b8930df8`.
+- EAS submission result: binary uploaded successfully to App Store Connect; Apple processing pending.
+- TestFlight URL: `https://appstoreconnect.apple.com/apps/6770204437/testflight/ios`.
+- Note: the first auto-submit scheduling attempt failed because `--what-to-test` maps to the EAS changelog field, which requires an Enterprise Expo plan. The same finished build was submitted successfully without the changelog field.
