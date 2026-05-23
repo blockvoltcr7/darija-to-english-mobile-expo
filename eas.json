@@ -28,7 +28,11 @@
     }
   },
   "submit": {
-    "staging": {},
+    "staging": {
+      "ios": {
+        "ascAppId": "6770204437"
+      }
+    },
     "production": {}
   }
 }
