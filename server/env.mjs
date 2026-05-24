@@ -19,6 +19,27 @@ function readString(rawEnv, name, defaultValue = undefined) {
   return value || defaultValue;
 }
 
+function readBoolean(rawEnv, name, defaultValue = false, errors) {
+  const rawValue = readString(rawEnv, name);
+
+  if (rawValue === undefined) {
+    return defaultValue;
+  }
+
+  const normalized = rawValue.toLowerCase();
+
+  if (['1', 'true', 'yes', 'on'].includes(normalized)) {
+    return true;
+  }
+
+  if (['0', 'false', 'no', 'off'].includes(normalized)) {
+    return false;
+  }
+
+  errors.push(`${name} must be a boolean value.`);
+  return defaultValue;
+}
+
 function readNumber(rawEnv, name, defaultValue, errors, options = {}) {
   const rawValue = readString(rawEnv, name);
   const value = rawValue === undefined ? defaultValue : Number(rawValue);
@@ -63,6 +84,19 @@ function findPublicTriggerSecretEnv(rawEnv) {
     .sort();
 }
 
+function findPublicProviderSecretEnv(rawEnv) {
+  const publicEnvPrefix = ['EXPO', 'PUBLIC'].join('_');
+  const publicProviderPrefixes = [
+    `${publicEnvPrefix}_OPENAI_`,
+    `${publicEnvPrefix}_TTS_`,
+  ];
+
+  return Object.keys(rawEnv)
+    .filter((name) => publicProviderPrefixes.some((prefix) => name.startsWith(prefix)))
+    .filter((name) => /(?:SECRET|TOKEN|API[_-]?KEY|PRIVATE|CREDENTIAL)/.test(name))
+    .sort();
+}
+
 function buildTranscribeUrl(asrBaseUrl) {
   if (!asrBaseUrl) {
     return undefined;
@@ -94,6 +128,7 @@ function loadEnv(rawEnv = process.env) {
   const errors = [];
   const forbiddenPublicSecretVars = findPublicSupabaseSecretEnv(rawEnv);
   const forbiddenPublicTriggerSecretVars = findPublicTriggerSecretEnv(rawEnv);
+  const forbiddenPublicProviderSecretVars = findPublicProviderSecretEnv(rawEnv);
   const port = readNumber(rawEnv, 'PORT', 8787, errors, {
     integer: true,
     min: 0,
@@ -132,6 +167,11 @@ function loadEnv(rawEnv = process.env) {
     rawEnv,
     'CLERK_WEBHOOK_SIGNING_SECRET',
   );
+  const enableTts = readBoolean(rawEnv, 'ENABLE_TTS', false, errors);
+  const ttsProvider = readString(rawEnv, 'TTS_PROVIDER', 'openai');
+  const ttsLanguage = readString(rawEnv, 'TTS_LANGUAGE', 'en');
+  const ttsResponseFormat = readString(rawEnv, 'TTS_RESPONSE_FORMAT', 'aac');
+  const openaiApiKey = readString(rawEnv, 'OPENAI_API_KEY');
 
   if (forbiddenPublicSecretVars.length > 0) {
     errors.push(
@@ -147,6 +187,30 @@ function loadEnv(rawEnv = process.env) {
         ', ',
       )}.`,
     );
+  }
+
+  if (forbiddenPublicProviderSecretVars.length > 0) {
+    errors.push(
+      `Provider server secrets must not use EXPO_PUBLIC_* env names: ${forbiddenPublicProviderSecretVars.join(
+        ', ',
+      )}.`,
+    );
+  }
+
+  if (ttsProvider !== 'openai') {
+    errors.push('TTS_PROVIDER must be openai for the MVP.');
+  }
+
+  if (ttsLanguage !== 'en') {
+    errors.push('TTS_LANGUAGE must be en for English playback.');
+  }
+
+  if (!['aac', 'mp3'].includes(ttsResponseFormat)) {
+    errors.push('TTS_RESPONSE_FORMAT must be aac or mp3.');
+  }
+
+  if (enableTts && !openaiApiKey) {
+    errors.push('OPENAI_API_KEY is required when ENABLE_TTS is true.');
   }
 
   validateSupabaseUrl(supabaseUrl, errors);
@@ -179,7 +243,7 @@ function loadEnv(rawEnv = process.env) {
     DARIJA_ASR_TIMEOUT_MS: darijaAsrTimeoutMs,
     AUDIO_UPLOAD_MAX_BYTES: audioUploadMaxBytes,
     AUDIO_RETENTION_DAYS: audioRetentionDays,
-    OPENAI_API_KEY: readString(rawEnv, 'OPENAI_API_KEY'),
+    OPENAI_API_KEY: openaiApiKey,
     OPENAI_TRANSCRIPTION_MODEL: readString(
       rawEnv,
       'OPENAI_TRANSCRIPTION_MODEL',
@@ -195,6 +259,16 @@ function loadEnv(rawEnv = process.env) {
       'OPENAI_TRANSLATION_MODEL',
       readString(rawEnv, 'TRANSLATION_MODEL', 'gpt-5.5'),
     ),
+    ENABLE_TTS: enableTts,
+    TTS_PROVIDER: ttsProvider,
+    TTS_LANGUAGE: ttsLanguage,
+    TTS_RESPONSE_FORMAT: ttsResponseFormat,
+    OPENAI_TTS_MODEL: readString(
+      rawEnv,
+      'OPENAI_TTS_MODEL',
+      'gpt-4o-mini-tts',
+    ),
+    OPENAI_TTS_VOICE: readString(rawEnv, 'OPENAI_TTS_VOICE', 'cedar'),
     SUPABASE_URL: supabaseUrl,
     SUPABASE_SECRET_KEY: supabaseSecretKey || supabaseServiceRoleKey,
     SUPABASE_AUDIO_ORIGINALS_BUCKET: readString(

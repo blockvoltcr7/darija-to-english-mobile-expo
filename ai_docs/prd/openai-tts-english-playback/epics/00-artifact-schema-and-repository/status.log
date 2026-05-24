@@ -1,0 +1,9 @@
+2026-05-21T19:32:00Z create-translation-artifacts-migration nil->open
+2026-05-21T19:32:00Z add-artifact-repository-helpers nil->open
+2026-05-21T19:32:00Z extend-provider-run-operation-contract nil->open
+2026-05-21T20:47:42Z create-translation-artifacts-migration open->in_progress
+2026-05-21T20:47:42Z add-artifact-repository-helpers open->in_progress
+2026-05-21T20:47:42Z extend-provider-run-operation-contract open->in_progress
+2026-05-21T20:50:03Z create-translation-artifacts-migration in_progress->done
+2026-05-21T20:50:03Z add-artifact-repository-helpers in_progress->done
+2026-05-21T20:50:03Z extend-provider-run-operation-contract in_progress->done

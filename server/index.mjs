@@ -14,6 +14,11 @@ import {
   upsertProfileFromClerkUser,
 } from './profiles.mjs';
 import {
+  getEnglishTtsArtifactForUser,
+  getLatestEnglishTtsArtifactForUser,
+} from './artifacts.mjs';
+import {
+  downloadStoredObject,
   prepareAudioForStorage,
   removeStoredObject,
   uploadOriginalAudioForJob,
@@ -190,7 +195,38 @@ function toProviderRunSummary(providerRun) {
   };
 }
 
-function toTranslationDetail(row) {
+function toTtsArtifactDetail(artifact, translationId) {
+  if (!artifact) {
+    return null;
+  }
+
+  const detail = {
+    status: artifact.status,
+    provider: artifact.provider,
+    model: artifact.model,
+    voice: artifact.voice,
+    language: artifact.language,
+    format: artifact.format,
+    mimeType: artifact.mimeType,
+    byteSize: artifact.byteSize,
+    durationSeconds: artifact.durationSeconds,
+    audioUrl: null,
+    errorCode: artifact.errorCode,
+    errorMessage: artifact.errorMessage,
+    createdAt: artifact.createdAt,
+    updatedAt: artifact.updatedAt,
+  };
+
+  if (artifact.status === 'succeeded') {
+    detail.audioUrl = `/v1/translations/${encodeURIComponent(
+      translationId,
+    )}/artifacts/english-audio`;
+  }
+
+  return detail;
+}
+
+function toTranslationDetail(row, ttsArtifact = null) {
   const result = firstRelatedRow(row, 'translation_results');
   const providerRuns = Array.isArray(row.provider_runs)
     ? [...row.provider_runs].sort((a, b) =>
@@ -222,6 +258,7 @@ function toTranslationDetail(row) {
           updatedAt: result.updated_at,
         }
       : null,
+    tts: toTtsArtifactDetail(ttsArtifact, row.id),
     providerRuns: providerRuns.map(toProviderRunSummary),
   };
 }
@@ -590,6 +627,11 @@ async function handleGetTranslation(req, res, next) {
       return res.status(404).json({ error: 'Translation not found.' });
     }
 
+    const ttsArtifact = await getLatestEnglishTtsArtifactForUser({
+      clerkUserId: req.clerkAuth.userId,
+      translationId: req.params.id,
+    });
+
     logTrace(traceId, 'Translation history detail returned', {
       userId: req.clerkAuth.userId,
       translationId: translation.id,
@@ -603,9 +645,51 @@ async function handleGetTranslation(req, res, next) {
       providerRunCount: Array.isArray(translation.provider_runs)
         ? translation.provider_runs.length
         : 0,
+      ttsStatus: ttsArtifact?.status || null,
     });
 
-    res.json(toTranslationDetail(translation));
+    res.json(toTranslationDetail(translation, ttsArtifact));
+  } catch (error) {
+    error.traceId = traceId;
+    next(error);
+  }
+}
+
+async function handleGetEnglishAudioArtifact(req, res, next) {
+  const traceId = traceFromRequest(req);
+
+  try {
+    const artifact = await getEnglishTtsArtifactForUser({
+      clerkUserId: req.clerkAuth.userId,
+      translationId: req.params.id,
+    });
+
+    if (!artifact?.bucket || !artifact?.objectKey) {
+      return res.status(404).json({ error: 'Audio artifact not found.' });
+    }
+
+    const audioBuffer = await downloadStoredObject({
+      bucket: artifact.bucket,
+      objectKey: artifact.objectKey,
+    });
+
+    logTrace(traceId, 'English TTS audio artifact returned', {
+      userId: req.clerkAuth.userId,
+      translationId: req.params.id,
+      artifactId: artifact.id,
+      status: artifact.status,
+      mimeType: artifact.mimeType,
+      byteSize: audioBuffer.length,
+    });
+
+    res
+      .status(200)
+      .set({
+        'Content-Type': artifact.mimeType || 'audio/aac',
+        'Content-Length': String(audioBuffer.length),
+        'Cache-Control': 'private, max-age=300',
+      })
+      .send(audioBuffer);
   } catch (error) {
     error.traceId = traceId;
     next(error);
@@ -613,6 +697,11 @@ async function handleGetTranslation(req, res, next) {
 }
 
 app.get('/v1/translations', requireClerkSession, handleListTranslations);
+app.get(
+  '/v1/translations/:id/artifacts/english-audio',
+  requireClerkSession,
+  handleGetEnglishAudioArtifact,
+);
 app.get('/v1/translations/:id', requireClerkSession, handleGetTranslation);
 
 function triggerRunIdFromHandle(handle) {

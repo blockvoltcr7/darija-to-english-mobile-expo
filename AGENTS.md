@@ -51,7 +51,8 @@ This is a single Expo React Native project with a local Node/Express API. Treat 
 - Server stores the original audio in private Supabase Storage, creates a translation row, dispatches `trigger/translate-audio-job.mjs`, and returns a queued job with a Trigger run ID.
 - The mobile app polls `/v1/translations/:id` with refreshed Clerk session tokens until the job succeeds or fails.
 - The Trigger worker downloads stored audio, runs OpenAI STT and Modal Darija ASR in parallel, requires both STT outputs, consolidates with OpenAI, then translates consolidated Darija to English.
-- Server returns raw transcripts, consolidated transcript, English translation, model metadata, Trigger run ID, and aliases for older UI fields.
+- If `ENABLE_TTS=true`, the Trigger worker generates OpenAI English TTS only after the text result is stored, uploads generated audio to private Supabase Storage, and records `translation_artifacts` metadata. TTS failure must not hide the English translation.
+- Server returns raw transcripts, consolidated transcript, English translation, model metadata, Trigger run ID, optional safe `tts` metadata, and aliases for older UI fields.
 
 ## Fresh Clerk User QA
 
@@ -60,8 +61,8 @@ Use this acceptance path before moving from Epic 03 into Epic 04 release-readine
 1. Start the API and Trigger worker:
 
 ```bash
-npm run api
-npx trigger.dev dev --env-file .env.local
+ENABLE_TTS=true npm run api
+ENABLE_TTS=true npx trigger.dev dev --env-file .env.local
 ```
 
 2. Load a non-sensitive audio fixture into the iOS Simulator Files app with the project skill:
@@ -73,9 +74,9 @@ npx trigger.dev dev --env-file .env.local
 3. Run the app in an iOS development build, not Expo Go. Use `EXPO_PUBLIC_API_BASE_URL=http://localhost:8787` for the simulator.
 4. In the app, open Account, sign out, then create a fresh Clerk test user from the Clerk sign-in/sign-up screen.
 5. Confirm the app shows the new user's email, upload the simulator audio file, and wait for `Complete`.
-6. Verify UI results: English translation, consolidated Darija, raw OpenAI transcript, raw Darija transcript, model metadata, and diagnostics are visible.
-7. Verify logs: API health check, profile resolution for the new Clerk user, queued job ID, Trigger run ID, stored audio download, OpenAI STT completion, Modal ASR HTTP 200, consolidation, translation, and final `succeeded` status.
-8. Do not copy Clerk session tokens, API keys, `.env` values, or private audio contents into docs or screenshots.
+6. Verify UI results: English translation, consolidated Darija, raw OpenAI transcript, raw Darija transcript, model metadata, diagnostics, and, when TTS is enabled and succeeded, explicit English audio playback are visible.
+7. Verify logs: API health check, profile resolution for the new Clerk user, queued job ID, Trigger run ID, stored audio download, OpenAI STT completion, Modal ASR HTTP 200, consolidation, translation, optional TTS artifact state, and final text job `succeeded` status.
+8. Do not copy Clerk session tokens, API keys, `.env` values, private audio contents, full transcripts, or generated audio bytes into docs or screenshots.
 
 ## Verification
 

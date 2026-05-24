@@ -5,6 +5,10 @@ import { env } from './env.mjs';
 export const AUDIO_ORIGINALS_BUCKET = env.SUPABASE_AUDIO_ORIGINALS_BUCKET;
 export const TRANSLATION_ARTIFACTS_BUCKET =
   env.SUPABASE_TRANSLATION_ARTIFACTS_BUCKET;
+export const TRANSLATION_ARTIFACT_OUTPUT_FORMATS = Object.freeze({
+  aac: Object.freeze({ format: 'aac', mimeType: 'audio/aac', extension: 'aac' }),
+  mp3: Object.freeze({ format: 'mp3', mimeType: 'audio/mpeg', extension: 'mp3' }),
+});
 
 const DATA_URI_PATTERN = /^data:([^;,]+);base64,(.*)$/is;
 const BASE64_PATTERN = /^[A-Za-z0-9+/]*={0,2}$/;
@@ -117,6 +121,31 @@ function safePathSegment(value) {
   return value.replace(/[^A-Za-z0-9_-]/g, '_').slice(0, 120);
 }
 
+function requireNonEmptyString(value, fieldName) {
+  if (typeof value !== 'string') {
+    throw storageError(400, `${fieldName}_missing`, `${fieldName} is required.`);
+  }
+
+  const normalized = value.trim();
+
+  if (!normalized) {
+    throw storageError(400, `${fieldName}_empty`, `${fieldName} is empty.`);
+  }
+
+  return normalized;
+}
+
+function resolveArtifactOutputFormat(format) {
+  const normalized = requireNonEmptyString(format, 'format').toLowerCase();
+  const metadata = TRANSLATION_ARTIFACT_OUTPUT_FORMATS[normalized];
+
+  if (!metadata) {
+    throw storageError(400, 'unsupported_artifact_format', 'Unsupported artifact format.');
+  }
+
+  return metadata;
+}
+
 function retentionExpiresAt() {
   return new Date(
     Date.now() + env.AUDIO_RETENTION_DAYS * 24 * 60 * 60 * 1000,
@@ -164,6 +193,30 @@ export function buildOriginalAudioObjectKey({ clerkUserId, jobId, extension }) {
   return `users/${userSegment}/jobs/${jobSegment}/original-${suffix}.${extension}`;
 }
 
+export function buildTranslationArtifactObjectKey({
+  clerkUserId,
+  jobId,
+  artifactId,
+  format,
+}) {
+  const outputFormat = resolveArtifactOutputFormat(format);
+  const userSegment = safePathSegment(requireNonEmptyString(clerkUserId, 'clerkUserId'));
+  const jobSegment = safePathSegment(requireNonEmptyString(jobId, 'jobId'));
+  const artifactSegment = safePathSegment(
+    requireNonEmptyString(artifactId, 'artifactId'),
+  );
+
+  return [
+    'users',
+    userSegment,
+    'jobs',
+    jobSegment,
+    'artifacts',
+    artifactSegment,
+    `english-tts.${outputFormat.extension}`,
+  ].join('/');
+}
+
 export async function uploadOriginalAudioForJob({ clerkUserId, jobId, audio }) {
   const objectKey = buildOriginalAudioObjectKey({
     clerkUserId,
@@ -193,6 +246,52 @@ export async function uploadOriginalAudioForJob({ clerkUserId, jobId, audio }) {
     sizeBytes: audio.sizeBytes,
     mimeType: audio.mimeType,
     retentionExpiresAt: retentionExpiresAt(),
+  };
+}
+
+export async function uploadTranslationArtifact({
+  clerkUserId,
+  jobId,
+  artifactId,
+  audioBuffer,
+  format,
+}) {
+  const outputFormat = resolveArtifactOutputFormat(format);
+
+  if (!Buffer.isBuffer(audioBuffer) || audioBuffer.length === 0) {
+    throw storageError(400, 'empty_artifact_audio', 'Artifact audio payload is empty.');
+  }
+
+  const objectKey = buildTranslationArtifactObjectKey({
+    clerkUserId,
+    jobId,
+    artifactId,
+    format: outputFormat.format,
+  });
+  const { error } = await getSupabaseAdminClient()
+    .storage
+    .from(TRANSLATION_ARTIFACTS_BUCKET)
+    .upload(objectKey, audioBuffer, {
+      contentType: outputFormat.mimeType,
+      upsert: false,
+    });
+
+  if (error) {
+    throw storageError(
+      502,
+      'translation_artifact_upload_failed',
+      'Translation artifact upload failed.',
+      error,
+    );
+  }
+
+  return {
+    bucket: TRANSLATION_ARTIFACTS_BUCKET,
+    objectKey,
+    byteSize: audioBuffer.length,
+    mimeType: outputFormat.mimeType,
+    format: outputFormat.format,
+    extension: outputFormat.extension,
   };
 }
 

@@ -36,14 +36,14 @@ The verified Task 03 run used local API `http://localhost:8787` with a local Dev
 Run from the repo root.
 
 ```bash
-npm run api
-npm run trigger:dev -- --env-file .env.local --skip-update-check
+ENABLE_TTS=true npm run api
+ENABLE_TTS=true npm run trigger:dev -- --env-file .env.local --skip-update-check
 ```
 
 Direct equivalent:
 
 ```bash
-npx trigger dev --config trigger.config.mjs --env-file .env.local --skip-update-check
+ENABLE_TTS=true npx trigger dev --config trigger.config.mjs --env-file .env.local --skip-update-check
 ```
 
 Future production deploy command:
@@ -105,7 +105,7 @@ For a support note, capture the `traceId`, `jobId`, `triggerRunId`, terminal sta
 
 | Symptom | Check |
 | --- | --- |
-| Job stays `queued` | Confirm `npm run trigger:dev -- --env-file .env.local --skip-update-check` is running and connected to the same Trigger project/environment as the API. |
+| Job stays `queued` | Confirm `ENABLE_TTS=true npm run trigger:dev -- --env-file .env.local --skip-update-check` is running and connected to the same Trigger project/environment as the API. |
 | Queued response has no `triggerRunId` | Check API logs for Trigger dispatch failure; `server/index.mjs` treats missing run ID as a `502`. |
 | Worker does not claim job | Check `translation_jobs.status`, idempotency key `translation-job:<jobId>`, and whether another worker already moved the job to `running` or `succeeded`. |
 | Already-running or already-succeeded job | `server/translation-pipeline.mjs` returns skipped state for jobs that are no longer claimable because they are already running or complete. |

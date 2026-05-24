@@ -1,6 +1,16 @@
 import OpenAI, { toFile } from 'openai';
 import { env } from './env.mjs';
-import { downloadStoredObject } from './storage.mjs';
+import {
+  downloadStoredObject,
+  uploadTranslationArtifact,
+} from './storage.mjs';
+import {
+  createOrMarkTtsArtifactRunning,
+  findSuccessfulTtsArtifact,
+  markTtsArtifactFailed,
+  markTtsArtifactSucceeded,
+  TRANSLATION_ARTIFACT_STATUS,
+} from './artifacts.mjs';
 import {
   claimTranslationJobForProcessing,
   markTranslationJobFailed,
@@ -12,6 +22,11 @@ import {
   TRANSLATION_JOB_STATUS,
   writeTranslationResult,
 } from './translations.mjs';
+import {
+  createTtsInputHash,
+  generateTtsAudio,
+  resolveTtsConfig,
+} from './tts/index.mjs';
 
 const {
   DARIJA_ASR_BASE_URL: ASR_BASE_URL,
@@ -407,6 +422,218 @@ async function translateConsolidatedTranscript(
   return translation;
 }
 
+function publicTtsErrorMessage(error) {
+  if (error?.code === 'tts_input_too_long') {
+    return 'English text is too long for speech generation.';
+  }
+
+  if (error?.code === 'translation_artifact_upload_failed') {
+    return 'Speech audio storage failed.';
+  }
+
+  return 'Speech generation failed.';
+}
+
+function toPipelineTtsMetadata(artifact) {
+  if (!artifact) {
+    return null;
+  }
+
+  return {
+    id: artifact.id,
+    status: artifact.status,
+    provider: artifact.provider,
+    model: artifact.model,
+    voice: artifact.voice,
+    language: artifact.language,
+    format: artifact.format,
+    mimeType: artifact.mimeType,
+    byteSize: artifact.byteSize,
+    durationSeconds: artifact.durationSeconds,
+    errorCode: artifact.errorCode,
+    errorMessage: artifact.errorMessage,
+    createdAt: artifact.createdAt,
+    updatedAt: artifact.updatedAt,
+  };
+}
+
+async function runOptionalTtsForTranslation({
+  traceId,
+  jobId,
+  clerkUserId,
+  englishText,
+  logTrace = noop,
+}) {
+  const config = resolveTtsConfig();
+
+  if (!config.enabled) {
+    logTrace(traceId, 'TTS skipped', {
+      jobId,
+      reason: 'tts_disabled',
+    });
+
+    return null;
+  }
+
+  const inputTextHash = createTtsInputHash({
+    englishText,
+    provider: config.provider,
+    model: config.model,
+    voice: config.voice,
+    format: config.format,
+  });
+  const inputCharCount = englishText.trim().length;
+  const existingArtifact = await findSuccessfulTtsArtifact({
+    jobId,
+    clerkUserId,
+    provider: config.provider,
+    model: config.model,
+    voice: config.voice,
+    format: config.format,
+    inputTextHash,
+  });
+
+  if (existingArtifact) {
+    logTrace(traceId, 'TTS artifact reused', {
+      jobId,
+      artifactId: existingArtifact.id,
+      provider: existingArtifact.provider,
+      model: existingArtifact.model,
+      voice: existingArtifact.voice,
+      format: existingArtifact.format,
+      byteSize: existingArtifact.byteSize,
+    });
+
+    return toPipelineTtsMetadata(existingArtifact);
+  }
+
+  let artifact = await createOrMarkTtsArtifactRunning({
+    jobId,
+    clerkUserId,
+    provider: config.provider,
+    model: config.model,
+    voice: config.voice,
+    language: config.language,
+    format: config.format,
+    mimeType: config.mimeType,
+    inputTextHash,
+    inputCharCount,
+  });
+
+  if (artifact.status === TRANSLATION_ARTIFACT_STATUS.SUCCEEDED) {
+    logTrace(traceId, 'TTS artifact reused after idempotency race', {
+      jobId,
+      artifactId: artifact.id,
+      provider: artifact.provider,
+      model: artifact.model,
+      voice: artifact.voice,
+      format: artifact.format,
+      byteSize: artifact.byteSize,
+    });
+
+    return toPipelineTtsMetadata(artifact);
+  }
+
+  logTrace(traceId, 'TTS generation start', {
+    jobId,
+    artifactId: artifact.id,
+    provider: config.provider,
+    model: config.model,
+    voice: config.voice,
+    format: config.format,
+    inputCharCount,
+  });
+
+  try {
+    const ttsResult = await recordProviderOperation({
+      traceId,
+      jobId,
+      clerkUserId,
+      provider: PROVIDERS.OPENAI,
+      operation: PROVIDER_OPERATIONS.OPENAI_TTS,
+      model: config.model,
+      inputMetadata: {
+        inputTextHash,
+        inputCharCount,
+        voice: config.voice,
+        format: config.format,
+        language: config.language,
+      },
+      outputMetadata: (result) => ({
+        byteSize: result.metadata?.byteSize,
+        mimeType: result.metadata?.mimeType,
+        format: result.metadata?.format,
+        voice: result.metadata?.voice,
+        language: result.metadata?.language,
+      }),
+      execute: () =>
+        generateTtsAudio({
+          englishText,
+          configOverrides: config,
+        }),
+      logTrace,
+    });
+
+    if (ttsResult.skipped) {
+      return null;
+    }
+
+    const storageMetadata = await uploadTranslationArtifact({
+      clerkUserId,
+      jobId,
+      artifactId: artifact.id,
+      audioBuffer: ttsResult.audioBuffer,
+      format: config.format,
+    });
+
+    artifact = await markTtsArtifactSucceeded({
+      artifactId: artifact.id,
+      clerkUserId,
+      bucket: storageMetadata.bucket,
+      objectKey: storageMetadata.objectKey,
+      byteSize: storageMetadata.byteSize,
+      durationSeconds: ttsResult.metadata?.durationSeconds,
+    });
+
+    logTrace(traceId, 'TTS artifact succeeded', {
+      jobId,
+      artifactId: artifact.id,
+      provider: artifact.provider,
+      model: artifact.model,
+      voice: artifact.voice,
+      format: artifact.format,
+      byteSize: artifact.byteSize,
+    });
+
+    return toPipelineTtsMetadata(artifact);
+  } catch (error) {
+    try {
+      artifact = await markTtsArtifactFailed({
+        artifactId: artifact.id,
+        clerkUserId,
+        errorCode: safeErrorCode(error, 'tts_failed'),
+        errorMessage: publicTtsErrorMessage(error),
+      });
+    } catch (recordError) {
+      logTrace(traceId, 'TTS artifact failure recording failed', {
+        jobId,
+        artifactId: artifact.id,
+        errorName: recordError?.name,
+        errorCode: recordError?.supabase?.code || recordError?.code,
+      });
+    }
+
+    logTrace(traceId, 'TTS artifact failed without failing text translation', {
+      jobId,
+      artifactId: artifact.id,
+      errorCode: safeErrorCode(error, 'tts_failed'),
+      artifactStatus: artifact.status,
+    });
+
+    return toPipelineTtsMetadata(artifact);
+  }
+}
+
 export async function runTranslationProviderPipeline({
   traceId,
   jobId,
@@ -562,12 +789,31 @@ export async function runTranslationProviderPipeline({
     modelMetadata,
   });
 
+  let ttsArtifact = null;
+
+  try {
+    ttsArtifact = await runOptionalTtsForTranslation({
+      traceId,
+      jobId,
+      clerkUserId,
+      englishText,
+      logTrace,
+    });
+  } catch (error) {
+    logTrace(traceId, 'TTS skipped after unrecorded failure', {
+      jobId,
+      errorCode: safeErrorCode(error, 'tts_unrecorded_failure'),
+      errorName: error?.name,
+    });
+  }
+
   return {
     openaiAsr,
     darijaAsr,
     consolidatedArabicText,
     englishText,
     modelMetadata,
+    ttsArtifact,
     models: {
       consolidation: CONSOLIDATION_MODEL,
       translation: TRANSLATION_MODEL,

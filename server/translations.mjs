@@ -92,6 +92,7 @@ export const PROVIDER_OPERATIONS = Object.freeze({
   MODAL_DARIJA_ASR: 'modal_darija_asr',
   OPENAI_CONSOLIDATION: 'openai_consolidation',
   OPENAI_TRANSLATION: 'openai_translation',
+  OPENAI_TTS: 'openai_tts',
 });
 
 export const PROVIDERS = Object.freeze({

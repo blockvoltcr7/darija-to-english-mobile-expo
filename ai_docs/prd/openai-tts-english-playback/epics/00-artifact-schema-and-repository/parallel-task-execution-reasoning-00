@@ -1,0 +1,37 @@
+# Parallel Task Execution Reasoning - Epic 00
+
+Epic: `00-artifact-schema-and-repository`
+Task count: 3
+
+## Phase Summary
+
+| Phase | Task | Mode | Risk | Reason |
+|---|---|---|---|---|
+| 1 | `create-translation-artifacts-migration` | main | low | Creates the artifact schema contract that every later task consumes. |
+| 2 | `add-artifact-repository-helpers` | main | medium | Repository helpers depend on the finalized table shape, ownership fields, statuses, and idempotency index. |
+| 3 | `extend-provider-run-operation-contract` | main | high | Provider-run diagnostics decisions depend on whether artifact rows already cover the TTS lifecycle. |
+
+## Parallel-Safe Tasks
+
+None approved in this epic.
+
+## Why Tasks Cannot Be Parallelized
+
+- `add-artifact-repository-helpers` cannot run before `create-translation-artifacts-migration` because helper method signatures and queries depend on the exact artifact table columns, constraints, and ownership model.
+- `extend-provider-run-operation-contract` cannot run before `add-artifact-repository-helpers` because the task may decide that provider-run changes are unnecessary if artifact lifecycle helpers are sufficient.
+- Parallelizing these tasks would risk duplicating lifecycle state between `provider_runs` and `translation_artifacts`.
+
+## Shared Contract Surfaces
+
+- `supabase/migrations/*`
+- `server/artifacts.mjs`
+- `server/translations.mjs`
+- provider-run operation constants or SQL constraints, if TTS diagnostics are added there
+
+## Cross-Epic Gates
+
+Epic 01 depends on the artifact schema from Task 01 and the lifecycle direction from Tasks 02-03 before it can safely store generated audio metadata.
+
+## Recommendation
+
+Run this epic sequentially with `run-epic-codex ai_docs/prd/openai-tts-english-playback/epics/00-artifact-schema-and-repository`.

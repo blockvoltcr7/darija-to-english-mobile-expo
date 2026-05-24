@@ -1,0 +1,11 @@
+2026-05-21T19:32:00Z update-tts-qa-and-agent-docs nil->open
+2026-05-21T19:32:00Z run-static-and-api-verification nil->open
+2026-05-21T19:32:00Z run-fresh-user-tts-qa nil->open
+2026-05-21T19:32:00Z verify-failure-and-cross-user-access-paths nil->open
+2026-05-21T21:05:45Z update-tts-qa-and-agent-docs open->in_progress
+2026-05-21T21:08:03Z update-tts-qa-and-agent-docs in_progress->done
+2026-05-21T21:08:25Z run-static-and-api-verification open->in_progress
+2026-05-21T21:11:23Z run-static-and-api-verification in_progress->done
+2026-05-21T21:11:50Z run-fresh-user-tts-qa open->in_progress
+2026-05-21T21:11:50Z run-fresh-user-tts-qa in_progress->in_progress # blocker: requires manual iOS development-build fresh Clerk user QA with non-sensitive simulator fixture, Trigger worker, and real Clerk session tokens
+2026-05-21T21:11:50Z verify-failure-and-cross-user-access-paths open->open # blocker: depends on completed fresh-user TTS QA plus owner and second-user Clerk session tokens for playback access checks

@@ -13,7 +13,7 @@ import * as FileSystem from 'expo-file-system/legacy';
 import { useRouter } from 'expo-router';
 import type { Href } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -25,9 +25,14 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { translateAudioFile } from '@/lib/api';
+import { EnglishAudioPlayback } from '@/components/EnglishAudioPlayback';
+import { continuePollingTranslationJob, translateAudioFile } from '@/lib/api';
 import { CONFIG } from '@/lib/config';
-import type { TranslationResult, WorkStatus } from '@/lib/types';
+import type {
+  QueuedTranslationJob,
+  TranslationResult,
+  WorkStatus,
+} from '@/lib/types';
 
 const HIGHLIGHT_BARS = [18, 38, 58, 30, 48, 72, 40, 62, 24, 44, 66, 34];
 const MAX_DIAGNOSTIC_LINES = 10;
@@ -171,8 +176,12 @@ export default function HomeScreen() {
   const [error, setError] = useState<string | null>(null);
   const [diagnostics, setDiagnostics] = useState<string[]>([]);
   const [isDiagnosticsOpen, setIsDiagnosticsOpen] = useState(false);
+  const [recoverableJob, setRecoverableJob] =
+    useState<QueuedTranslationJob | null>(null);
   const activeRequestRef = useRef<AbortController | null>(null);
   const lastUserIdRef = useRef<string | null | undefined>(undefined);
+  const recoverableJobRef = useRef<QueuedTranslationJob | null>(null);
+  const resultJobIdRef = useRef<string | null>(null);
 
   const isRecording = recorderState.isRecording;
   const isBusy =
@@ -181,8 +190,9 @@ export default function HomeScreen() {
     status === 'queued' ||
     status === 'running' ||
     status === 'polling';
-  const isPrimaryDisabled = permissionGranted !== true || isBusy;
-  const isUploadDisabled = isRecording || isBusy;
+  const hasRecoverableJob = Boolean(recoverableJob && !result);
+  const isPrimaryDisabled = permissionGranted !== true || isBusy || hasRecoverableJob;
+  const isUploadDisabled = isRecording || isBusy || hasRecoverableJob;
   const activeStatusColor = statusColor(status, isRecording);
   const durationLabel = useMemo(
     () => formatDuration(recorderState.durationMillis),
@@ -214,6 +224,78 @@ export default function HomeScreen() {
     return controller;
   }
 
+  const clearRecoverableJob = useCallback(() => {
+    recoverableJobRef.current = null;
+    setRecoverableJob(null);
+  }, []);
+
+  function storeRecoverableJob(job: QueuedTranslationJob) {
+    recoverableJobRef.current = job;
+    setRecoverableJob(job);
+    appendDiagnostic(
+      `Recoverable job stored job=${job.jobId} triggerRun=${
+        job.triggerRunId || 'n/a'
+      }`,
+      job.traceId,
+    );
+  }
+
+  async function attachTtsWhenReady(job: QueuedTranslationJob) {
+    try {
+      const accessToken = await getToken();
+
+      if (!accessToken) {
+        appendDiagnostic('Skipped TTS refresh because Clerk token was unavailable', job.traceId);
+        return;
+      }
+
+      const completedResult = await continuePollingTranslationJob({
+        accessToken,
+        refreshAccessToken: () => getToken(),
+        jobId: job.jobId,
+        triggerRunId: job.triggerRunId || null,
+        traceId: job.traceId,
+        onTrace: (message) => appendDiagnostic(message, job.traceId),
+        returnWhenTextReady: false,
+      });
+
+      if (resultJobIdRef.current !== job.jobId) {
+        return;
+      }
+
+      appendDiagnostic('English audio artifact refreshed in UI state', job.traceId);
+      setResult(completedResult);
+    } catch (caughtError) {
+      const message =
+        caughtError instanceof Error ? caughtError.message : 'Unknown TTS refresh error';
+
+      appendDiagnostic(`TTS refresh stopped: ${message}`, job.traceId);
+    }
+  }
+
+  function finishWithTranslationResult({
+    translationResult,
+    queuedJob,
+    traceId,
+    source,
+  }: {
+    translationResult: TranslationResult;
+    queuedJob: QueuedTranslationJob;
+    traceId: string;
+    source: string;
+  }) {
+    resultJobIdRef.current = queuedJob.jobId;
+    setResult(translationResult);
+    setStatus('done');
+    activeRequestRef.current = null;
+    clearRecoverableJob();
+    appendDiagnostic(`${source} result stored in UI state`, traceId);
+
+    if (translationResult.tts?.status !== 'succeeded') {
+      void attachTtsWhenReady(queuedJob);
+    }
+  }
+
   function setAsyncJobStatus(jobStatus: string) {
     switch (jobStatus) {
       case 'queued':
@@ -232,15 +314,17 @@ export default function HomeScreen() {
     }
   }
 
-  function clearUserScopedState() {
+  const clearUserScopedState = useCallback(() => {
     activeRequestRef.current?.abort();
     activeRequestRef.current = null;
+    resultJobIdRef.current = null;
+    clearRecoverableJob();
     setStatus('idle');
     setError(null);
     setResult(null);
     setDiagnostics([]);
     setIsDiagnosticsOpen(false);
-  }
+  }, [clearRecoverableJob]);
 
   async function checkApiHealth(traceId: string) {
     const endpoint = `${CONFIG.API_BASE_URL}/health`;
@@ -351,7 +435,7 @@ export default function HomeScreen() {
       lastUserIdRef.current = userId;
       clearUserScopedState();
     }
-  }, [userId]);
+  }, [clearUserScopedState, userId]);
 
   async function startRecording() {
     if (permissionGranted !== true) {
@@ -362,6 +446,8 @@ export default function HomeScreen() {
     setStatus('preparing');
     setError(null);
     setResult(null);
+    resultJobIdRef.current = null;
+    clearRecoverableJob();
 
     try {
       await audioRecorder.prepareToRecordAsync();
@@ -377,6 +463,7 @@ export default function HomeScreen() {
 
   async function stopAndTranslate() {
     const traceId = createTraceId('record');
+    let queuedJob: QueuedTranslationJob | null = null;
 
     setStatus('transcribing');
     setError(null);
@@ -409,13 +496,26 @@ export default function HomeScreen() {
         traceId,
         onTrace: (message) => appendDiagnostic(message, traceId),
         onJobStatus: setAsyncJobStatus,
+        onQueuedJob: (job) => {
+          queuedJob = job;
+          storeRecoverableJob(job);
+        },
         signal: controller.signal,
       });
 
-      appendDiagnostic('Recording result stored in UI state', traceId);
-      setResult(translationResult);
-      setStatus('done');
-      activeRequestRef.current = null;
+      finishWithTranslationResult({
+        translationResult,
+        queuedJob:
+          queuedJob ||
+          {
+            jobId: translationResult.jobId || translationResult.translationJobId || traceId,
+            translationJobId:
+              translationResult.translationJobId || translationResult.jobId || traceId,
+            traceId,
+          },
+        traceId,
+        source: 'Recording',
+      });
     } catch (caughtError) {
       activeRequestRef.current = null;
       if (isAbortError(caughtError)) {
@@ -433,6 +533,7 @@ export default function HomeScreen() {
 
   async function uploadAudioFile() {
     const traceId = createTraceId('upload');
+    let queuedJob: QueuedTranslationJob | null = null;
 
     setError(null);
     appendDiagnostic('Opening document picker', traceId);
@@ -458,6 +559,8 @@ export default function HomeScreen() {
 
       setStatus('transcribing');
       setResult(null);
+      resultJobIdRef.current = null;
+      clearRecoverableJob();
       appendDiagnostic(
         `Selected name=${selectedAudio.name || 'unknown'} size=${
           selectedAudio.size ?? 'unknown'
@@ -480,13 +583,26 @@ export default function HomeScreen() {
         traceId,
         onTrace: (message) => appendDiagnostic(message, traceId),
         onJobStatus: setAsyncJobStatus,
+        onQueuedJob: (job) => {
+          queuedJob = job;
+          storeRecoverableJob(job);
+        },
         signal: controller.signal,
       });
 
-      appendDiagnostic('Upload result stored in UI state', traceId);
-      setResult(translationResult);
-      setStatus('done');
-      activeRequestRef.current = null;
+      finishWithTranslationResult({
+        translationResult,
+        queuedJob:
+          queuedJob ||
+          {
+            jobId: translationResult.jobId || translationResult.translationJobId || traceId,
+            translationJobId:
+              translationResult.translationJobId || translationResult.jobId || traceId,
+            traceId,
+          },
+        traceId,
+        source: 'Upload',
+      });
     } catch (caughtError) {
       activeRequestRef.current = null;
       if (isAbortError(caughtError)) {
@@ -496,6 +612,60 @@ export default function HomeScreen() {
       setStatus('error');
       setError(
         caughtError instanceof Error ? caughtError.message : 'Upload failed.',
+      );
+    }
+  }
+
+  async function resumeRecoverableJob() {
+    const job = recoverableJobRef.current;
+
+    if (!job) {
+      return;
+    }
+
+    const traceId = job.traceId || createTraceId('resume');
+
+    setError(null);
+    setStatus('polling');
+    appendDiagnostic(
+      `Resuming existing job ${job.jobId} triggerRun=${job.triggerRunId || 'n/a'}`,
+      traceId,
+    );
+
+    try {
+      await checkApiHealth(traceId);
+      const accessToken = await getApiAccessToken(traceId);
+      const controller = beginTranslationRequest();
+      const translationResult = await continuePollingTranslationJob({
+        accessToken,
+        refreshAccessToken: () => getToken(),
+        jobId: job.jobId,
+        triggerRunId: job.triggerRunId || null,
+        traceId,
+        onTrace: (message) => appendDiagnostic(message, traceId),
+        onJobStatus: setAsyncJobStatus,
+        signal: controller.signal,
+      });
+
+      finishWithTranslationResult({
+        translationResult,
+        queuedJob: job,
+        traceId,
+        source: 'Recovered job',
+      });
+    } catch (caughtError) {
+      activeRequestRef.current = null;
+
+      if (isAbortError(caughtError)) {
+        setStatus('idle');
+        return;
+      }
+
+      setStatus('error');
+      setError(
+        caughtError instanceof Error
+          ? caughtError.message
+          : 'Resume polling failed.',
       );
     }
   }
@@ -708,6 +878,20 @@ export default function HomeScreen() {
           <View style={styles.alertPanel}>
             <Ionicons name="warning" size={20} color={palette.amber} />
             <Text selectable style={styles.alertText}>{error}</Text>
+            {hasRecoverableJob && !isBusy ? (
+              <Pressable
+                accessibilityLabel="Resume existing translation job"
+                accessibilityRole="button"
+                onPress={resumeRecoverableJob}
+                style={({ pressed }) => [
+                  styles.resumeJobButton,
+                  pressed ? styles.pressedButton : null,
+                ]}
+              >
+                <Ionicons name="play-forward" size={15} color={palette.stoneText} />
+                <Text style={styles.resumeJobButtonText}>Resume</Text>
+              </Pressable>
+            ) : null}
           </View>
         ) : null}
 
@@ -717,7 +901,11 @@ export default function HomeScreen() {
               <Text style={styles.panelLabel}>English Translation</Text>
               <Ionicons name="language-outline" size={18} color={palette.stone} />
             </View>
-            <Text selectable style={styles.translationText}>
+            <EnglishAudioPlayback
+              getToken={() => getToken()}
+              tts={result?.tts}
+            />
+            <Text maxFontSizeMultiplier={1.15} selectable style={styles.translationText}>
               {englishTranslation || 'Waiting for translation.'}
             </Text>
           </View>
@@ -1141,6 +1329,20 @@ const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 20,
   },
+  resumeJobButton: {
+    alignItems: 'center',
+    backgroundColor: palette.amber,
+    borderRadius: 10,
+    flexDirection: 'row',
+    gap: 5,
+    minHeight: 36,
+    paddingHorizontal: 10,
+  },
+  resumeJobButtonText: {
+    color: palette.stoneText,
+    fontSize: 12,
+    fontWeight: '900',
+  },
   outputStack: {
     gap: 14,
   },
@@ -1177,9 +1379,9 @@ const styles = StyleSheet.create({
   },
   translationText: {
     color: palette.text,
-    fontSize: 24,
+    fontSize: 17,
     fontWeight: '800',
-    lineHeight: 32,
+    lineHeight: 25,
   },
   diagnosticsPanel: {
     backgroundColor: palette.cardRaised,

@@ -61,7 +61,13 @@ curl -sS https://darija-api-staging-nwjxqrn2ra-uc.a.run.app/health
 
 For production, replace the URL with the verified production API URL from `ai_docs/deployment/production-api.md`.
 
-4. Verify Trigger runtime:
+4. Verify TestFlight runtime preflight:
+
+```bash
+npm run qa:testflight:preflight
+```
+
+This must pass before phone QA. If it fails because the local Trigger.dev Development worker is not running, start the worker in a separate terminal and rerun the preflight:
 
 ```bash
 npm run trigger:dev -- --env-file .env.local --skip-update-check

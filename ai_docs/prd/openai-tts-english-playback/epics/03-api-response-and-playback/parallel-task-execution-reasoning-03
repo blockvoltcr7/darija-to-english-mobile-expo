@@ -1,0 +1,38 @@
+# Parallel Task Execution Reasoning - Epic 03
+
+Epic: `03-api-response-and-playback`
+Task count: 3
+
+## Phase Summary
+
+| Phase | Task | Mode | Risk | Reason |
+|---|---|---|---|---|
+| 1 | `add-tts-detail-response-shape` | main | high | Defines the API contract that mobile clients will consume. |
+| 2 | `add-authenticated-english-audio-route` | main | high | Depends on the response metadata and implements the playback trust boundary. |
+| 3 | `verify-owner-only-artifact-access` | main | high | Must test the route after it exists and may uncover trust-boundary fixes. |
+
+## Parallel-Safe Tasks
+
+None approved in this epic.
+
+## Why Tasks Cannot Be Parallelized
+
+- The playback route should not be implemented independently from the detail response shape, because the response determines how clients discover audio availability.
+- Owner-only verification cannot run until the route exists.
+- The route and verification both touch or validate the same trust boundary, so parallel edits could hide authorization regressions.
+
+## Shared Contract Surfaces
+
+- `server/index.mjs`
+- `server/translations.mjs`
+- `server/artifacts.mjs`
+- `server/storage.mjs`
+- API response mapping and trace/error behavior
+
+## Cross-Epic Gates
+
+This epic depends on Epic 02 artifact states. Epic 04 depends on `add-tts-detail-response-shape` for client types and on `verify-owner-only-artifact-access` before mobile playback uses the authenticated route.
+
+## Recommendation
+
+Run this epic sequentially after Epic 02, and keep playback access checks in the parent execution path.
