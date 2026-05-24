@@ -26,6 +26,7 @@ import {
   createTtsInputHash,
   generateTtsAudio,
   resolveTtsConfig,
+  sanitizeEnglishTextForTts,
 } from './tts/index.mjs';
 
 const {
@@ -388,7 +389,7 @@ async function translateConsolidatedTranscript(
           '1) Preserve the meaning exactly.',
           '2) Do not add information not present in the transcript.',
           '3) Do not invent names, document titles, dates, numbers, places, or legal details.',
-          '4) Translate unclear spans marked [غير واضح] as [unclear].',
+          '4) If the transcript contains [غير واضح], do not translate it literally as [unclear] unless the missing content is essential to the meaning. Prefer a natural English sentence that omits the unclear span or phrases around it without inventing specifics.',
           '5) Keep culturally specific terms when needed and briefly clarify them in English, for example:',
           '   - douar = village/community',
           '   - caid = local administrative official',
@@ -475,14 +476,15 @@ async function runOptionalTtsForTranslation({
     return null;
   }
 
+  const ttsInputText = sanitizeEnglishTextForTts(englishText);
   const inputTextHash = createTtsInputHash({
-    englishText,
+    englishText: ttsInputText,
     provider: config.provider,
     model: config.model,
     voice: config.voice,
     format: config.format,
   });
-  const inputCharCount = englishText.trim().length;
+  const inputCharCount = ttsInputText.length;
   const existingArtifact = await findSuccessfulTtsArtifact({
     jobId,
     clerkUserId,
@@ -568,7 +570,7 @@ async function runOptionalTtsForTranslation({
       }),
       execute: () =>
         generateTtsAudio({
-          englishText,
+          englishText: ttsInputText,
           configOverrides: config,
         }),
       logTrace,

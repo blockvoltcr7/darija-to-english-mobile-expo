@@ -31,6 +31,14 @@ function normalizeRequiredString(value, fieldName) {
   return normalized;
 }
 
+export function sanitizeEnglishTextForTts(englishText) {
+  return normalizeRequiredString(englishText, 'englishText')
+    .replace(/\s*\[(?:unclear|inaudible|unintelligible)\]\s*/gi, ' ')
+    .replace(/\s+/g, ' ')
+    .replace(/\s+([,.;:!?])/g, '$1')
+    .trim();
+}
+
 function stableSerialize(value) {
   if (value === null || typeof value !== 'object') {
     return JSON.stringify(value);
