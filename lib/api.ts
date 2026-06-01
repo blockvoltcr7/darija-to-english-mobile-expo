@@ -166,6 +166,82 @@ export async function translateAudioFile({
   });
 }
 
+export async function createResponseAudioFile({
+  filename,
+  audioBase64,
+  accessToken,
+  refreshAccessToken,
+  traceId,
+  onTrace,
+  onJobStatus,
+  onQueuedJob,
+  signal,
+}: TranslateAudioParams): Promise<TranslationResult> {
+  const endpoint = `${CONFIG.API_BASE_URL}/v1/response-audio`;
+  const startedAt = Date.now();
+
+  onTrace?.(
+    `POST ${endpoint} filename=${filename} base64Chars=${audioBase64.length}`,
+  );
+
+  let res: Response;
+
+  try {
+    res = await fetch(endpoint, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        'Content-Type': 'application/json',
+        ...(traceId ? { 'X-Trace-Id': traceId } : {}),
+      },
+      body: JSON.stringify({
+        filename,
+        audio_base64: audioBase64,
+      }),
+      signal,
+    });
+  } catch (caughtError) {
+    const message =
+      caughtError instanceof Error ? caughtError.message : 'Unknown fetch error';
+
+    onTrace?.(`Network failure after ${Date.now() - startedAt}ms: ${message}`);
+    throw new Error(`Network request failed for ${endpoint}: ${message}`);
+  }
+
+  onTrace?.(`Response ${res.status} after ${Date.now() - startedAt}ms`);
+
+  if (!res.ok) {
+    throw new Error(await readError(res));
+  }
+
+  const queued = (await res.json()) as AsyncTranslationSubmitResponse;
+  const queuedJob: QueuedTranslationJob = {
+    jobId: queued.jobId,
+    translationJobId: queued.translationJobId || queued.jobId,
+    status: queued.status,
+    triggerRunId: queued.triggerRunId || null,
+    traceId,
+    createdAt: queued.createdAt || null,
+    detailUrl: queued.detailUrl,
+  };
+
+  onTrace?.(`Queued response audio job ${queued.jobId} triggerRun=${queued.triggerRunId || 'n/a'}`);
+  onQueuedJob?.(queuedJob);
+  onJobStatus?.('queued');
+
+  return pollTranslationResult({
+    accessToken,
+    refreshAccessToken,
+    id: queued.jobId,
+    triggerRunId: queued.triggerRunId || null,
+    traceId,
+    onTrace,
+    onJobStatus,
+    signal,
+    startedAt,
+  });
+}
+
 export async function continuePollingTranslationJob({
   accessToken,
   refreshAccessToken,
@@ -264,6 +340,12 @@ function toTranslationResult(detail: TranslationHistoryDetail): TranslationResul
           | undefined)
       : undefined;
   const result = detail.result;
+  const mode =
+    detail.result?.modelMetadata &&
+    typeof detail.result.modelMetadata === 'object' &&
+    !Array.isArray(detail.result.modelMetadata)
+      ? (detail.result.modelMetadata.mode as string | undefined)
+      : undefined;
 
   if (!result) {
     throw new Error('Translation result is not available yet.');
@@ -271,6 +353,7 @@ function toTranslationResult(detail: TranslationHistoryDetail): TranslationResul
 
   return {
     jobId: detail.id,
+    mode,
     translationJobId: detail.id,
     transcript: result.consolidatedArabicText,
     openaiArabicText: result.openaiArabicText || undefined,
@@ -303,6 +386,7 @@ function toTranslationResult(detail: TranslationHistoryDetail): TranslationResul
       audio_bytes: detail.sourceAudioBytes || undefined,
     },
     tts: normalizeTtsArtifact(detail.tts),
+    responseAudio: normalizeTtsArtifact(detail.responseAudio),
   };
 }
 
@@ -367,7 +451,7 @@ async function pollTranslationResult({
     if (returnWhenTextReady && hasTextResult(detail)) {
       const result = toTranslationResult(detail);
       onTrace?.(
-        `Text result ready status=${detail.status} tts=${detail.tts?.status || 'none'}`,
+        `Text result ready status=${detail.status} tts=${detail.tts?.status || 'none'} responseAudio=${detail.responseAudio?.status || 'none'}`,
       );
       onTrace?.(`Response keys: ${Object.keys(result).sort().join(', ')}`);
       onTrace?.(
@@ -472,5 +556,6 @@ export async function getTranslation({
   return {
     ...detail,
     tts: normalizeTtsArtifact(detail.tts),
+    responseAudio: normalizeTtsArtifact(detail.responseAudio),
   };
 }

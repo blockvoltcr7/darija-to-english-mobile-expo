@@ -26,7 +26,11 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { EnglishAudioPlayback } from '@/components/EnglishAudioPlayback';
-import { continuePollingTranslationJob, translateAudioFile } from '@/lib/api';
+import {
+  continuePollingTranslationJob,
+  createResponseAudioFile,
+  translateAudioFile,
+} from '@/lib/api';
 import { CONFIG } from '@/lib/config';
 import type {
   QueuedTranslationJob,
@@ -36,6 +40,7 @@ import type {
 
 const HIGHLIGHT_BARS = [18, 38, 58, 30, 48, 72, 40, 62, 24, 44, 66, 34];
 const MAX_DIAGNOSTIC_LINES = 10;
+type RecordingMode = 'translate' | 'response';
 
 const palette = {
   shell: '#242424',
@@ -176,6 +181,7 @@ export default function HomeScreen() {
   const [error, setError] = useState<string | null>(null);
   const [diagnostics, setDiagnostics] = useState<string[]>([]);
   const [isDiagnosticsOpen, setIsDiagnosticsOpen] = useState(false);
+  const [recordingMode, setRecordingMode] = useState<RecordingMode>('translate');
   const [recoverableJob, setRecoverableJob] =
     useState<QueuedTranslationJob | null>(null);
   const activeRequestRef = useRef<AbortController | null>(null);
@@ -263,7 +269,7 @@ export default function HomeScreen() {
         return;
       }
 
-      appendDiagnostic('English audio artifact refreshed in UI state', job.traceId);
+      appendDiagnostic('Audio artifact refreshed in UI state', job.traceId);
       setResult(completedResult);
     } catch (caughtError) {
       const message =
@@ -291,7 +297,12 @@ export default function HomeScreen() {
     clearRecoverableJob();
     appendDiagnostic(`${source} result stored in UI state`, traceId);
 
-    if (translationResult.tts?.status !== 'succeeded') {
+    const expectsResponseAudio = queuedJob.detailUrl?.includes('/response-audio');
+    const expectedArtifact = expectsResponseAudio
+      ? translationResult.responseAudio
+      : translationResult.tts;
+
+    if (expectedArtifact?.status !== 'succeeded') {
       void attachTtsWhenReady(queuedJob);
     }
   }
@@ -437,12 +448,13 @@ export default function HomeScreen() {
     }
   }, [clearUserScopedState, userId]);
 
-  async function startRecording() {
+  async function startRecording(mode: RecordingMode = 'translate') {
     if (permissionGranted !== true) {
       Alert.alert('Microphone permission is required.');
       return;
     }
 
+    setRecordingMode(mode);
     setStatus('preparing');
     setError(null);
     setResult(null);
@@ -462,7 +474,8 @@ export default function HomeScreen() {
   }
 
   async function stopAndTranslate() {
-    const traceId = createTraceId('record');
+    const mode = recordingMode;
+    const traceId = createTraceId(mode === 'response' ? 'reply' : 'record');
     let queuedJob: QueuedTranslationJob | null = null;
 
     setStatus('transcribing');
@@ -488,7 +501,9 @@ export default function HomeScreen() {
       appendDiagnostic(`Read recording base64 chars=${audioBase64.length}`, traceId);
 
       const controller = beginTranslationRequest();
-      const translationResult = await translateAudioFile({
+      const submitAudioFile =
+        mode === 'response' ? createResponseAudioFile : translateAudioFile;
+      const translationResult = await submitAudioFile({
         filename: filenameFromUri(recordingUri),
         audioBase64,
         accessToken,
@@ -675,15 +690,18 @@ export default function HomeScreen() {
   }
 
   const primaryLabel = isRecording
-    ? 'Stop recording'
+    ? recordingMode === 'response'
+      ? 'Stop reply'
+      : 'Stop recording'
     : isBusy
       ? 'Working'
       : 'Record';
   const primaryIcon = isRecording ? 'stop' : 'mic';
-  const primaryAction = isRecording ? stopAndTranslate : startRecording;
+  const primaryAction = isRecording ? stopAndTranslate : () => startRecording('translate');
   const consolidatedTranscript =
     result?.consolidatedArabicText || result?.transcript || '';
   const englishTranslation = result?.englishText || result?.translation || '';
+  const isResponseResult = result?.mode === 'response_audio';
   const openaiTranscript =
     result?.openaiArabicText || result?.transcripts?.openai || '';
   const darijaTranscript =
@@ -747,8 +765,8 @@ export default function HomeScreen() {
 
           <Text style={styles.title}>Darija to English</Text>
           <Text style={styles.subtitle}>
-            Record or upload Moroccan Darija audio. The server compares two ASR
-            paths, consolidates the transcript, then translates it to English.
+            Translate incoming Darija audio to English, or record an English
+            reply and generate Arabic/Darija audio to send back.
           </Text>
 
           <View style={styles.chipRow}>
@@ -833,6 +851,24 @@ export default function HomeScreen() {
               </Text>
             </Pressable>
 
+            <Pressable
+              accessibilityRole="button"
+              disabled={isUploadDisabled}
+              onPress={() => startRecording('response')}
+              style={({ pressed }) => [
+                styles.responseButton,
+                isUploadDisabled && styles.disabledSecondaryButton,
+                pressed && !isUploadDisabled ? styles.pressedButton : null,
+              ]}
+            >
+              <Ionicons
+                name="return-up-forward-outline"
+                size={19}
+                color={palette.stoneText}
+              />
+              <Text style={styles.responseButtonText}>Record Reply</Text>
+            </Pressable>
+
             <View style={styles.secondaryActionRow}>
               <Pressable
                 accessibilityRole="button"
@@ -898,7 +934,9 @@ export default function HomeScreen() {
         <View style={styles.outputStack}>
           <View style={[styles.resultPanel, styles.translationPanel]}>
             <View style={styles.panelHeaderRow}>
-              <Text style={styles.panelLabel}>English Translation</Text>
+              <Text style={styles.panelLabel}>
+                {isResponseResult ? 'Your English Transcript' : 'English Translation'}
+              </Text>
               <Ionicons name="language-outline" size={18} color={palette.stone} />
             </View>
             <EnglishAudioPlayback
@@ -912,9 +950,30 @@ export default function HomeScreen() {
 
           <View style={styles.resultPanel}>
             <View style={styles.panelHeaderRow}>
-              <Text style={styles.panelLabel}>Consolidated Darija</Text>
+              <Text style={styles.panelLabel}>
+                {isResponseResult ? 'Arabic/Darija Reply' : 'Consolidated Darija'}
+              </Text>
               <Ionicons name="document-text-outline" size={18} color={palette.teal} />
             </View>
+            {isResponseResult ? (
+              <EnglishAudioPlayback
+                accessibilityPauseLabel="Pause Arabic reply audio"
+                accessibilityPlayLabel="Play Arabic reply audio"
+                disclosure="AI-generated Arabic/Darija voice"
+                failedLabel="Arabic reply voice unavailable"
+                getToken={() => getToken()}
+                loadingLabel="Preparing Arabic reply voice"
+                playingLabel="Playing Arabic reply"
+                playLabel="Listen to Arabic reply"
+                allowShare
+                shareFilename={`darija-reply-${result?.jobId || 'audio'}.${
+                  result?.responseAudio?.format || 'mp3'
+                }`}
+                shareLabel="Share Arabic reply audio"
+                shareMessage="AI-generated Arabic/Darija reply audio"
+                tts={result?.responseAudio}
+              />
+            ) : null}
             <Text selectable style={styles.resultText}>
               {consolidatedTranscript || 'Waiting for audio.'}
             </Text>
@@ -956,7 +1015,7 @@ export default function HomeScreen() {
           </View>
         ) : null}
 
-        {result ? (
+        {result && !isResponseResult ? (
           <View style={styles.outputStack}>
             <View style={styles.resultPanel}>
               <View style={styles.panelHeaderRow}>
@@ -981,30 +1040,57 @@ export default function HomeScreen() {
         ) : null}
 
         {result ? (
-          <View style={styles.metaRow}>
-            <View style={styles.metaItem}>
-              <Text style={styles.metaLabel}>OpenAI STT</Text>
-              <Text selectable style={styles.metaValue}>
-                {result.openai_asr?.model || 'gpt-4o-mini-transcribe'}
-              </Text>
+          isResponseResult ? (
+            <View style={styles.metaRow}>
+              <View style={styles.metaItem}>
+                <Text style={styles.metaLabel}>OpenAI STT</Text>
+                <Text selectable style={styles.metaValue}>
+                  {result.openai_asr?.model || 'gpt-4o-mini-transcribe'}
+                </Text>
+              </View>
+              <View style={styles.metaItem}>
+                <Text style={styles.metaLabel}>Darija Reply</Text>
+                <Text selectable style={styles.metaValue}>{result.model}</Text>
+              </View>
+              <View style={styles.metaItem}>
+                <Text style={styles.metaLabel}>Response Voice</Text>
+                <Text selectable style={styles.metaValue}>
+                  {result.responseAudio?.model || 'gpt-4o-mini-tts'}
+                </Text>
+              </View>
+              <View style={styles.metaItem}>
+                <Text style={styles.metaLabel}>Format</Text>
+                <Text selectable style={styles.metaValue}>
+                  {(result.responseAudio?.format || 'mp3').toUpperCase()}
+                </Text>
+              </View>
             </View>
-            <View style={styles.metaItem}>
-              <Text style={styles.metaLabel}>Darija STT</Text>
-              <Text selectable style={styles.metaValue}>
-                {result.darija_asr?.model || result.asr.model || 'Modal'}
-              </Text>
+          ) : (
+            <View style={styles.metaRow}>
+              <View style={styles.metaItem}>
+                <Text style={styles.metaLabel}>OpenAI STT</Text>
+                <Text selectable style={styles.metaValue}>
+                  {result.openai_asr?.model || 'gpt-4o-mini-transcribe'}
+                </Text>
+              </View>
+              <View style={styles.metaItem}>
+                <Text style={styles.metaLabel}>Darija STT</Text>
+                <Text selectable style={styles.metaValue}>
+                  {result.darija_asr?.model || result.asr.model || 'Modal'}
+                </Text>
+              </View>
+              <View style={styles.metaItem}>
+                <Text style={styles.metaLabel}>Consolidate</Text>
+                <Text selectable style={styles.metaValue}>
+                  {result.consolidation_model || 'gpt-5.5'}
+                </Text>
+              </View>
+              <View style={styles.metaItem}>
+                <Text style={styles.metaLabel}>Translate</Text>
+                <Text selectable style={styles.metaValue}>{result.model}</Text>
+              </View>
             </View>
-            <View style={styles.metaItem}>
-              <Text style={styles.metaLabel}>Consolidate</Text>
-              <Text selectable style={styles.metaValue}>
-                {result.consolidation_model || 'gpt-5.5'}
-              </Text>
-            </View>
-            <View style={styles.metaItem}>
-              <Text style={styles.metaLabel}>Translate</Text>
-              <Text selectable style={styles.metaValue}>{result.model}</Text>
-            </View>
-          </View>
+          )
         ) : null}
       </ScrollView>
     </SafeAreaView>
@@ -1260,6 +1346,20 @@ const styles = StyleSheet.create({
     backgroundColor: palette.redDim,
     borderColor: palette.red,
     borderWidth: 1,
+  },
+  responseButton: {
+    alignItems: 'center',
+    backgroundColor: palette.teal,
+    borderRadius: 12,
+    flexDirection: 'row',
+    gap: 10,
+    height: 52,
+    justifyContent: 'center',
+  },
+  responseButtonText: {
+    color: palette.stoneText,
+    fontSize: 16,
+    fontWeight: '900',
   },
   disabledButton: {
     opacity: 0.38,

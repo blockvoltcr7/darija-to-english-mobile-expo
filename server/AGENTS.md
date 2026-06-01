@@ -36,6 +36,11 @@ The Trigger worker owns provider execution:
 8. If `ENABLE_TTS=true`, generate OpenAI English TTS after text result persistence, store generated audio in private Convex Storage, and persist `translationArtifacts` metadata.
 9. Final translation job status remains text-first: a TTS failure records failed artifact metadata but must not hide the English translation.
 
+`POST /v1/response-audio` accepts the same authenticated audio payload for the
+outbound reply workflow: English user speech -> OpenAI English STT -> Moroccan
+Darija reply text -> OpenAI Arabic/Darija TTS artifact. This first version is
+OpenAI-only; do not add Azure unless explicitly requested.
+
 ## Backend Rules
 
 - Keep OpenAI and Modal credentials server-side only.
@@ -83,6 +88,12 @@ Model defaults:
 - `TTS_RESPONSE_FORMAT=aac`
 - `OPENAI_TTS_MODEL=gpt-4o-mini-tts`
 - `OPENAI_TTS_VOICE=cedar`
+- `ENABLE_RESPONSE_TTS` defaults to `ENABLE_TTS`
+- `RESPONSE_TTS_PROVIDER=openai`
+- `RESPONSE_TTS_LANGUAGE=ar`
+- `RESPONSE_TTS_FORMAT=mp3`
+- `OPENAI_RESPONSE_TTS_MODEL=gpt-4o-mini-tts`
+- `OPENAI_RESPONSE_TTS_VOICE=cedar`
 
 ## Verification
 

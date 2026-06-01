@@ -9,6 +9,7 @@ Trigger.dev task definitions for background translation jobs.
 | Path | Purpose |
 | --- | --- |
 | `translate-audio-job.mjs` | Claims a stored translation job and runs the server-side provider pipeline. |
+| `response-audio-job.mjs` | Claims a stored response-audio job and generates Moroccan Darija reply audio. |
 
 ## Rules
 
@@ -35,6 +36,7 @@ npx trigger.dev dev --env-file .env.local
 
 ```bash
 node --check trigger/translate-audio-job.mjs
+node --check trigger/response-audio-job.mjs
 ```
 
 For E2E QA, verify the Trigger run reaches `Success` and its logs include stored-job claim, audio download, provider completion, consolidation, translation, and final `succeeded` status.

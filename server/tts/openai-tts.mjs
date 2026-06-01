@@ -1,7 +1,14 @@
 import OpenAI from 'openai';
 import { env } from '../env.mjs';
 
-const OPENAI_TTS_INSTRUCTIONS = 'Speak clearly in a warm, neutral voice.';
+const OPENAI_TTS_INSTRUCTIONS = Object.freeze({
+  en: 'Speak clearly in a warm, neutral voice.',
+  ar: [
+    'Speak clearly in Arabic using a natural conversational delivery.',
+    'Preserve Moroccan Darija wording, names, numbers, and French loanwords when present.',
+    'Do not translate or formalize the text; speak exactly the provided message naturally.',
+  ].join(' '),
+});
 const MAX_TTS_INPUT_CHARS = 4000;
 
 let openaiClient;
@@ -17,22 +24,22 @@ function ttsError(status, code, message, cause) {
   return error;
 }
 
-function requireEnglishText(englishText) {
-  if (typeof englishText !== 'string') {
-    throw ttsError(400, 'tts_input_missing', 'English text is required for TTS.');
+function requireTtsText(text) {
+  if (typeof text !== 'string') {
+    throw ttsError(400, 'tts_input_missing', 'Text is required for TTS.');
   }
 
-  const normalized = englishText.trim();
+  const normalized = text.trim();
 
   if (!normalized) {
-    throw ttsError(400, 'tts_input_empty', 'English text is empty.');
+    throw ttsError(400, 'tts_input_empty', 'Text is empty.');
   }
 
   if (normalized.length > MAX_TTS_INPUT_CHARS) {
     throw ttsError(
       413,
       'tts_input_too_long',
-      'English text is too long for MVP speech generation.',
+      'Text is too long for MVP speech generation.',
     );
   }
 
@@ -67,21 +74,25 @@ function safeProviderError(error) {
 }
 
 export async function generateOpenAiTtsAudio({
+  text,
   englishText,
   model = env.OPENAI_TTS_MODEL,
   voice = env.OPENAI_TTS_VOICE,
   format = env.TTS_RESPONSE_FORMAT,
   language = env.TTS_LANGUAGE,
 } = {}) {
-  const input = requireEnglishText(englishText);
+  const input = requireTtsText(text ?? englishText);
   const client = getOpenAIClient();
+  const instructions =
+    OPENAI_TTS_INSTRUCTIONS[String(language || '').toLowerCase()] ||
+    OPENAI_TTS_INSTRUCTIONS.en;
 
   try {
     const response = await client.audio.speech.create({
       model,
       voice,
       input,
-      instructions: OPENAI_TTS_INSTRUCTIONS,
+      instructions,
       response_format: format,
     });
     const audioBuffer = Buffer.from(await response.arrayBuffer());

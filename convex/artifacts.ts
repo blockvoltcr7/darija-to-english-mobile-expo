@@ -1,10 +1,30 @@
 import { mutation, query } from "./_generated/server";
+import type { MutationCtx, QueryCtx } from "./_generated/server";
 import { v } from "convex/values";
 import { requireServerSecret } from "./model/auth";
 import { toArtifactRow } from "./model/rows";
 
 const optionalString = v.optional(v.union(v.string(), v.null()));
 const optionalNumber = v.optional(v.union(v.number(), v.null()));
+const artifactKind = v.union(
+  v.literal("english_tts_audio"),
+  v.literal("arabic_response_tts_audio"),
+);
+const artifactLanguage = v.union(v.literal("en"), v.literal("ar"));
+
+type ArtifactCtx = QueryCtx | MutationCtx;
+type ArtifactKind = "english_tts_audio" | "arabic_response_tts_audio";
+type ArtifactFormat = "aac" | "mp3";
+
+type TtsIdentityArgs = {
+  jobId: string;
+  kind: ArtifactKind;
+  provider: "openai";
+  model: string;
+  voice?: string | null;
+  format: ArtifactFormat;
+  inputTextHash: string;
+};
 
 function now() {
   return new Date().toISOString();
@@ -18,20 +38,23 @@ function voiceKey(voice: string | null | undefined) {
   return voice ?? "";
 }
 
-async function findByArtifactId(ctx: any, artifactId: string) {
+async function findByArtifactId(ctx: ArtifactCtx, artifactId: string) {
   return await ctx.db
     .query("translationArtifacts")
-    .withIndex("by_artifact_id", (q: any) => q.eq("artifactId", artifactId))
+    .withIndex("by_artifact_id", (q) => q.eq("artifactId", artifactId))
     .unique();
 }
 
-async function findTtsArtifactByIdentity(ctx: any, args: any) {
+async function findTtsArtifactByIdentity(
+  ctx: ArtifactCtx,
+  args: TtsIdentityArgs,
+) {
   const rows = await ctx.db
     .query("translationArtifacts")
-    .withIndex("by_tts_identity", (q: any) =>
+    .withIndex("by_tts_identity", (q) =>
       q
         .eq("jobId", args.jobId)
-        .eq("kind", "english_tts_audio")
+        .eq("kind", args.kind)
         .eq("provider", args.provider)
         .eq("model", args.model)
         .eq("voiceKey", voiceKey(args.voice))
@@ -40,7 +63,7 @@ async function findTtsArtifactByIdentity(ctx: any, args: any) {
     )
     .collect();
 
-  return rows.sort((a: any, b: any) =>
+  return rows.sort((a, b) =>
     String(b.createdAt).localeCompare(String(a.createdAt)),
   )[0] ?? null;
 }
@@ -50,6 +73,7 @@ export const findSuccessfulTtsArtifact = query({
     serverSecret: v.string(),
     jobId: v.string(),
     clerkUserId: v.string(),
+    kind: artifactKind,
     provider: v.literal("openai"),
     model: v.string(),
     voice: optionalString,
@@ -76,7 +100,8 @@ export const createOrMarkTtsArtifactRunning = mutation({
     provider: v.literal("openai"),
     model: v.string(),
     voice: optionalString,
-    language: v.literal("en"),
+    kind: artifactKind,
+    language: artifactLanguage,
     format: v.union(v.literal("aac"), v.literal("mp3")),
     mimeType: v.string(),
     inputTextHash: v.string(),
@@ -93,7 +118,7 @@ export const createOrMarkTtsArtifactRunning = mutation({
       }
 
       const patch = {
-        status: "running",
+        status: "running" as const,
         mimeType: args.mimeType,
         errorCode: undefined,
         errorMessage: undefined,
@@ -110,7 +135,7 @@ export const createOrMarkTtsArtifactRunning = mutation({
       artifactId: args.artifactId,
       jobId: args.jobId,
       clerkUserId: args.clerkUserId,
-      kind: "english_tts_audio",
+      kind: args.kind,
       status: "running",
       provider: args.provider,
       model: args.model,
@@ -148,7 +173,7 @@ export const markTtsArtifactSucceeded = mutation({
     }
 
     const patch = {
-      status: "succeeded",
+      status: "succeeded" as const,
       storageId: args.storageId,
       byteSize: optionalValue(args.byteSize),
       durationSeconds: optionalValue(args.durationSeconds),
@@ -180,7 +205,7 @@ export const markTtsArtifactFailed = mutation({
     }
 
     const patch = {
-      status: "failed",
+      status: "failed" as const,
       errorCode: optionalValue(args.errorCode),
       errorMessage: optionalValue(args.errorMessage),
       completedAt: now(),
@@ -202,13 +227,13 @@ export const getEnglishTtsArtifactForUser = query({
     requireServerSecret(args);
     const rows = await ctx.db
       .query("translationArtifacts")
-      .withIndex("by_job_id_created_at", (q: any) =>
+      .withIndex("by_job_id_created_at", (q) =>
         q.eq("jobId", args.translationId),
       )
       .order("desc")
       .collect();
     const artifact = rows.find(
-      (row: any) =>
+      (row) =>
         row.clerkUserId === args.clerkUserId &&
         row.kind === "english_tts_audio" &&
         row.status === "succeeded",
@@ -228,15 +253,43 @@ export const getLatestEnglishTtsArtifactForUser = query({
     requireServerSecret(args);
     const rows = await ctx.db
       .query("translationArtifacts")
-      .withIndex("by_job_id_created_at", (q: any) =>
+      .withIndex("by_job_id_created_at", (q) =>
         q.eq("jobId", args.translationId),
       )
       .order("desc")
       .collect();
     const artifact = rows.find(
-      (row: any) =>
+      (row) =>
         row.clerkUserId === args.clerkUserId &&
         row.kind === "english_tts_audio",
+    );
+
+    return toArtifactRow(artifact);
+  },
+});
+
+export const getTtsArtifactForUserByKind = query({
+  args: {
+    serverSecret: v.string(),
+    clerkUserId: v.string(),
+    translationId: v.string(),
+    kind: artifactKind,
+    onlySucceeded: v.optional(v.boolean()),
+  },
+  handler: async (ctx, args) => {
+    requireServerSecret(args);
+    const rows = await ctx.db
+      .query("translationArtifacts")
+      .withIndex("by_job_id_created_at", (q) =>
+        q.eq("jobId", args.translationId),
+      )
+      .order("desc")
+      .collect();
+    const artifact = rows.find(
+      (row) =>
+        row.clerkUserId === args.clerkUserId &&
+        row.kind === args.kind &&
+        (!args.onlySucceeded || row.status === "succeeded"),
     );
 
     return toArtifactRow(artifact);

@@ -19,6 +19,17 @@ const palette = {
 interface EnglishAudioPlaybackProps {
   getToken: () => Promise<string | null>;
   tts?: TranslationTtsArtifact | null;
+  loadingLabel?: string;
+  failedLabel?: string;
+  playLabel?: string;
+  playingLabel?: string;
+  disclosure?: string;
+  accessibilityPlayLabel?: string;
+  accessibilityPauseLabel?: string;
+  allowShare?: boolean;
+  shareLabel?: string;
+  shareFilename?: string;
+  shareMessage?: string;
 }
 
 function formatAudioMeta(tts: TranslationTtsArtifact) {
@@ -27,7 +38,21 @@ function formatAudioMeta(tts: TranslationTtsArtifact) {
     .join(' / ');
 }
 
-export function EnglishAudioPlayback({ getToken, tts }: EnglishAudioPlaybackProps) {
+export function EnglishAudioPlayback({
+  getToken,
+  tts,
+  loadingLabel = 'Preparing AI-generated voice',
+  failedLabel = 'English voice unavailable',
+  playLabel = 'Listen to English translation',
+  playingLabel = 'Playing English translation',
+  disclosure = 'AI-generated voice',
+  accessibilityPlayLabel = 'Play English translation audio',
+  accessibilityPauseLabel = 'Pause English translation audio',
+  allowShare = false,
+  shareLabel = 'Share audio',
+  shareFilename,
+  shareMessage,
+}: EnglishAudioPlaybackProps) {
   const playback = useAuthenticatedTtsPlayback({ getToken });
 
   if (!tts) {
@@ -38,7 +63,7 @@ export function EnglishAudioPlayback({ getToken, tts }: EnglishAudioPlaybackProp
     return (
       <View style={styles.statusRow}>
         <Ionicons name="time-outline" size={16} color={palette.amber} />
-        <Text style={styles.statusText}>Preparing AI-generated voice</Text>
+        <Text style={styles.statusText}>{loadingLabel}</Text>
       </View>
     );
   }
@@ -48,7 +73,7 @@ export function EnglishAudioPlayback({ getToken, tts }: EnglishAudioPlaybackProp
       <View style={styles.statusRow}>
         <Ionicons name="warning-outline" size={16} color={palette.red} />
         <View style={styles.copy}>
-          <Text style={styles.statusText}>English voice unavailable</Text>
+          <Text style={styles.statusText}>{failedLabel}</Text>
           {tts.errorMessage ? (
             <Text numberOfLines={2} style={styles.error}>
               {tts.errorMessage}
@@ -65,8 +90,8 @@ export function EnglishAudioPlayback({ getToken, tts }: EnglishAudioPlaybackProp
 
   const isPlaying = playback.isPlaying;
   const accessibilityLabel = isPlaying
-    ? 'Pause English translation audio'
-    : 'Play English translation audio';
+    ? accessibilityPauseLabel
+    : accessibilityPlayLabel;
 
   return (
     <View style={styles.row}>
@@ -87,15 +112,36 @@ export function EnglishAudioPlayback({ getToken, tts }: EnglishAudioPlaybackProp
           color={palette.stoneText}
         />
       </Pressable>
+      {allowShare ? (
+        <Pressable
+          accessibilityLabel={shareLabel}
+          accessibilityRole="button"
+          disabled={playback.isSharing}
+          onPress={() =>
+            playback.shareAudio(tts, {
+              filename: shareFilename,
+              message: shareMessage,
+            })
+          }
+          style={({ pressed }) => [
+            styles.button,
+            styles.shareButton,
+            pressed && !playback.isSharing ? styles.buttonPressed : null,
+            playback.isSharing ? styles.buttonDisabled : null,
+          ]}
+        >
+          <Ionicons name="share-outline" size={18} color={palette.text} />
+        </Pressable>
+      ) : null}
       <View style={styles.copy}>
         <Text style={styles.label}>
           {playback.isLoading
-            ? 'Loading English audio'
+            ? 'Loading audio'
             : isPlaying
-              ? 'Playing English translation'
-              : 'Listen to English translation'}
+              ? playingLabel
+              : playLabel}
         </Text>
-        <Text style={styles.disclosure}>AI-generated voice</Text>
+        <Text style={styles.disclosure}>{disclosure}</Text>
         {formatAudioMeta(tts) ? (
           <Text numberOfLines={1} style={styles.meta}>
             {formatAudioMeta(tts)}
@@ -155,6 +201,11 @@ const styles = StyleSheet.create({
   buttonPressed: {
     opacity: 0.82,
     transform: [{ scale: 0.96 }],
+  },
+  shareButton: {
+    backgroundColor: palette.cardRaised,
+    borderColor: palette.border,
+    borderWidth: 1,
   },
   copy: {
     flex: 1,

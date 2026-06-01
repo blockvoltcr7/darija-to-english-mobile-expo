@@ -1,6 +1,5 @@
 import { schemaTask } from '@trigger.dev/sdk';
 import { z } from 'zod';
-import { processStoredTranslationJob } from '../server/translation-pipeline.mjs';
 
 function nowIso() {
   return new Date().toISOString();
@@ -33,6 +32,9 @@ export const translateAudioJob = schemaTask({
       attempt: ctx?.attempt?.number || null,
     });
 
+    const { processStoredTranslationJob } = await import(
+      '../server/translation-pipeline.mjs'
+    );
     const result = await processStoredTranslationJob({
       jobId: payload.job_id,
       traceId,

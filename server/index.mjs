@@ -15,8 +15,9 @@ import {
   upsertProfileFromClerkUser,
 } from './profiles.mjs';
 import {
-  getEnglishTtsArtifactForUser,
   getLatestEnglishTtsArtifactForUser,
+  getTtsArtifactForUserByKind,
+  TRANSLATION_ARTIFACT_KIND,
 } from './artifacts.mjs';
 import {
   downloadStoredObject,
@@ -36,6 +37,7 @@ import {
   updateTranslationJobTriggerRunId,
 } from './translations.mjs';
 import { translateAudioJob } from '../trigger/translate-audio-job.mjs';
+import { responseAudioJob } from '../trigger/response-audio-job.mjs';
 
 const {
   PORT,
@@ -196,7 +198,7 @@ function toProviderRunSummary(providerRun) {
   };
 }
 
-function toTtsArtifactDetail(artifact, translationId) {
+function toTtsArtifactDetail(artifact, translationId, audioPath = 'english-audio') {
   if (!artifact) {
     return null;
   }
@@ -221,13 +223,13 @@ function toTtsArtifactDetail(artifact, translationId) {
   if (artifact.status === 'succeeded') {
     detail.audioUrl = `/v1/translations/${encodeURIComponent(
       translationId,
-    )}/artifacts/english-audio`;
+    )}/artifacts/${audioPath}`;
   }
 
   return detail;
 }
 
-function toTranslationDetail(row, ttsArtifact = null) {
+function toTranslationDetail(row, ttsArtifact = null, responseAudioArtifact = null) {
   const result = firstRelatedRow(row, 'translation_results');
   const providerRuns = Array.isArray(row.provider_runs)
     ? [...row.provider_runs].sort((a, b) =>
@@ -260,6 +262,11 @@ function toTranslationDetail(row, ttsArtifact = null) {
         }
       : null,
     tts: toTtsArtifactDetail(ttsArtifact, row.id),
+    responseAudio: toTtsArtifactDetail(
+      responseAudioArtifact,
+      row.id,
+      'arabic-response-audio',
+    ),
     providerRuns: providerRuns.map(toProviderRunSummary),
   };
 }
@@ -570,6 +577,11 @@ async function handleGetTranslation(req, res, next) {
       clerkUserId: req.clerkAuth.userId,
       translationId: req.params.id,
     });
+    const responseAudioArtifact = await getTtsArtifactForUserByKind({
+      clerkUserId: req.clerkAuth.userId,
+      translationId: req.params.id,
+      kind: TRANSLATION_ARTIFACT_KIND.ARABIC_RESPONSE_TTS_AUDIO,
+    });
 
     logTrace(traceId, 'Translation history detail returned', {
       userId: req.clerkAuth.userId,
@@ -585,22 +597,25 @@ async function handleGetTranslation(req, res, next) {
         ? translation.provider_runs.length
         : 0,
       ttsStatus: ttsArtifact?.status || null,
+      responseAudioStatus: responseAudioArtifact?.status || null,
     });
 
-    res.json(toTranslationDetail(translation, ttsArtifact));
+    res.json(toTranslationDetail(translation, ttsArtifact, responseAudioArtifact));
   } catch (error) {
     error.traceId = traceId;
     next(error);
   }
 }
 
-async function handleGetEnglishAudioArtifact(req, res, next) {
+async function handleGetAudioArtifactByKind(req, res, next, { kind, label, mimeFallback }) {
   const traceId = traceFromRequest(req);
 
   try {
-    const artifact = await getEnglishTtsArtifactForUser({
+    const artifact = await getTtsArtifactForUserByKind({
       clerkUserId: req.clerkAuth.userId,
       translationId: req.params.id,
+      kind,
+      onlySucceeded: true,
     });
 
     if (!artifact?.storageId) {
@@ -611,7 +626,7 @@ async function handleGetEnglishAudioArtifact(req, res, next) {
       storageId: artifact.storageId,
     });
 
-    logTrace(traceId, 'English TTS audio artifact returned', {
+    logTrace(traceId, `${label} audio artifact returned`, {
       userId: req.clerkAuth.userId,
       translationId: req.params.id,
       artifactId: artifact.id,
@@ -623,7 +638,7 @@ async function handleGetEnglishAudioArtifact(req, res, next) {
     res
       .status(200)
       .set({
-        'Content-Type': artifact.mimeType || 'audio/aac',
+        'Content-Type': artifact.mimeType || mimeFallback,
         'Content-Length': String(audioBuffer.length),
         'Cache-Control': 'private, max-age=300',
       })
@@ -634,11 +649,32 @@ async function handleGetEnglishAudioArtifact(req, res, next) {
   }
 }
 
+async function handleGetEnglishAudioArtifact(req, res, next) {
+  return handleGetAudioArtifactByKind(req, res, next, {
+    kind: TRANSLATION_ARTIFACT_KIND.ENGLISH_TTS_AUDIO,
+    label: 'English TTS',
+    mimeFallback: 'audio/aac',
+  });
+}
+
+async function handleGetArabicResponseAudioArtifact(req, res, next) {
+  return handleGetAudioArtifactByKind(req, res, next, {
+    kind: TRANSLATION_ARTIFACT_KIND.ARABIC_RESPONSE_TTS_AUDIO,
+    label: 'Arabic response',
+    mimeFallback: 'audio/mpeg',
+  });
+}
+
 app.get('/v1/translations', requireClerkSession, handleListTranslations);
 app.get(
   '/v1/translations/:id/artifacts/english-audio',
   requireClerkSession,
   handleGetEnglishAudioArtifact,
+);
+app.get(
+  '/v1/translations/:id/artifacts/arabic-response-audio',
+  requireClerkSession,
+  handleGetArabicResponseAudioArtifact,
 );
 app.get('/v1/translations/:id', requireClerkSession, handleGetTranslation);
 
@@ -661,6 +697,149 @@ async function dispatchTranslationJob({ jobId }) {
     },
   );
 }
+
+async function dispatchResponseAudioJob({ jobId }) {
+  return responseAudioJob.trigger(
+    { job_id: jobId },
+    {
+      idempotencyKey: `response-audio-job:${jobId}`,
+      tags: ['darija-mobile', 'response-audio', `job:${jobId}`],
+    },
+  );
+}
+
+async function handleCreateResponseAudio(req, res, next) {
+  const traceId = traceFromRequest(req);
+  const startedAt = Date.now();
+  let translationJob = null;
+  let storedAudio = null;
+
+  try {
+    requireTriggerRuntime();
+
+    const payload = validatePayload(req.body);
+    const audio = prepareAudioForStorage(payload);
+    const audioBytes = audio.sizeBytes;
+    const clerkUserId = req.clerkAuth.userId;
+
+    logTrace(traceId, 'Response audio request received', {
+      ip: req.ip,
+      userId: clerkUserId,
+      filename: audio.filename,
+      base64Chars: audio.audioBase64.length,
+      audioBytes,
+      audioMimeType: audio.mimeType,
+      contentLength: req.get('Content-Length'),
+    });
+
+    translationJob = await createTranslationJob({
+      clerkUserId,
+      profileId: req.profile?.id,
+      filename: audio.filename,
+      audioBytes,
+      traceId,
+    });
+
+    storedAudio = await uploadOriginalAudioForJob({
+      clerkUserId,
+      jobId: translationJob.id,
+      audio,
+    });
+
+    try {
+      await updateTranslationJobStorageMetadata({
+        jobId: translationJob.id,
+        clerkUserId,
+        audioStorageId: storedAudio.storageId,
+        audioSizeBytes: storedAudio.sizeBytes,
+        audioMimeType: storedAudio.mimeType,
+        audioRetentionExpiresAt: storedAudio.retentionExpiresAt,
+      });
+    } catch (metadataError) {
+      try {
+        await removeStoredObject({
+          storageId: storedAudio.storageId,
+        });
+        storedAudio = null;
+      } catch (cleanupError) {
+        logTrace(traceId, 'Audio cleanup after response metadata failure failed', {
+          jobId: translationJob.id,
+          storageId: storedAudio.storageId,
+          errorName: cleanupError?.name,
+          errorCode: cleanupError?.code,
+        });
+      }
+
+      throw metadataError;
+    }
+
+    const triggerHandle = await dispatchResponseAudioJob({
+      jobId: translationJob.id,
+    });
+    const triggerRunId = triggerRunIdFromHandle(triggerHandle);
+
+    if (!triggerRunId) {
+      throw httpError(502, 'Trigger.dev response audio dispatch did not return a run ID.');
+    }
+
+    await updateTranslationJobTriggerRunId({
+      jobId: translationJob.id,
+      clerkUserId,
+      triggerRunId,
+    });
+
+    const responsePayload = {
+      jobId: translationJob.id,
+      responseAudioJobId: translationJob.id,
+      status: 'queued',
+      triggerRunId,
+      createdAt: translationJob.created_at,
+      detailUrl: `/v1/response-audio/${translationJob.id}`,
+    };
+
+    logTrace(traceId, 'Response audio queued', {
+      jobId: translationJob.id,
+      triggerRunId,
+      durationMs: Date.now() - startedAt,
+    });
+
+    res.status(202).json(responsePayload);
+  } catch (error) {
+    error.traceId = traceId;
+
+    if (translationJob?.id && req.clerkAuth?.userId) {
+      try {
+        await markTranslationJobFailed({
+          jobId: translationJob.id,
+          clerkUserId: req.clerkAuth.userId,
+          errorCode: safeErrorCode(error, 'response_audio_dispatch_failed'),
+          errorMessage: safeErrorMessage(error),
+        });
+      } catch (recordError) {
+        logTrace(traceId, 'Response audio job failure recording failed', {
+          jobId: translationJob.id,
+          errorName: recordError?.name,
+          errorCode: recordError?.convex?.code,
+        });
+      }
+    }
+
+    next(error);
+  }
+}
+
+app.post(
+  '/v1/response-audio',
+  requireClerkSession,
+  ensureProfileForRequest,
+  handleCreateResponseAudio,
+);
+
+app.get(
+  '/v1/response-audio/:id',
+  requireClerkSession,
+  handleGetTranslation,
+);
 
 async function handleCreateTranslation(req, res, next) {
   const traceId = traceFromRequest(req);

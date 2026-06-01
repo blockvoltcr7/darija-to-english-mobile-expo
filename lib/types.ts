@@ -24,6 +24,7 @@ export interface TranslationTtsArtifact {
 }
 
 export interface TranslationResult {
+  mode?: string;
   jobId?: string;
   translationJobId?: string;
   transcript: string;
@@ -60,6 +61,7 @@ export interface TranslationResult {
     duration_seconds?: number;
   };
   tts?: TranslationTtsArtifact | null;
+  responseAudio?: TranslationTtsArtifact | null;
 }
 
 export interface TranslationHistoryListItem {
@@ -142,6 +144,7 @@ export interface TranslationHistoryDetail {
     updatedAt?: string | null;
   } | null;
   tts?: TranslationTtsArtifact | null;
+  responseAudio?: TranslationTtsArtifact | null;
   providerRuns: TranslationProviderRunSummary[];
 }
 

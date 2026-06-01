@@ -23,6 +23,10 @@ const CONVEX_FUNCTIONS = Object.freeze({
     type: 'query',
     ref: api.artifacts.getLatestEnglishTtsArtifactForUser,
   },
+  'artifacts:getTtsArtifactForUserByKind': {
+    type: 'query',
+    ref: api.artifacts.getTtsArtifactForUserByKind,
+  },
   'artifacts:markTtsArtifactFailed': {
     type: 'mutation',
     ref: api.artifacts.markTtsArtifactFailed,

@@ -18,6 +18,13 @@ const runStatus = v.union(
   v.literal("canceled"),
 );
 
+const artifactKind = v.union(
+  v.literal("english_tts_audio"),
+  v.literal("arabic_response_tts_audio"),
+);
+
+const artifactLanguage = v.union(v.literal("en"), v.literal("ar"));
+
 const provider = v.union(v.literal("openai"), v.literal("modal"));
 
 const providerOperation = v.union(
@@ -127,13 +134,13 @@ export default defineSchema({
     artifactId: v.string(),
     jobId: v.string(),
     clerkUserId: v.string(),
-    kind: v.literal("english_tts_audio"),
+    kind: artifactKind,
     status: artifactStatus,
     provider: v.literal("openai"),
     model: v.string(),
     voice: v.optional(v.string()),
     voiceKey: v.string(),
-    language: v.literal("en"),
+    language: artifactLanguage,
     format: v.union(v.literal("aac"), v.literal("mp3")),
     mimeType: v.string(),
     storageId: v.optional(v.id("_storage")),

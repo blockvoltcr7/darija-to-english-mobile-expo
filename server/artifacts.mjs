@@ -3,6 +3,7 @@ import { callConvexFunction } from './db.mjs';
 
 export const TRANSLATION_ARTIFACT_KIND = Object.freeze({
   ENGLISH_TTS_AUDIO: 'english_tts_audio',
+  ARABIC_RESPONSE_TTS_AUDIO: 'arabic_response_tts_audio',
 });
 
 export const TRANSLATION_ARTIFACT_STATUS = Object.freeze({
@@ -154,10 +155,12 @@ function buildTtsIdentityFilter({
   voice,
   format,
   inputTextHash,
+  kind = TRANSLATION_ARTIFACT_KIND.ENGLISH_TTS_AUDIO,
 }) {
   return {
     jobId: normalizeRequiredString(jobId, 'jobId'),
     clerkUserId: normalizeRequiredString(clerkUserId, 'clerkUserId'),
+    kind: normalizeRequiredString(kind, 'kind'),
     provider: normalizeRequiredString(provider, 'provider'),
     model: normalizeRequiredString(model, 'model'),
     voice: normalizeOptionalString(voice),
@@ -181,6 +184,7 @@ export async function createOrMarkTtsArtifactRunning({
   model,
   voice,
   language,
+  kind = TRANSLATION_ARTIFACT_KIND.ENGLISH_TTS_AUDIO,
   format,
   mimeType,
   inputTextHash,
@@ -194,6 +198,7 @@ export async function createOrMarkTtsArtifactRunning({
     voice,
     format,
     inputTextHash,
+    kind,
   });
 
   return callArtifactFunction(
@@ -203,6 +208,7 @@ export async function createOrMarkTtsArtifactRunning({
       artifactId: randomUUID(),
       ...identity,
       provider: TRANSLATION_ARTIFACT_PROVIDERS.OPENAI,
+      kind: identity.kind,
       language: normalizeRequiredString(language, 'language'),
       mimeType: normalizeRequiredString(mimeType, 'mimeType'),
       inputCharCount: normalizeRequiredInteger(inputCharCount, 'inputCharCount'),
@@ -265,6 +271,24 @@ export async function getLatestEnglishTtsArtifactForUser({
     {
       clerkUserId: normalizeRequiredString(clerkUserId, 'clerkUserId'),
       translationId: normalizeRequiredString(translationId, 'translationId'),
+    },
+  );
+}
+
+export async function getTtsArtifactForUserByKind({
+  clerkUserId,
+  translationId,
+  kind,
+  onlySucceeded = false,
+}) {
+  return callArtifactFunction(
+    'get_tts_artifact_for_user_by_kind',
+    'artifacts:getTtsArtifactForUserByKind',
+    {
+      clerkUserId: normalizeRequiredString(clerkUserId, 'clerkUserId'),
+      translationId: normalizeRequiredString(translationId, 'translationId'),
+      kind: normalizeRequiredString(kind, 'kind'),
+      onlySucceeded: Boolean(onlySucceeded),
     },
   );
 }

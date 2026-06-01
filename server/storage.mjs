@@ -195,6 +195,7 @@ export function buildTranslationArtifactObjectKey({
   jobId,
   artifactId,
   format,
+  kind = 'english-tts',
 }) {
   const outputFormat = resolveArtifactOutputFormat(format);
   const userSegment = safePathSegment(requireNonEmptyString(clerkUserId, 'clerkUserId'));
@@ -202,6 +203,7 @@ export function buildTranslationArtifactObjectKey({
   const artifactSegment = safePathSegment(
     requireNonEmptyString(artifactId, 'artifactId'),
   );
+  const kindSegment = safePathSegment(requireNonEmptyString(kind, 'kind'));
 
   return [
     'users',
@@ -210,7 +212,7 @@ export function buildTranslationArtifactObjectKey({
     jobSegment,
     'artifacts',
     artifactSegment,
-    `english-tts.${outputFormat.extension}`,
+    `${kindSegment}.${outputFormat.extension}`,
   ].join('/');
 }
 
@@ -274,6 +276,7 @@ export async function uploadTranslationArtifact({
   artifactId,
   audioBuffer,
   format,
+  kind,
 }) {
   const outputFormat = resolveArtifactOutputFormat(format);
 

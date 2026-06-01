@@ -124,7 +124,24 @@ function validateHttpUrl(value, name, errors) {
   }
 }
 
+function isTriggerManagedIndexProcess() {
+  return process.argv.some((arg) => /managed-index/i.test(arg));
+}
+
+function withTriggerIndexerDefaults(rawEnv) {
+  if (!isTriggerManagedIndexProcess()) {
+    return rawEnv;
+  }
+
+  return {
+    CONVEX_SERVER_SECRET: 'trigger-managed-index-placeholder',
+    CONVEX_URL: 'https://trigger-managed-index.placeholder',
+    ...rawEnv,
+  };
+}
+
 function loadEnv(rawEnv = process.env) {
+  rawEnv = withTriggerIndexerDefaults(rawEnv);
   const errors = [];
   const forbiddenPublicConvexSecretVars = findPublicConvexSecretEnv(rawEnv);
   const forbiddenPublicTriggerSecretVars = findPublicTriggerSecretEnv(rawEnv);
@@ -176,9 +193,18 @@ function loadEnv(rawEnv = process.env) {
     'CLERK_WEBHOOK_SIGNING_SECRET',
   );
   const enableTts = readBoolean(rawEnv, 'ENABLE_TTS', false, errors);
+  const enableResponseTts = readBoolean(
+    rawEnv,
+    'ENABLE_RESPONSE_TTS',
+    enableTts,
+    errors,
+  );
   const ttsProvider = readString(rawEnv, 'TTS_PROVIDER', 'openai');
   const ttsLanguage = readString(rawEnv, 'TTS_LANGUAGE', 'en');
   const ttsResponseFormat = readString(rawEnv, 'TTS_RESPONSE_FORMAT', 'aac');
+  const responseTtsProvider = readString(rawEnv, 'RESPONSE_TTS_PROVIDER', 'openai');
+  const responseTtsLanguage = readString(rawEnv, 'RESPONSE_TTS_LANGUAGE', 'ar');
+  const responseTtsFormat = readString(rawEnv, 'RESPONSE_TTS_FORMAT', 'mp3');
   const openaiApiKey = readString(rawEnv, 'OPENAI_API_KEY');
 
   if (forbiddenPublicConvexSecretVars.length > 0) {
@@ -213,12 +239,28 @@ function loadEnv(rawEnv = process.env) {
     errors.push('TTS_LANGUAGE must be en for English playback.');
   }
 
+  if (responseTtsProvider !== 'openai') {
+    errors.push('RESPONSE_TTS_PROVIDER must be openai for the MVP.');
+  }
+
+  if (responseTtsLanguage !== 'ar') {
+    errors.push('RESPONSE_TTS_LANGUAGE must be ar for the MVP.');
+  }
+
   if (!['aac', 'mp3'].includes(ttsResponseFormat)) {
     errors.push('TTS_RESPONSE_FORMAT must be aac or mp3.');
   }
 
+  if (!['aac', 'mp3'].includes(responseTtsFormat)) {
+    errors.push('RESPONSE_TTS_FORMAT must be aac or mp3.');
+  }
+
   if (enableTts && !openaiApiKey) {
     errors.push('OPENAI_API_KEY is required when ENABLE_TTS is true.');
+  }
+
+  if (enableResponseTts && !openaiApiKey) {
+    errors.push('OPENAI_API_KEY is required when ENABLE_RESPONSE_TTS is true.');
   }
 
   validateHttpUrl(convexUrl, 'CONVEX_URL or EXPO_PUBLIC_CONVEX_URL', errors);
@@ -275,6 +317,20 @@ function loadEnv(rawEnv = process.env) {
       'gpt-4o-mini-tts',
     ),
     OPENAI_TTS_VOICE: readString(rawEnv, 'OPENAI_TTS_VOICE', 'cedar'),
+    ENABLE_RESPONSE_TTS: enableResponseTts,
+    RESPONSE_TTS_PROVIDER: responseTtsProvider,
+    RESPONSE_TTS_LANGUAGE: responseTtsLanguage,
+    RESPONSE_TTS_FORMAT: responseTtsFormat,
+    OPENAI_RESPONSE_TTS_MODEL: readString(
+      rawEnv,
+      'OPENAI_RESPONSE_TTS_MODEL',
+      readString(rawEnv, 'OPENAI_TTS_MODEL', 'gpt-4o-mini-tts'),
+    ),
+    OPENAI_RESPONSE_TTS_VOICE: readString(
+      rawEnv,
+      'OPENAI_RESPONSE_TTS_VOICE',
+      readString(rawEnv, 'OPENAI_TTS_VOICE', 'cedar'),
+    ),
     CONVEX_DEPLOYMENT: readString(rawEnv, 'CONVEX_DEPLOYMENT'),
     CONVEX_URL: convexUrl,
     CONVEX_SITE_URL: convexSiteUrl,

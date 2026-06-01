@@ -9,6 +9,7 @@ import {
   findSuccessfulTtsArtifact,
   markTtsArtifactFailed,
   markTtsArtifactSucceeded,
+  TRANSLATION_ARTIFACT_KIND,
   TRANSLATION_ARTIFACT_STATUS,
 } from './artifacts.mjs';
 import {
@@ -36,8 +37,14 @@ const {
   DARIJA_ASR_TIMEOUT_MS: ASR_TIMEOUT_MS,
   OPENAI_API_KEY,
   OPENAI_CONSOLIDATION_MODEL: CONSOLIDATION_MODEL,
+  OPENAI_RESPONSE_TTS_MODEL,
+  OPENAI_RESPONSE_TTS_VOICE,
   OPENAI_TRANSLATION_MODEL: TRANSLATION_MODEL,
   OPENAI_TRANSCRIPTION_MODEL,
+  RESPONSE_TTS_FORMAT,
+  RESPONSE_TTS_LANGUAGE,
+  RESPONSE_TTS_PROVIDER,
+  ENABLE_RESPONSE_TTS,
 } = env;
 
 let openaiClient;
@@ -286,6 +293,50 @@ async function transcribeAudioWithOpenAI(
   };
 }
 
+async function transcribeEnglishAudioWithOpenAI(
+  { filename, audioBase64 },
+  traceId,
+  logTrace = noop,
+) {
+  const client = getOpenAIClient();
+  const audioBytes = decodeAudioBase64(audioBase64);
+  const startedAt = Date.now();
+
+  logTrace(traceId, 'OpenAI English transcription start', {
+    filename,
+    bytes: audioBytes.length,
+    model: OPENAI_TRANSCRIPTION_MODEL,
+  });
+
+  const response = await client.audio.transcriptions.create({
+    file: await toFile(audioBytes, filename),
+    model: OPENAI_TRANSCRIPTION_MODEL,
+    language: 'en',
+    prompt:
+      'This audio is an English reply that should be converted into a concise Moroccan Darija voice-note response.',
+    response_format: 'json',
+  });
+
+  const text = response.text?.trim();
+
+  if (!text) {
+    throw httpError(502, 'OpenAI English transcription response did not include text.');
+  }
+
+  logTrace(traceId, 'OpenAI English transcription complete', {
+    durationMs: Date.now() - startedAt,
+    transcriptChars: text.length,
+  });
+
+  return {
+    text,
+    model: OPENAI_TRANSCRIPTION_MODEL,
+    filename,
+    audio_bytes: audioBytes.length,
+    duration_seconds: Number(((Date.now() - startedAt) / 1000).toFixed(3)),
+  };
+}
+
 async function consolidateArabicTranscript(
   { openaiTranscript, darijaTranscript },
   traceId,
@@ -423,9 +474,64 @@ async function translateConsolidatedTranscript(
   return translation;
 }
 
+async function generateMoroccanDarijaReplyText(
+  englishTranscript,
+  traceId,
+  logTrace = noop,
+) {
+  const client = getOpenAIClient();
+  const startedAt = Date.now();
+
+  logTrace(traceId, 'OpenAI Darija reply generation start', {
+    transcriptChars: englishTranscript.length,
+    model: TRANSLATION_MODEL,
+  });
+
+  const response = await client.responses.create({
+    model: TRANSLATION_MODEL,
+    input: [
+      {
+        role: 'system',
+        content: [
+          'You write short Moroccan Darija voice-note replies in Arabic script.',
+          'The user will speak in English, and the output will be synthesized as Arabic/Darija speech.',
+          'Rules:',
+          '1) Preserve the meaning exactly.',
+          '2) Use natural Moroccan Darija phrasing, not formal MSA, unless a formal phrase is clearly appropriate.',
+          '3) Keep the reply concise and suitable to send as an audio message.',
+          '4) Do not invent facts, names, dates, places, promises, prices, or commitments.',
+          '5) Preserve names, numbers, and French loanwords when natural in Moroccan speech.',
+          '6) If the English input is unclear, produce the safest concise reply and avoid guessing specifics.',
+          '7) Output only the Darija reply text to be spoken. No labels, explanations, bullets, or quotes.',
+        ].join('\n'),
+      },
+      {
+        role: 'user',
+        content: [
+          'Convert this English reply into natural Moroccan Darija in Arabic script:',
+          englishTranscript,
+        ].join('\n'),
+      },
+    ],
+  });
+
+  const darijaText = response.output_text?.trim();
+
+  if (!darijaText) {
+    throw httpError(502, 'OpenAI Darija reply response did not include text.');
+  }
+
+  logTrace(traceId, 'OpenAI Darija reply generation complete', {
+    durationMs: Date.now() - startedAt,
+    darijaChars: darijaText.length,
+  });
+
+  return darijaText;
+}
+
 function publicTtsErrorMessage(error) {
   if (error?.code === 'tts_input_too_long') {
-    return 'English text is too long for speech generation.';
+    return 'Text is too long for speech generation.';
   }
 
   if (error?.code === 'translation_artifact_upload_failed') {
@@ -458,36 +564,55 @@ function toPipelineTtsMetadata(artifact) {
   };
 }
 
-async function runOptionalTtsForTranslation({
+function sanitizeArabicTextForTts(arabicText) {
+  if (typeof arabicText !== 'string') {
+    throw httpError(400, 'Arabic text is required for TTS.');
+  }
+
+  return arabicText
+    .replace(/\s*\[(?:غير واضح|غير مسموع)\]\s*/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+async function runOptionalTtsArtifact({
   traceId,
   jobId,
   clerkUserId,
-  englishText,
+  inputText,
+  kind,
+  enabled,
+  configOverrides,
+  textSanitizer,
   logTrace = noop,
 }) {
-  const config = resolveTtsConfig();
+  const config = resolveTtsConfig(configOverrides);
 
-  if (!config.enabled) {
+  if (!enabled || !config.enabled) {
     logTrace(traceId, 'TTS skipped', {
       jobId,
+      kind,
       reason: 'tts_disabled',
     });
 
     return null;
   }
 
-  const ttsInputText = sanitizeEnglishTextForTts(englishText);
+  const ttsInputText = textSanitizer(inputText);
   const inputTextHash = createTtsInputHash({
-    englishText: ttsInputText,
+    text: ttsInputText,
     provider: config.provider,
     model: config.model,
     voice: config.voice,
     format: config.format,
+    language: config.language,
+    kind,
   });
   const inputCharCount = ttsInputText.length;
   const existingArtifact = await findSuccessfulTtsArtifact({
     jobId,
     clerkUserId,
+    kind,
     provider: config.provider,
     model: config.model,
     voice: config.voice,
@@ -498,6 +623,7 @@ async function runOptionalTtsForTranslation({
   if (existingArtifact) {
     logTrace(traceId, 'TTS artifact reused', {
       jobId,
+      kind,
       artifactId: existingArtifact.id,
       provider: existingArtifact.provider,
       model: existingArtifact.model,
@@ -512,6 +638,7 @@ async function runOptionalTtsForTranslation({
   let artifact = await createOrMarkTtsArtifactRunning({
     jobId,
     clerkUserId,
+    kind,
     provider: config.provider,
     model: config.model,
     voice: config.voice,
@@ -525,6 +652,7 @@ async function runOptionalTtsForTranslation({
   if (artifact.status === TRANSLATION_ARTIFACT_STATUS.SUCCEEDED) {
     logTrace(traceId, 'TTS artifact reused after idempotency race', {
       jobId,
+      kind,
       artifactId: artifact.id,
       provider: artifact.provider,
       model: artifact.model,
@@ -538,6 +666,7 @@ async function runOptionalTtsForTranslation({
 
   logTrace(traceId, 'TTS generation start', {
     jobId,
+    kind,
     artifactId: artifact.id,
     provider: config.provider,
     model: config.model,
@@ -557,6 +686,7 @@ async function runOptionalTtsForTranslation({
       inputMetadata: {
         inputTextHash,
         inputCharCount,
+        kind,
         voice: config.voice,
         format: config.format,
         language: config.language,
@@ -570,8 +700,10 @@ async function runOptionalTtsForTranslation({
       }),
       execute: () =>
         generateTtsAudio({
-          englishText: ttsInputText,
-          configOverrides: config,
+          configOverrides: {
+            ...config,
+            text: ttsInputText,
+          },
         }),
       logTrace,
     });
@@ -586,6 +718,7 @@ async function runOptionalTtsForTranslation({
       artifactId: artifact.id,
       audioBuffer: ttsResult.audioBuffer,
       format: config.format,
+      kind,
     });
 
     artifact = await markTtsArtifactSucceeded({
@@ -598,6 +731,7 @@ async function runOptionalTtsForTranslation({
 
     logTrace(traceId, 'TTS artifact succeeded', {
       jobId,
+      kind,
       artifactId: artifact.id,
       provider: artifact.provider,
       model: artifact.model,
@@ -618,6 +752,7 @@ async function runOptionalTtsForTranslation({
     } catch (recordError) {
       logTrace(traceId, 'TTS artifact failure recording failed', {
         jobId,
+        kind,
         artifactId: artifact.id,
         errorName: recordError?.name,
         errorCode: recordError?.convex?.code || recordError?.code,
@@ -626,6 +761,7 @@ async function runOptionalTtsForTranslation({
 
     logTrace(traceId, 'TTS artifact failed without failing text translation', {
       jobId,
+      kind,
       artifactId: artifact.id,
       errorCode: safeErrorCode(error, 'tts_failed'),
       artifactStatus: artifact.status,
@@ -633,6 +769,53 @@ async function runOptionalTtsForTranslation({
 
     return toPipelineTtsMetadata(artifact);
   }
+}
+
+async function runOptionalTtsForTranslation({
+  traceId,
+  jobId,
+  clerkUserId,
+  englishText,
+  logTrace = noop,
+}) {
+  return runOptionalTtsArtifact({
+    traceId,
+    jobId,
+    clerkUserId,
+    inputText: englishText,
+    kind: TRANSLATION_ARTIFACT_KIND.ENGLISH_TTS_AUDIO,
+    enabled: env.ENABLE_TTS,
+    configOverrides: {},
+    textSanitizer: sanitizeEnglishTextForTts,
+    logTrace,
+  });
+}
+
+async function runOptionalArabicResponseTts({
+  traceId,
+  jobId,
+  clerkUserId,
+  arabicText,
+  logTrace = noop,
+}) {
+  return runOptionalTtsArtifact({
+    traceId,
+    jobId,
+    clerkUserId,
+    inputText: arabicText,
+    kind: TRANSLATION_ARTIFACT_KIND.ARABIC_RESPONSE_TTS_AUDIO,
+    enabled: ENABLE_RESPONSE_TTS,
+    configOverrides: {
+      enabled: ENABLE_RESPONSE_TTS,
+      provider: RESPONSE_TTS_PROVIDER,
+      language: RESPONSE_TTS_LANGUAGE,
+      format: RESPONSE_TTS_FORMAT,
+      model: OPENAI_RESPONSE_TTS_MODEL,
+      voice: OPENAI_RESPONSE_TTS_VOICE,
+    },
+    textSanitizer: sanitizeArabicTextForTts,
+    logTrace,
+  });
 }
 
 export async function runTranslationProviderPipeline({
@@ -904,6 +1087,206 @@ export async function processStoredTranslationJob({ jobId, traceId, logTrace = n
       jobId: job.id,
       clerkUserId: job.clerk_user_id,
       errorCode: safeErrorCode(error, 'translation_failed'),
+      errorMessage: safeErrorMessage(error),
+    });
+
+    throw error;
+  }
+}
+
+export async function runResponseAudioProviderPipeline({
+  traceId,
+  jobId,
+  clerkUserId,
+  filename,
+  audioBase64,
+  audioBytes,
+  audioStorageMetadata = {},
+  logTrace = noop,
+}) {
+  const providerPayload = { filename, audioBase64 };
+  const baseInputMetadata = {
+    filename,
+    audioBytes,
+    ...audioStorageMetadata,
+  };
+
+  const englishTranscript = await recordProviderOperation({
+    traceId,
+    jobId,
+    clerkUserId,
+    provider: PROVIDERS.OPENAI,
+    operation: PROVIDER_OPERATIONS.OPENAI_TRANSCRIPTION,
+    model: OPENAI_TRANSCRIPTION_MODEL,
+    inputMetadata: {
+      ...baseInputMetadata,
+      language: 'en',
+      mode: 'response_audio',
+    },
+    outputMetadata: (result) => ({
+      transcriptChars: result.text?.length || 0,
+      audioBytes: result.audio_bytes,
+      durationSeconds: result.duration_seconds,
+      model: result.model,
+    }),
+    execute: () =>
+      transcribeEnglishAudioWithOpenAI(providerPayload, traceId, logTrace),
+    logTrace,
+  });
+
+  const darijaReplyText = await recordProviderOperation({
+    traceId,
+    jobId,
+    clerkUserId,
+    provider: PROVIDERS.OPENAI,
+    operation: PROVIDER_OPERATIONS.OPENAI_TRANSLATION,
+    model: TRANSLATION_MODEL,
+    inputMetadata: {
+      englishTranscriptChars: englishTranscript.text.length,
+      mode: 'english_to_moroccan_darija_reply',
+    },
+    outputMetadata: (result) => ({
+      darijaChars: result.length,
+    }),
+    execute: () =>
+      generateMoroccanDarijaReplyText(englishTranscript.text, traceId, logTrace),
+    logTrace,
+  });
+
+  const modelMetadata = {
+    mode: 'response_audio',
+    models: {
+      openaiTranscription: englishTranscript.model,
+      translation: TRANSLATION_MODEL,
+      responseTts: OPENAI_RESPONSE_TTS_MODEL,
+    },
+    tts: {
+      provider: RESPONSE_TTS_PROVIDER,
+      language: RESPONSE_TTS_LANGUAGE,
+      format: RESPONSE_TTS_FORMAT,
+      voice: OPENAI_RESPONSE_TTS_VOICE,
+    },
+  };
+
+  await writeTranslationResult({
+    jobId,
+    clerkUserId,
+    openaiArabicText: null,
+    darijaArabicText: darijaReplyText,
+    consolidatedArabicText: darijaReplyText,
+    englishText: englishTranscript.text,
+    modelMetadata,
+  });
+
+  let responseAudioArtifact = null;
+
+  try {
+    responseAudioArtifact = await runOptionalArabicResponseTts({
+      traceId,
+      jobId,
+      clerkUserId,
+      arabicText: darijaReplyText,
+      logTrace,
+    });
+  } catch (error) {
+    logTrace(traceId, 'Arabic response TTS skipped after unrecorded failure', {
+      jobId,
+      errorCode: safeErrorCode(error, 'response_tts_unrecorded_failure'),
+      errorName: error?.name,
+    });
+  }
+
+  return {
+    englishTranscript,
+    darijaReplyText,
+    responseAudioArtifact,
+    modelMetadata,
+    models: {
+      transcription: OPENAI_TRANSCRIPTION_MODEL,
+      translation: TRANSLATION_MODEL,
+      tts: OPENAI_RESPONSE_TTS_MODEL,
+    },
+  };
+}
+
+export async function processStoredResponseAudioJob({
+  jobId,
+  traceId,
+  logTrace = noop,
+}) {
+  logTrace(traceId, 'Attempting to claim stored response audio job', { jobId });
+
+  const claim = await claimTranslationJobForProcessing({ jobId });
+  const job = claim.job;
+
+  if (!job) {
+    throw httpError(404, 'Response audio job not found.');
+  }
+
+  if (!claim.claimed) {
+    logTrace(traceId, 'Stored response audio job was not claimed', {
+      jobId,
+      status: job.status,
+    });
+
+    if (
+      job.status === TRANSLATION_JOB_STATUS.RUNNING ||
+      job.status === TRANSLATION_JOB_STATUS.SUCCEEDED
+    ) {
+      return {
+        skipped: true,
+        jobId: job.id,
+        status: job.status,
+      };
+    }
+
+    throw httpError(409, `Response audio job is not claimable from status ${job.status}.`);
+  }
+
+  try {
+    if (!job.audio_storage_id) {
+      throw httpError(422, 'Response audio job is missing audio storage metadata.');
+    }
+
+    const audioBuffer = await downloadStoredObject({
+      storageId: job.audio_storage_id,
+    });
+
+    logTrace(traceId, 'Stored response audio input downloaded', {
+      jobId: job.id,
+      audioBytes: audioBuffer.length,
+    });
+
+    const pipelineResult = await runResponseAudioProviderPipeline({
+      traceId,
+      jobId: job.id,
+      clerkUserId: job.clerk_user_id,
+      filename: job.source_filename || `${job.id}.m4a`,
+      audioBase64: audioBuffer.toString('base64'),
+      audioBytes: job.audio_size_bytes || audioBuffer.length,
+      audioStorageMetadata: {
+        audioStorageId: job.audio_storage_id,
+        audioMimeType: job.audio_mime_type,
+      },
+      logTrace,
+    });
+
+    await markTranslationJobSucceeded({
+      jobId: job.id,
+      clerkUserId: job.clerk_user_id,
+    });
+
+    return {
+      skipped: false,
+      jobId: job.id,
+      status: TRANSLATION_JOB_STATUS.SUCCEEDED,
+      pipelineResult,
+    };
+  } catch (error) {
+    await markTranslationJobFailed({
+      jobId: job.id,
+      clerkUserId: job.clerk_user_id,
+      errorCode: safeErrorCode(error, 'response_audio_failed'),
       errorMessage: safeErrorMessage(error),
     });
 
