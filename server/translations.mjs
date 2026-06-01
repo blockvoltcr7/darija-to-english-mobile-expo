@@ -1,73 +1,5 @@
-import { getSupabaseAdminClient } from './db.mjs';
-
-const JOB_COLUMNS = [
-  'id',
-  'clerk_user_id',
-  'profile_id',
-  'status',
-  'source_filename',
-  'source_audio_bytes',
-  'audio_bucket',
-  'audio_object_key',
-  'audio_size_bytes',
-  'audio_mime_type',
-  'audio_retention_expires_at',
-  'audio_deleted_at',
-  'artifact_bucket',
-  'artifact_prefix',
-  'artifacts_deleted_at',
-  'trigger_run_id',
-  'trace_id',
-  'error_code',
-  'error_message',
-  'started_at',
-  'completed_at',
-  'created_at',
-  'updated_at',
-  'deleted_at',
-].join(', ');
-
-const RESULT_COLUMNS = [
-  'id',
-  'job_id',
-  'clerk_user_id',
-  'openai_arabic_text',
-  'darija_arabic_text',
-  'consolidated_arabic_text',
-  'english_text',
-  'model_metadata',
-  'created_at',
-  'updated_at',
-].join(', ');
-
-const PROVIDER_RUN_COLUMNS = [
-  'id',
-  'job_id',
-  'clerk_user_id',
-  'provider',
-  'operation',
-  'model',
-  'status',
-  'latency_ms',
-  'input_metadata',
-  'output_metadata',
-  'error_code',
-  'error_message',
-  'started_at',
-  'completed_at',
-  'created_at',
-].join(', ');
-
-const TRANSLATION_WITH_RESULT_COLUMNS = `
-  ${JOB_COLUMNS},
-  translation_results (${RESULT_COLUMNS})
-`;
-
-const TRANSLATION_DETAIL_COLUMNS = `
-  ${JOB_COLUMNS},
-  translation_results (${RESULT_COLUMNS}),
-  provider_runs (${PROVIDER_RUN_COLUMNS})
-`;
+import { randomUUID } from 'node:crypto';
+import { callConvexFunction } from './db.mjs';
 
 const DEFAULT_HISTORY_LIMIT = 20;
 const MAX_HISTORY_LIMIT = 50;
@@ -235,8 +167,8 @@ function createTranslationRepositoryError(operation, error) {
   wrapped.name = 'TranslationRepositoryError';
   wrapped.status = error?.status || 500;
   wrapped.operation = operation;
-  wrapped.supabase = {
-    code: error?.code,
+  wrapped.convex = {
+    code: error?.data?.code || error?.code,
     name: error?.name,
     status: error?.status,
   };
@@ -254,25 +186,12 @@ function requireKnownValue(value, allowedValues, fieldName) {
   return normalized;
 }
 
-async function updateTranslationJob({
-  jobId,
-  clerkUserId,
-  payload,
-  operation,
-}) {
-  const { data, error } = await getSupabaseAdminClient()
-    .from('translation_jobs')
-    .update(payload)
-    .eq('id', normalizeRequiredString(jobId, 'jobId'))
-    .eq('clerk_user_id', normalizeRequiredString(clerkUserId, 'clerkUserId'))
-    .select(JOB_COLUMNS)
-    .single();
-
-  if (error) {
+async function callTranslationFunction(operation, functionName, args) {
+  try {
+    return await callConvexFunction(functionName, args);
+  } catch (error) {
     throw createTranslationRepositoryError(operation, error);
   }
-
-  return data;
 }
 
 export async function createTranslationJob({
@@ -282,56 +201,39 @@ export async function createTranslationJob({
   audioBytes,
   traceId,
 }) {
-  const payload = {
-    clerk_user_id: normalizeRequiredString(clerkUserId, 'clerkUserId'),
-    profile_id: normalizeOptionalString(profileId),
-    status: TRANSLATION_JOB_STATUS.QUEUED,
-    source_filename: normalizeOptionalString(filename),
-    source_audio_bytes: normalizeOptionalInteger(audioBytes, 'audioBytes'),
-    trace_id: normalizeOptionalString(traceId),
-  };
-
-  const { data, error } = await getSupabaseAdminClient()
-    .from('translation_jobs')
-    .insert(payload)
-    .select(JOB_COLUMNS)
-    .single();
-
-  if (error) {
-    throw createTranslationRepositoryError('create_translation_job', error);
-  }
-
-  return data;
+  return callTranslationFunction('create_translation_job', 'translations:createTranslationJob', {
+    jobId: randomUUID(),
+    clerkUserId: normalizeRequiredString(clerkUserId, 'clerkUserId'),
+    profileId: normalizeOptionalString(profileId),
+    filename: normalizeOptionalString(filename),
+    audioBytes: normalizeOptionalInteger(audioBytes, 'audioBytes'),
+    traceId: normalizeOptionalString(traceId),
+  });
 }
 
 export async function updateTranslationJobStorageMetadata({
   jobId,
   clerkUserId,
-  audioBucket,
-  audioObjectKey,
+  audioStorageId,
   audioSizeBytes,
   audioMimeType,
   audioRetentionExpiresAt,
-  artifactBucket,
-  artifactPrefix,
 }) {
-  return updateTranslationJob({
-    jobId,
-    clerkUserId,
-    payload: {
-      audio_bucket: normalizeOptionalString(audioBucket),
-      audio_object_key: normalizeOptionalString(audioObjectKey),
-      audio_size_bytes: normalizeOptionalInteger(audioSizeBytes, 'audioSizeBytes'),
-      audio_mime_type: normalizeOptionalString(audioMimeType),
-      audio_retention_expires_at: normalizeOptionalTimestamp(
+  return callTranslationFunction(
+    'update_translation_job_storage_metadata',
+    'translations:updateStorageMetadata',
+    {
+      jobId: normalizeRequiredString(jobId, 'jobId'),
+      clerkUserId: normalizeRequiredString(clerkUserId, 'clerkUserId'),
+      audioStorageId: normalizeOptionalString(audioStorageId),
+      audioSizeBytes: normalizeOptionalInteger(audioSizeBytes, 'audioSizeBytes'),
+      audioMimeType: normalizeOptionalString(audioMimeType),
+      audioRetentionExpiresAt: normalizeOptionalTimestamp(
         audioRetentionExpiresAt,
         'audioRetentionExpiresAt',
       ),
-      artifact_bucket: normalizeOptionalString(artifactBucket),
-      artifact_prefix: normalizeOptionalString(artifactPrefix),
     },
-    operation: 'update_translation_job_storage_metadata',
-  });
+  );
 }
 
 export async function markTranslationJobAudioDeleted({
@@ -339,14 +241,15 @@ export async function markTranslationJobAudioDeleted({
   clerkUserId,
   deletedAt = new Date(),
 }) {
-  return updateTranslationJob({
-    jobId,
-    clerkUserId,
-    payload: {
-      audio_deleted_at: normalizeOptionalTimestamp(deletedAt, 'deletedAt'),
+  return callTranslationFunction(
+    'mark_translation_job_audio_deleted',
+    'translations:markAudioDeleted',
+    {
+      jobId: normalizeRequiredString(jobId, 'jobId'),
+      clerkUserId: normalizeRequiredString(clerkUserId, 'clerkUserId'),
+      deletedAt: normalizeOptionalTimestamp(deletedAt, 'deletedAt'),
     },
-    operation: 'mark_translation_job_audio_deleted',
-  });
+  );
 }
 
 export async function updateTranslationJobTriggerRunId({
@@ -354,88 +257,44 @@ export async function updateTranslationJobTriggerRunId({
   clerkUserId,
   triggerRunId,
 }) {
-  return updateTranslationJob({
-    jobId,
-    clerkUserId,
-    payload: {
-      trigger_run_id: normalizeOptionalString(triggerRunId),
+  return callTranslationFunction(
+    'update_translation_job_trigger_run_id',
+    'translations:updateTriggerRunId',
+    {
+      jobId: normalizeRequiredString(jobId, 'jobId'),
+      clerkUserId: normalizeRequiredString(clerkUserId, 'clerkUserId'),
+      triggerRunId: normalizeOptionalString(triggerRunId),
     },
-    operation: 'update_translation_job_trigger_run_id',
-  });
+  );
 }
 
 export async function markTranslationJobRunning({ jobId, clerkUserId }) {
-  return updateTranslationJob({
-    jobId,
-    clerkUserId,
-    payload: {
-      status: TRANSLATION_JOB_STATUS.RUNNING,
-      started_at: new Date().toISOString(),
-      error_code: null,
-      error_message: null,
-    },
-    operation: 'mark_translation_job_running',
+  return callTranslationFunction('mark_translation_job_running', 'translations:markRunning', {
+    jobId: normalizeRequiredString(jobId, 'jobId'),
+    clerkUserId: normalizeRequiredString(clerkUserId, 'clerkUserId'),
   });
 }
 
 export async function getTranslationJobById({ jobId }) {
-  const { data, error } = await getSupabaseAdminClient()
-    .from('translation_jobs')
-    .select(JOB_COLUMNS)
-    .eq('id', normalizeRequiredString(jobId, 'jobId'))
-    .is('deleted_at', null)
-    .maybeSingle();
-
-  if (error) {
-    throw createTranslationRepositoryError('get_translation_job_by_id', error);
-  }
-
-  return data;
+  return callTranslationFunction('get_translation_job_by_id', 'translations:getById', {
+    jobId: normalizeRequiredString(jobId, 'jobId'),
+  });
 }
 
 export async function claimTranslationJobForProcessing({ jobId }) {
-  const { data, error } = await getSupabaseAdminClient()
-    .from('translation_jobs')
-    .update({
-      status: TRANSLATION_JOB_STATUS.RUNNING,
-      started_at: new Date().toISOString(),
-      error_code: null,
-      error_message: null,
-    })
-    .eq('id', normalizeRequiredString(jobId, 'jobId'))
-    .eq('status', TRANSLATION_JOB_STATUS.QUEUED)
-    .is('deleted_at', null)
-    .select(JOB_COLUMNS)
-    .maybeSingle();
-
-  if (error) {
-    throw createTranslationRepositoryError('claim_translation_job_for_processing', error);
-  }
-
-  if (data) {
-    return {
-      claimed: true,
-      job: data,
-    };
-  }
-
-  return {
-    claimed: false,
-    job: await getTranslationJobById({ jobId }),
-  };
+  return callTranslationFunction(
+    'claim_translation_job_for_processing',
+    'translations:claimForProcessing',
+    {
+      jobId: normalizeRequiredString(jobId, 'jobId'),
+    },
+  );
 }
 
 export async function markTranslationJobSucceeded({ jobId, clerkUserId }) {
-  return updateTranslationJob({
-    jobId,
-    clerkUserId,
-    payload: {
-      status: TRANSLATION_JOB_STATUS.SUCCEEDED,
-      completed_at: new Date().toISOString(),
-      error_code: null,
-      error_message: null,
-    },
-    operation: 'mark_translation_job_succeeded',
+  return callTranslationFunction('mark_translation_job_succeeded', 'translations:markSucceeded', {
+    jobId: normalizeRequiredString(jobId, 'jobId'),
+    clerkUserId: normalizeRequiredString(clerkUserId, 'clerkUserId'),
   });
 }
 
@@ -445,16 +304,11 @@ export async function markTranslationJobFailed({
   errorCode,
   errorMessage,
 }) {
-  return updateTranslationJob({
-    jobId,
-    clerkUserId,
-    payload: {
-      status: TRANSLATION_JOB_STATUS.FAILED,
-      completed_at: new Date().toISOString(),
-      error_code: normalizeOptionalString(errorCode),
-      error_message: normalizeOptionalString(errorMessage),
-    },
-    operation: 'mark_translation_job_failed',
+  return callTranslationFunction('mark_translation_job_failed', 'translations:markFailed', {
+    jobId: normalizeRequiredString(jobId, 'jobId'),
+    clerkUserId: normalizeRequiredString(clerkUserId, 'clerkUserId'),
+    errorCode: normalizeOptionalString(errorCode),
+    errorMessage: normalizeOptionalString(errorMessage),
   });
 }
 
@@ -473,33 +327,22 @@ export async function recordProviderRun({
   startedAt,
   completedAt,
 }) {
-  const payload = {
-    job_id: normalizeRequiredString(jobId, 'jobId'),
-    clerk_user_id: normalizeRequiredString(clerkUserId, 'clerkUserId'),
+  return callTranslationFunction('record_provider_run', 'translations:recordProviderRun', {
+    runId: randomUUID(),
+    jobId: normalizeRequiredString(jobId, 'jobId'),
+    clerkUserId: normalizeRequiredString(clerkUserId, 'clerkUserId'),
     provider: requireKnownValue(provider, PROVIDERS, 'provider'),
     operation: requireKnownValue(operation, PROVIDER_OPERATIONS, 'operation'),
     model: normalizeOptionalString(model),
     status: requireKnownValue(status, PROVIDER_RUN_STATUS, 'status'),
-    latency_ms: normalizeOptionalInteger(latencyMs, 'latencyMs'),
-    input_metadata: sanitizeMetadata(inputMetadata),
-    output_metadata: sanitizeMetadata(outputMetadata),
-    error_code: normalizeOptionalString(errorCode),
-    error_message: normalizeOptionalString(errorMessage),
-    started_at: normalizeOptionalTimestamp(startedAt, 'startedAt'),
-    completed_at: normalizeOptionalTimestamp(completedAt, 'completedAt'),
-  };
-
-  const { data, error } = await getSupabaseAdminClient()
-    .from('provider_runs')
-    .insert(payload)
-    .select(PROVIDER_RUN_COLUMNS)
-    .single();
-
-  if (error) {
-    throw createTranslationRepositoryError('record_provider_run', error);
-  }
-
-  return data;
+    latencyMs: normalizeOptionalInteger(latencyMs, 'latencyMs'),
+    inputMetadata: sanitizeMetadata(inputMetadata),
+    outputMetadata: sanitizeMetadata(outputMetadata),
+    errorCode: normalizeOptionalString(errorCode),
+    errorMessage: normalizeOptionalString(errorMessage),
+    startedAt: normalizeOptionalTimestamp(startedAt, 'startedAt'),
+    completedAt: normalizeOptionalTimestamp(completedAt, 'completedAt'),
+  });
 }
 
 export async function writeTranslationResult({
@@ -511,30 +354,19 @@ export async function writeTranslationResult({
   englishText,
   modelMetadata,
 }) {
-  const payload = {
-    job_id: normalizeRequiredString(jobId, 'jobId'),
-    clerk_user_id: normalizeRequiredString(clerkUserId, 'clerkUserId'),
-    openai_arabic_text: normalizeOptionalString(openaiArabicText),
-    darija_arabic_text: normalizeOptionalString(darijaArabicText),
-    consolidated_arabic_text: normalizeRequiredString(
+  return callTranslationFunction('write_translation_result', 'translations:writeResult', {
+    resultId: randomUUID(),
+    jobId: normalizeRequiredString(jobId, 'jobId'),
+    clerkUserId: normalizeRequiredString(clerkUserId, 'clerkUserId'),
+    openaiArabicText: normalizeOptionalString(openaiArabicText),
+    darijaArabicText: normalizeOptionalString(darijaArabicText),
+    consolidatedArabicText: normalizeRequiredString(
       consolidatedArabicText,
       'consolidatedArabicText',
     ),
-    english_text: normalizeRequiredString(englishText, 'englishText'),
-    model_metadata: sanitizeMetadata(modelMetadata),
-  };
-
-  const { data, error } = await getSupabaseAdminClient()
-    .from('translation_results')
-    .insert(payload)
-    .select(RESULT_COLUMNS)
-    .single();
-
-  if (error) {
-    throw createTranslationRepositoryError('write_translation_result', error);
-  }
-
-  return data;
+    englishText: normalizeRequiredString(englishText, 'englishText'),
+    modelMetadata: sanitizeMetadata(modelMetadata),
+  });
 }
 
 export async function listTranslationsForUser({
@@ -542,46 +374,16 @@ export async function listTranslationsForUser({
   limit,
   cursor,
 }) {
-  const normalizedLimit = normalizeHistoryLimit(limit);
-  const normalizedCursor = normalizeCursor(cursor);
-  let query = getSupabaseAdminClient()
-    .from('translation_jobs')
-    .select(TRANSLATION_WITH_RESULT_COLUMNS)
-    .eq('clerk_user_id', normalizeRequiredString(clerkUserId, 'clerkUserId'))
-    .is('deleted_at', null)
-    .order('created_at', { ascending: false })
-    .limit(normalizedLimit + 1);
-
-  if (normalizedCursor) {
-    query = query.lt('created_at', normalizedCursor);
-  }
-
-  const { data, error } = await query;
-
-  if (error) {
-    throw createTranslationRepositoryError('list_translations_for_user', error);
-  }
-
-  const rows = Array.isArray(data) ? data : [];
-  const items = rows.slice(0, normalizedLimit);
-  const nextCursor =
-    rows.length > normalizedLimit ? items.at(-1)?.created_at || null : null;
-
-  return { items, nextCursor };
+  return callTranslationFunction('list_translations_for_user', 'translations:listForUser', {
+    clerkUserId: normalizeRequiredString(clerkUserId, 'clerkUserId'),
+    limit: normalizeHistoryLimit(limit),
+    cursor: normalizeCursor(cursor),
+  });
 }
 
 export async function getTranslationForUser({ clerkUserId, translationId }) {
-  const { data, error } = await getSupabaseAdminClient()
-    .from('translation_jobs')
-    .select(TRANSLATION_DETAIL_COLUMNS)
-    .eq('id', normalizeRequiredString(translationId, 'translationId'))
-    .eq('clerk_user_id', normalizeRequiredString(clerkUserId, 'clerkUserId'))
-    .is('deleted_at', null)
-    .maybeSingle();
-
-  if (error) {
-    throw createTranslationRepositoryError('get_translation_for_user', error);
-  }
-
-  return data;
+  return callTranslationFunction('get_translation_for_user', 'translations:getForUser', {
+    clerkUserId: normalizeRequiredString(clerkUserId, 'clerkUserId'),
+    translationId: normalizeRequiredString(translationId, 'translationId'),
+  });
 }

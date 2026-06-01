@@ -12,7 +12,8 @@ This is a single Expo React Native project with a local Node/Express API. Treat 
 | `lib/` | Shared client config, API client, and TypeScript contracts. See `lib/AGENTS.md`. |
 | `server/` | Local API proxy for dual STT, consolidation, and translation. See `server/AGENTS.md`. |
 | `trigger/` | Trigger.dev background jobs for async translation work. See `trigger/AGENTS.md`. |
-| `supabase/` | Local Supabase migrations/config for persistence and RLS. |
+| `convex/` | Convex schema, auth config, functions, and storage integration for app persistence. |
+| `supabase/` | Archived legacy migrations/config for pre-Convex persistence. Do not extend. |
 | `ai_docs/` | Plans, QA playbooks, visuals, and operational docs. See `ai_docs/AGENTS.md`. |
 | `.agents/skills/` | Project-scoped Codex skills such as iOS Simulator file loading. |
 | `refs/openai-speech-to-text-app/` | Reference dual-STT/consolidation web app. Read only by default. |
@@ -40,7 +41,7 @@ This is a single Expo React Native project with a local Node/Express API. Treat 
 - EAS preview builds use the default `preview` EAS environment.
 - EAS staging builds currently also use the default `preview` EAS environment because custom EAS environments require a paid Expo Production or Enterprise plan.
 - EAS production env values should not be configured until a production API URL exists.
-- EAS public env must only contain mobile-safe public values such as `EXPO_PUBLIC_API_BASE_URL` and `EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY`.
+- EAS public env must only contain mobile-safe public values such as `EXPO_PUBLIC_API_BASE_URL`, `EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY`, `EXPO_PUBLIC_CONVEX_URL`, and `EXPO_PUBLIC_CONVEX_SITE_URL`.
 
 ## Cross-Domain Workflow
 
@@ -48,10 +49,10 @@ This is a single Expo React Native project with a local Node/Express API. Treat 
 - `lib/api.ts` posts `{ filename, audio_base64 }` to authenticated `/v1/translations`; `/v1/translate-audio` is legacy-compatible.
 - The mobile app sends `Authorization: Bearer <Clerk session token>`.
 - `server/index.mjs` verifies the Clerk session before storage, Trigger.dev dispatch, or model/provider calls.
-- Server stores the original audio in private Supabase Storage, creates a translation row, dispatches `trigger/translate-audio-job.mjs`, and returns a queued job with a Trigger run ID.
+- Server stores the original audio in private Convex Storage, creates a Convex translation row, dispatches `trigger/translate-audio-job.mjs`, and returns a queued job with a Trigger run ID.
 - The mobile app polls `/v1/translations/:id` with refreshed Clerk session tokens until the job succeeds or fails.
 - The Trigger worker downloads stored audio, runs OpenAI STT and Modal Darija ASR in parallel, requires both STT outputs, consolidates with OpenAI, then translates consolidated Darija to English.
-- If `ENABLE_TTS=true`, the Trigger worker generates OpenAI English TTS only after the text result is stored, uploads generated audio to private Supabase Storage, and records `translation_artifacts` metadata. TTS failure must not hide the English translation.
+- If `ENABLE_TTS=true`, the Trigger worker generates OpenAI English TTS only after the text result is stored, uploads generated audio to private Convex Storage, and records `translationArtifacts` metadata. TTS failure must not hide the English translation.
 - Server returns raw transcripts, consolidated transcript, English translation, model metadata, Trigger run ID, optional safe `tts` metadata, and aliases for older UI fields.
 
 ## Fresh Clerk User QA
@@ -95,4 +96,18 @@ For API behavior, also test:
 curl http://localhost:8787/health
 ```
 
-Expected `/health` response includes `models.openai_transcription`, `models.consolidation`, and `models.translation`.
+Expected `/health` response includes `dependencies.convex`, `models.openai_transcription`, `models.consolidation`, and `models.translation`.
+
+<!-- convex-ai-start -->
+
+This project uses [Convex](https://convex.dev) as its backend.
+
+When working on Convex code, **always read
+`convex/_generated/ai/guidelines.md` first** for important guidelines on
+how to correctly use Convex APIs and patterns. The file contains rules that
+override what you may have learned about Convex from training data.
+
+Convex agent skills for common tasks can be installed by running
+`npx convex ai-files install`.
+
+<!-- convex-ai-end -->

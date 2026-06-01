@@ -1,30 +1,5 @@
-import { getSupabaseAdminClient } from './db.mjs';
-
-const ARTIFACT_COLUMNS = [
-  'id',
-  'job_id',
-  'clerk_user_id',
-  'kind',
-  'status',
-  'provider',
-  'model',
-  'voice',
-  'language',
-  'format',
-  'mime_type',
-  'bucket',
-  'object_key',
-  'byte_size',
-  'input_text_hash',
-  'input_char_count',
-  'duration_seconds',
-  'error_code',
-  'error_message',
-  'started_at',
-  'completed_at',
-  'created_at',
-  'updated_at',
-].join(', ');
+import { randomUUID } from 'node:crypto';
+import { callConvexFunction } from './db.mjs';
 
 export const TRANSLATION_ARTIFACT_KIND = Object.freeze({
   ENGLISH_TTS_AUDIO: 'english_tts_audio',
@@ -123,8 +98,8 @@ function createArtifactRepositoryError(operation, error) {
   wrapped.name = 'ArtifactRepositoryError';
   wrapped.status = error?.status || 500;
   wrapped.operation = operation;
-  wrapped.supabase = {
-    code: error?.code,
+  wrapped.convex = {
+    code: error?.data?.code || error?.code,
     name: error?.name,
     status: error?.status,
   };
@@ -149,15 +124,11 @@ function normalizeArtifact(row) {
     language: row.language,
     format: row.format,
     mimeType: row.mime_type,
-    bucket: row.bucket,
-    objectKey: row.object_key,
+    storageId: row.storage_id,
     byteSize: row.byte_size,
     inputTextHash: row.input_text_hash,
     inputCharCount: row.input_char_count,
-    durationSeconds:
-      row.duration_seconds === null || row.duration_seconds === undefined
-        ? null
-        : Number(row.duration_seconds),
+    durationSeconds: row.duration_seconds,
     errorCode: row.error_code,
     errorMessage: row.error_message,
     startedAt: row.started_at,
@@ -167,10 +138,12 @@ function normalizeArtifact(row) {
   };
 }
 
-function applyVoiceFilter(query, voice) {
-  const normalizedVoice = normalizeOptionalString(voice);
-
-  return normalizedVoice ? query.eq('voice', normalizedVoice) : query.is('voice', null);
+async function callArtifactFunction(operation, functionName, args) {
+  try {
+    return normalizeArtifact(await callConvexFunction(functionName, args));
+  } catch (error) {
+    throw createArtifactRepositoryError(operation, error);
+  }
 }
 
 function buildTtsIdentityFilter({
@@ -193,38 +166,12 @@ function buildTtsIdentityFilter({
   };
 }
 
-async function findTtsArtifactByIdentity(identity) {
-  const normalized = buildTtsIdentityFilter(identity);
-  let query = getSupabaseAdminClient()
-    .from('translation_artifacts')
-    .select(ARTIFACT_COLUMNS)
-    .eq('job_id', normalized.jobId)
-    .eq('clerk_user_id', normalized.clerkUserId)
-    .eq('kind', TRANSLATION_ARTIFACT_KIND.ENGLISH_TTS_AUDIO)
-    .eq('provider', normalized.provider)
-    .eq('model', normalized.model)
-    .eq('format', normalized.format)
-    .eq('input_text_hash', normalized.inputTextHash)
-    .order('created_at', { ascending: false })
-    .limit(1);
-
-  query = applyVoiceFilter(query, normalized.voice);
-
-  const { data, error } = await query.maybeSingle();
-
-  if (error) {
-    throw createArtifactRepositoryError('find_tts_artifact_by_identity', error);
-  }
-
-  return normalizeArtifact(data);
-}
-
 export async function findSuccessfulTtsArtifact(identity) {
-  const artifact = await findTtsArtifactByIdentity(identity);
-
-  return artifact?.status === TRANSLATION_ARTIFACT_STATUS.SUCCEEDED
-    ? artifact
-    : null;
+  return callArtifactFunction(
+    'find_successful_tts_artifact',
+    'artifacts:findSuccessfulTtsArtifact',
+    buildTtsIdentityFilter(identity),
+  );
 }
 
 export async function createOrMarkTtsArtifactRunning({
@@ -239,7 +186,6 @@ export async function createOrMarkTtsArtifactRunning({
   inputTextHash,
   inputCharCount,
 }) {
-  const now = new Date().toISOString();
   const identity = buildTtsIdentityFilter({
     jobId,
     clerkUserId,
@@ -249,105 +195,39 @@ export async function createOrMarkTtsArtifactRunning({
     format,
     inputTextHash,
   });
-  const payload = {
-    job_id: identity.jobId,
-    clerk_user_id: identity.clerkUserId,
-    kind: TRANSLATION_ARTIFACT_KIND.ENGLISH_TTS_AUDIO,
-    status: TRANSLATION_ARTIFACT_STATUS.RUNNING,
-    provider: identity.provider,
-    model: identity.model,
-    voice: identity.voice,
-    language: normalizeRequiredString(language, 'language'),
-    format: identity.format,
-    mime_type: normalizeRequiredString(mimeType, 'mimeType'),
-    bucket: null,
-    object_key: null,
-    byte_size: null,
-    input_text_hash: identity.inputTextHash,
-    input_char_count: normalizeRequiredInteger(inputCharCount, 'inputCharCount'),
-    duration_seconds: null,
-    error_code: null,
-    error_message: null,
-    started_at: now,
-    completed_at: null,
-  };
 
-  const { data, error } = await getSupabaseAdminClient()
-    .from('translation_artifacts')
-    .insert(payload)
-    .select(ARTIFACT_COLUMNS)
-    .single();
-
-  if (!error) {
-    return normalizeArtifact(data);
-  }
-
-  if (error.code !== '23505') {
-    throw createArtifactRepositoryError('create_tts_artifact_running', error);
-  }
-
-  const existing = await findTtsArtifactByIdentity(identity);
-
-  if (!existing) {
-    throw createArtifactRepositoryError('lookup_duplicate_tts_artifact', error);
-  }
-
-  if (existing.status === TRANSLATION_ARTIFACT_STATUS.SUCCEEDED) {
-    return existing;
-  }
-
-  const { data: updated, error: updateError } = await getSupabaseAdminClient()
-    .from('translation_artifacts')
-    .update({
-      status: TRANSLATION_ARTIFACT_STATUS.RUNNING,
-      mime_type: payload.mime_type,
-      error_code: null,
-      error_message: null,
-      started_at: now,
-      completed_at: null,
-    })
-    .eq('id', existing.id)
-    .eq('clerk_user_id', identity.clerkUserId)
-    .select(ARTIFACT_COLUMNS)
-    .single();
-
-  if (updateError) {
-    throw createArtifactRepositoryError('mark_existing_tts_artifact_running', updateError);
-  }
-
-  return normalizeArtifact(updated);
+  return callArtifactFunction(
+    'create_tts_artifact_running',
+    'artifacts:createOrMarkTtsArtifactRunning',
+    {
+      artifactId: randomUUID(),
+      ...identity,
+      provider: TRANSLATION_ARTIFACT_PROVIDERS.OPENAI,
+      language: normalizeRequiredString(language, 'language'),
+      mimeType: normalizeRequiredString(mimeType, 'mimeType'),
+      inputCharCount: normalizeRequiredInteger(inputCharCount, 'inputCharCount'),
+    },
+  );
 }
 
 export async function markTtsArtifactSucceeded({
   artifactId,
   clerkUserId,
-  bucket,
-  objectKey,
+  storageId,
   byteSize,
   durationSeconds,
 }) {
-  const { data, error } = await getSupabaseAdminClient()
-    .from('translation_artifacts')
-    .update({
-      status: TRANSLATION_ARTIFACT_STATUS.SUCCEEDED,
-      bucket: normalizeRequiredString(bucket, 'bucket'),
-      object_key: normalizeRequiredString(objectKey, 'objectKey'),
-      byte_size: normalizeOptionalInteger(byteSize, 'byteSize'),
-      duration_seconds: normalizeOptionalNumber(durationSeconds, 'durationSeconds'),
-      error_code: null,
-      error_message: null,
-      completed_at: new Date().toISOString(),
-    })
-    .eq('id', normalizeRequiredString(artifactId, 'artifactId'))
-    .eq('clerk_user_id', normalizeRequiredString(clerkUserId, 'clerkUserId'))
-    .select(ARTIFACT_COLUMNS)
-    .single();
-
-  if (error) {
-    throw createArtifactRepositoryError('mark_tts_artifact_succeeded', error);
-  }
-
-  return normalizeArtifact(data);
+  return callArtifactFunction(
+    'mark_tts_artifact_succeeded',
+    'artifacts:markTtsArtifactSucceeded',
+    {
+      artifactId: normalizeRequiredString(artifactId, 'artifactId'),
+      clerkUserId: normalizeRequiredString(clerkUserId, 'clerkUserId'),
+      storageId: normalizeRequiredString(storageId, 'storageId'),
+      byteSize: normalizeOptionalInteger(byteSize, 'byteSize'),
+      durationSeconds: normalizeOptionalNumber(durationSeconds, 'durationSeconds'),
+    },
+  );
 }
 
 export async function markTtsArtifactFailed({
@@ -356,62 +236,35 @@ export async function markTtsArtifactFailed({
   errorCode,
   errorMessage,
 }) {
-  const { data, error } = await getSupabaseAdminClient()
-    .from('translation_artifacts')
-    .update({
-      status: TRANSLATION_ARTIFACT_STATUS.FAILED,
-      error_code: normalizeSafeErrorCode(errorCode),
-      error_message: normalizeSafeErrorMessage(errorMessage),
-      completed_at: new Date().toISOString(),
-    })
-    .eq('id', normalizeRequiredString(artifactId, 'artifactId'))
-    .eq('clerk_user_id', normalizeRequiredString(clerkUserId, 'clerkUserId'))
-    .select(ARTIFACT_COLUMNS)
-    .single();
-
-  if (error) {
-    throw createArtifactRepositoryError('mark_tts_artifact_failed', error);
-  }
-
-  return normalizeArtifact(data);
+  return callArtifactFunction('mark_tts_artifact_failed', 'artifacts:markTtsArtifactFailed', {
+    artifactId: normalizeRequiredString(artifactId, 'artifactId'),
+    clerkUserId: normalizeRequiredString(clerkUserId, 'clerkUserId'),
+    errorCode: normalizeSafeErrorCode(errorCode),
+    errorMessage: normalizeSafeErrorMessage(errorMessage),
+  });
 }
 
 export async function getEnglishTtsArtifactForUser({ clerkUserId, translationId }) {
-  const { data, error } = await getSupabaseAdminClient()
-    .from('translation_artifacts')
-    .select(ARTIFACT_COLUMNS)
-    .eq('job_id', normalizeRequiredString(translationId, 'translationId'))
-    .eq('clerk_user_id', normalizeRequiredString(clerkUserId, 'clerkUserId'))
-    .eq('kind', TRANSLATION_ARTIFACT_KIND.ENGLISH_TTS_AUDIO)
-    .eq('status', TRANSLATION_ARTIFACT_STATUS.SUCCEEDED)
-    .order('created_at', { ascending: false })
-    .limit(1)
-    .maybeSingle();
-
-  if (error) {
-    throw createArtifactRepositoryError('get_english_tts_artifact_for_user', error);
-  }
-
-  return normalizeArtifact(data);
+  return callArtifactFunction(
+    'get_english_tts_artifact_for_user',
+    'artifacts:getEnglishTtsArtifactForUser',
+    {
+      clerkUserId: normalizeRequiredString(clerkUserId, 'clerkUserId'),
+      translationId: normalizeRequiredString(translationId, 'translationId'),
+    },
+  );
 }
 
 export async function getLatestEnglishTtsArtifactForUser({
   clerkUserId,
   translationId,
 }) {
-  const { data, error } = await getSupabaseAdminClient()
-    .from('translation_artifacts')
-    .select(ARTIFACT_COLUMNS)
-    .eq('job_id', normalizeRequiredString(translationId, 'translationId'))
-    .eq('clerk_user_id', normalizeRequiredString(clerkUserId, 'clerkUserId'))
-    .eq('kind', TRANSLATION_ARTIFACT_KIND.ENGLISH_TTS_AUDIO)
-    .order('created_at', { ascending: false })
-    .limit(1)
-    .maybeSingle();
-
-  if (error) {
-    throw createArtifactRepositoryError('get_latest_english_tts_artifact_for_user', error);
-  }
-
-  return normalizeArtifact(data);
+  return callArtifactFunction(
+    'get_latest_english_tts_artifact_for_user',
+    'artifacts:getLatestEnglishTtsArtifactForUser',
+    {
+      clerkUserId: normalizeRequiredString(clerkUserId, 'clerkUserId'),
+      translationId: normalizeRequiredString(translationId, 'translationId'),
+    },
+  );
 }

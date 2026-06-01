@@ -1,10 +1,7 @@
 import { randomUUID } from 'node:crypto';
-import { getSupabaseAdminClient } from './db.mjs';
+import { callConvexFunction } from './db.mjs';
 import { env } from './env.mjs';
 
-export const AUDIO_ORIGINALS_BUCKET = env.SUPABASE_AUDIO_ORIGINALS_BUCKET;
-export const TRANSLATION_ARTIFACTS_BUCKET =
-  env.SUPABASE_TRANSLATION_ARTIFACTS_BUCKET;
 export const TRANSLATION_ARTIFACT_OUTPUT_FORMATS = Object.freeze({
   aac: Object.freeze({ format: 'aac', mimeType: 'audio/aac', extension: 'aac' }),
   mp3: Object.freeze({ format: 'mp3', mimeType: 'audio/mpeg', extension: 'mp3' }),
@@ -217,21 +214,51 @@ export function buildTranslationArtifactObjectKey({
   ].join('/');
 }
 
-export async function uploadOriginalAudioForJob({ clerkUserId, jobId, audio }) {
-  const objectKey = buildOriginalAudioObjectKey({
-    clerkUserId,
-    jobId,
-    extension: audio.extension,
+async function uploadBufferToConvexStorage({ buffer, mimeType }) {
+  const { uploadUrl } = await callConvexFunction('storage:generateUploadUrl');
+  const response = await fetch(uploadUrl, {
+    method: 'POST',
+    headers: {
+      'Content-Type': mimeType,
+    },
+    body: buffer,
   });
-  const { error } = await getSupabaseAdminClient()
-    .storage
-    .from(AUDIO_ORIGINALS_BUCKET)
-    .upload(objectKey, audio.buffer, {
-      contentType: audio.mimeType,
-      upsert: false,
+
+  if (!response.ok) {
+    throw storageError(
+      502,
+      'convex_storage_upload_failed',
+      'Storage upload failed.',
+    );
+  }
+
+  const payload = await response.json();
+
+  if (!payload?.storageId) {
+    throw storageError(
+      502,
+      'convex_storage_upload_missing_id',
+      'Storage upload did not return a storage ID.',
+    );
+  }
+
+  return payload.storageId;
+}
+
+export async function uploadOriginalAudioForJob({ clerkUserId, jobId, audio }) {
+  try {
+    const storageId = await uploadBufferToConvexStorage({
+      buffer: audio.buffer,
+      mimeType: audio.mimeType,
     });
 
-  if (error) {
+    return {
+      storageId,
+      sizeBytes: audio.sizeBytes,
+      mimeType: audio.mimeType,
+      retentionExpiresAt: retentionExpiresAt(),
+    };
+  } catch (error) {
     throw storageError(
       502,
       'audio_storage_upload_failed',
@@ -239,14 +266,6 @@ export async function uploadOriginalAudioForJob({ clerkUserId, jobId, audio }) {
       error,
     );
   }
-
-  return {
-    bucket: AUDIO_ORIGINALS_BUCKET,
-    objectKey,
-    sizeBytes: audio.sizeBytes,
-    mimeType: audio.mimeType,
-    retentionExpiresAt: retentionExpiresAt(),
-  };
 }
 
 export async function uploadTranslationArtifact({
@@ -262,21 +281,20 @@ export async function uploadTranslationArtifact({
     throw storageError(400, 'empty_artifact_audio', 'Artifact audio payload is empty.');
   }
 
-  const objectKey = buildTranslationArtifactObjectKey({
-    clerkUserId,
-    jobId,
-    artifactId,
-    format: outputFormat.format,
-  });
-  const { error } = await getSupabaseAdminClient()
-    .storage
-    .from(TRANSLATION_ARTIFACTS_BUCKET)
-    .upload(objectKey, audioBuffer, {
-      contentType: outputFormat.mimeType,
-      upsert: false,
+  try {
+    const storageId = await uploadBufferToConvexStorage({
+      buffer: audioBuffer,
+      mimeType: outputFormat.mimeType,
     });
 
-  if (error) {
+    return {
+      storageId,
+      byteSize: audioBuffer.length,
+      mimeType: outputFormat.mimeType,
+      format: outputFormat.format,
+      extension: outputFormat.extension,
+    };
+  } catch (error) {
     throw storageError(
       502,
       'translation_artifact_upload_failed',
@@ -284,42 +302,40 @@ export async function uploadTranslationArtifact({
       error,
     );
   }
-
-  return {
-    bucket: TRANSLATION_ARTIFACTS_BUCKET,
-    objectKey,
-    byteSize: audioBuffer.length,
-    mimeType: outputFormat.mimeType,
-    format: outputFormat.format,
-    extension: outputFormat.extension,
-  };
 }
 
-export async function downloadStoredObject({ bucket, objectKey }) {
-  const { data, error } = await getSupabaseAdminClient()
-    .storage
-    .from(bucket)
-    .download(objectKey);
+export async function downloadStoredObject({ storageId }) {
+  const { url } = await callConvexFunction('storage:getStorageUrl', {
+    storageId: requireNonEmptyString(storageId, 'storageId'),
+  });
 
-  if (error) {
+  if (!url) {
+    throw storageError(
+      404,
+      'storage_object_not_found',
+      'Stored object was not found.',
+    );
+  }
+
+  const response = await fetch(url);
+
+  if (!response.ok) {
     throw storageError(
       502,
       'storage_download_failed',
       'Stored object download failed.',
-      error,
     );
   }
 
-  return Buffer.from(await data.arrayBuffer());
+  return Buffer.from(await response.arrayBuffer());
 }
 
-export async function removeStoredObject({ bucket, objectKey }) {
-  const { error } = await getSupabaseAdminClient()
-    .storage
-    .from(bucket)
-    .remove([objectKey]);
-
-  if (error) {
+export async function removeStoredObject({ storageId }) {
+  try {
+    await callConvexFunction('storage:deleteStoredObject', {
+      storageId: requireNonEmptyString(storageId, 'storageId'),
+    });
+  } catch (error) {
     throw storageError(
       502,
       'storage_remove_failed',

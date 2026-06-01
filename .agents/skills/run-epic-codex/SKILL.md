@@ -27,6 +27,18 @@ Legacy task shape is still accepted:
 
 This is the Codex-native execution entrypoint for the epic pipeline. It keeps the workflow skill-first: custom agents may help later, but this skill remains the source of truth.
 
+## Path identity contract
+
+For preferred folder-shaped tasks, the task folder name is the task identity and `task.md` / `plan.md` are role files inside that task boundary. To avoid ambiguity during parallel execution, the parent session must resolve and pass absolute paths whenever it executes or delegates a task:
+
+```text
+Task folder: <absolute_epic_folder>/<NN>-<slug>
+Task spec: <absolute_epic_folder>/<NN>-<slug>/task.md
+Execution plan: <absolute_epic_folder>/<NN>-<slug>/plan.md
+```
+
+Do not instruct a subagent to "read `plan.md`" or "read `task.md`" without the absolute task folder/spec/plan paths. Legacy flat tasks use the same rule with absolute paths to `<NN>-<slug>.md` and `<NN>-<slug>.plan.md`.
+
 ## Input
 
 Parse one argument:
@@ -88,6 +100,9 @@ Group tasks by phase from the plan sidecars. For each task determine:
 
 - slug and spec path
 - task folder path when applicable
+- absolute task folder path when applicable
+- absolute spec path
+- absolute plan path
 - current status
 - phase
 - `worktree_mode`
@@ -104,7 +119,7 @@ For each phase:
 1. Append `open->in_progress` for every task selected in the phase.
 2. Regenerate the status table in `epic-overview.md`.
 3. Execute sequential tasks directly in the parent session.
-4. For parallel-safe tasks, create the required worktree and spawn one bounded Codex `worker` subagent per task when explicit subagent execution is confirmed.
+4. For parallel-safe tasks, create the required worktree and spawn one bounded Codex `worker` subagent per task when explicit subagent execution is confirmed. Each delegated prompt must include the absolute task folder path, absolute spec path, and absolute plan path.
 5. Wait for delegated results only when the phase cannot progress without them.
 6. Verify each task against its `## Acceptance Criteria` before marking it done.
 7. Merge and clean up any worktrees before appending `in_progress->done`.

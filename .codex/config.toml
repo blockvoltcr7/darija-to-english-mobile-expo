@@ -1,5 +1,15 @@
-[mcp_servers.supabase]
-url = "https://mcp.supabase.com/mcp?project_ref=npjsersrmvltoxmqdkzd"
+[mcp_servers.convex]
+command = "npx"
+args = [
+  "-y",
+  "convex@latest",
+  "mcp",
+  "start",
+  "--project-dir",
+  "/Users/samisabir-idrissi/dev/codex-projects/darija-to-english-mobile-expo",
+  "--env-file",
+  ".env.local"
+]
 
 sandbox_mode = "danger-full-access"
 

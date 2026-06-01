@@ -1,5 +1,19 @@
 {
   "mcpServers": {
+    "convex": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "convex@latest",
+        "mcp",
+        "start",
+        "--project-dir",
+        "/Users/samisabir-idrissi/dev/codex-projects/darija-to-english-mobile-expo",
+        "--env-file",
+        ".env.local"
+      ],
+      "startup_timeout_sec": 30
+    },
     "trigger": {
       "command": "npx",
       "args": ["trigger.dev@latest", "mcp"],

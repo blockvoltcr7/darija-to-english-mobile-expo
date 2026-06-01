@@ -146,7 +146,7 @@ async function recordProviderOperation({
         operation,
         provider,
         errorName: recordError?.name,
-        errorCode: recordError?.supabase?.code,
+        errorCode: recordError?.convex?.code,
       });
     }
 
@@ -591,8 +591,7 @@ async function runOptionalTtsForTranslation({
     artifact = await markTtsArtifactSucceeded({
       artifactId: artifact.id,
       clerkUserId,
-      bucket: storageMetadata.bucket,
-      objectKey: storageMetadata.objectKey,
+      storageId: storageMetadata.storageId,
       byteSize: storageMetadata.byteSize,
       durationSeconds: ttsResult.metadata?.durationSeconds,
     });
@@ -621,7 +620,7 @@ async function runOptionalTtsForTranslation({
         jobId,
         artifactId: artifact.id,
         errorName: recordError?.name,
-        errorCode: recordError?.supabase?.code || recordError?.code,
+        errorCode: recordError?.convex?.code || recordError?.code,
       });
     }
 
@@ -857,19 +856,17 @@ export async function processStoredTranslationJob({ jobId, traceId, logTrace = n
     logTrace(traceId, 'Stored translation job claimed', {
       jobId: job.id,
       clerkUserId: job.clerk_user_id,
-      audioBucket: job.audio_bucket,
-      audioObjectKey: job.audio_object_key,
+      audioStorageId: job.audio_storage_id,
       audioBytes: job.audio_size_bytes,
       filename: job.source_filename,
     });
 
-    if (!job.audio_bucket || !job.audio_object_key) {
+    if (!job.audio_storage_id) {
       throw httpError(422, 'Translation job is missing audio storage metadata.');
     }
 
     const audioBuffer = await downloadStoredObject({
-      bucket: job.audio_bucket,
-      objectKey: job.audio_object_key,
+      storageId: job.audio_storage_id,
     });
 
     logTrace(traceId, 'Stored translation audio downloaded', {
@@ -885,8 +882,7 @@ export async function processStoredTranslationJob({ jobId, traceId, logTrace = n
       audioBase64: audioBuffer.toString('base64'),
       audioBytes: job.audio_size_bytes || audioBuffer.length,
       audioStorageMetadata: {
-        audioBucket: job.audio_bucket,
-        audioObjectKey: job.audio_object_key,
+        audioStorageId: job.audio_storage_id,
         audioMimeType: job.audio_mime_type,
       },
       logTrace,

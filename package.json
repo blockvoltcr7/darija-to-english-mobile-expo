@@ -22,7 +22,6 @@
     "@clerk/express": "^2.1.14",
     "@expo/vector-icons": "^15.0.3",
     "@react-navigation/native": "^7.1.8",
-    "@supabase/supabase-js": "^2.105.4",
     "@trigger.dev/sdk": "4.4.6",
     "convex": "^1.38.0",
     "cors": "^2.8.5",

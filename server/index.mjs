@@ -3,13 +3,14 @@ import { verifyWebhook } from '@clerk/backend/webhooks';
 import cors from 'cors';
 import express from 'express';
 import {
-  checkSupabaseConnection,
-  getSupabaseAdminClient,
-  SUPABASE_PROJECT_REF,
+  checkConvexConnection,
+  CONVEX_DEPLOYMENT_NAME,
 } from './db.mjs';
 import { env } from './env.mjs';
 import {
   getOrCreateProfile,
+  markClerkWebhookEventProcessed,
+  recordClerkWebhookEvent,
   softDeleteProfile,
   upsertProfileFromClerkUser,
 } from './profiles.mjs';
@@ -50,7 +51,7 @@ const {
   OPENAI_CONSOLIDATION_MODEL: CONSOLIDATION_MODEL,
   OPENAI_TRANSLATION_MODEL: TRANSLATION_MODEL,
   OPENAI_TRANSCRIPTION_MODEL,
-  SUPABASE_CONFIGURED,
+  CONVEX_CONFIGURED,
   TRIGGER_CONFIGURED,
 } = env;
 
@@ -384,64 +385,6 @@ function getClerkWebhookUserId(event) {
   return typeof event?.data?.id === 'string' ? event.data.id : null;
 }
 
-function wrapWebhookDatabaseError(operation, error) {
-  return httpError(500, `Clerk webhook database operation failed: ${operation}.`, {
-    code: error?.code,
-    name: error?.name,
-    status: error?.status,
-  });
-}
-
-async function recordClerkWebhookEvent({ eventId, event }) {
-  const row = {
-    event_id: eventId,
-    event_type: event.type,
-    clerk_user_id: getClerkWebhookUserId(event),
-    payload: event,
-  };
-
-  const { data, error } = await getSupabaseAdminClient()
-    .from('clerk_webhook_events')
-    .insert(row)
-    .select('id, processed_at')
-    .single();
-
-  if (!error) {
-    return { duplicate: false, processedAt: data.processed_at };
-  }
-
-  if (error.code !== '23505') {
-    throw wrapWebhookDatabaseError('record_clerk_webhook_event', error);
-  }
-
-  const { data: existingEvent, error: lookupError } =
-    await getSupabaseAdminClient()
-      .from('clerk_webhook_events')
-      .select('id, processed_at')
-      .eq('event_id', eventId)
-      .maybeSingle();
-
-  if (lookupError) {
-    throw wrapWebhookDatabaseError('lookup_duplicate_clerk_webhook_event', lookupError);
-  }
-
-  return {
-    duplicate: true,
-    processedAt: existingEvent?.processed_at || null,
-  };
-}
-
-async function markClerkWebhookEventProcessed(eventId) {
-  const { error } = await getSupabaseAdminClient()
-    .from('clerk_webhook_events')
-    .update({ processed_at: new Date().toISOString() })
-    .eq('event_id', eventId);
-
-  if (error) {
-    throw wrapWebhookDatabaseError('mark_clerk_webhook_event_processed', error);
-  }
-}
-
 async function processClerkWebhookEvent(event) {
   switch (event.type) {
     case 'user.created':
@@ -534,7 +477,7 @@ app.get('/health', (req, res) => {
       clerk: CLERK_CONFIGURED,
       darija_asr: Boolean(ASR_BASE_URL && ASR_API_KEY),
       openai: Boolean(OPENAI_API_KEY),
-      supabase: SUPABASE_CONFIGURED,
+      convex: CONVEX_CONFIGURED,
     },
     models: {
       openai_transcription: OPENAI_TRANSCRIPTION_MODEL,
@@ -549,37 +492,33 @@ app.get('/health', (req, res) => {
     responseShape: Object.keys(payload),
     models: payload.models,
     clerkConfigured: CLERK_CONFIGURED,
-    supabaseConfigured: SUPABASE_CONFIGURED,
+    convexConfigured: CONVEX_CONFIGURED,
   });
 
   res.json(payload);
 });
 
-app.get('/health/supabase', async (req, res) => {
+app.get('/health/convex', async (req, res) => {
   const traceId = traceFromRequest(req);
-  const result = await checkSupabaseConnection();
+  const result = await checkConvexConnection();
   const payload = {
     ok: result.ok,
     service: 'darija-to-english-api',
-    dependency: 'supabase',
-    projectRef: SUPABASE_PROJECT_REF,
+    dependency: 'convex',
+    deployment: CONVEX_DEPLOYMENT_NAME,
     table: result.table,
-    status: result.status,
-    rowCount: result.rowCount,
+    sampledRows: result.sampledRows,
     durationMs: result.durationMs,
-    errorCode: result.errorCode,
     errorName: result.errorName,
   };
 
-  logTrace(traceId, 'Supabase smoke check', {
+  logTrace(traceId, 'Convex smoke check', {
     ip: req.ip,
     userAgent: req.get('User-Agent'),
     ok: payload.ok,
-    projectRef: payload.projectRef,
+    deployment: payload.deployment,
     table: payload.table,
-    status: payload.status,
-    rowCount: payload.rowCount,
-    errorCode: payload.errorCode,
+    sampledRows: payload.sampledRows,
     errorName: payload.errorName,
     durationMs: payload.durationMs,
   });
@@ -664,13 +603,12 @@ async function handleGetEnglishAudioArtifact(req, res, next) {
       translationId: req.params.id,
     });
 
-    if (!artifact?.bucket || !artifact?.objectKey) {
+    if (!artifact?.storageId) {
       return res.status(404).json({ error: 'Audio artifact not found.' });
     }
 
     const audioBuffer = await downloadStoredObject({
-      bucket: artifact.bucket,
-      objectKey: artifact.objectKey,
+      storageId: artifact.storageId,
     });
 
     logTrace(traceId, 'English TTS audio artifact returned', {
@@ -766,8 +704,7 @@ async function handleCreateTranslation(req, res, next) {
       await updateTranslationJobStorageMetadata({
         jobId: translationJob.id,
         clerkUserId,
-        audioBucket: storedAudio.bucket,
-        audioObjectKey: storedAudio.objectKey,
+        audioStorageId: storedAudio.storageId,
         audioSizeBytes: storedAudio.sizeBytes,
         audioMimeType: storedAudio.mimeType,
         audioRetentionExpiresAt: storedAudio.retentionExpiresAt,
@@ -775,14 +712,13 @@ async function handleCreateTranslation(req, res, next) {
     } catch (metadataError) {
       try {
         await removeStoredObject({
-          bucket: storedAudio.bucket,
-          objectKey: storedAudio.objectKey,
+          storageId: storedAudio.storageId,
         });
         storedAudio = null;
       } catch (cleanupError) {
         logTrace(traceId, 'Audio cleanup after async metadata failure failed', {
           jobId: translationJob.id,
-          bucket: storedAudio.bucket,
+          storageId: storedAudio.storageId,
           errorName: cleanupError?.name,
           errorCode: cleanupError?.code,
         });
@@ -835,7 +771,7 @@ async function handleCreateTranslation(req, res, next) {
         logTrace(traceId, 'Async translation job failure recording failed', {
           jobId: translationJob.id,
           errorName: recordError?.name,
-          errorCode: recordError?.supabase?.code,
+          errorCode: recordError?.convex?.code,
         });
       }
     }
@@ -895,8 +831,7 @@ async function handleTranslateAudio(req, res, next) {
       await updateTranslationJobStorageMetadata({
         jobId: translationJob.id,
         clerkUserId,
-        audioBucket: storedAudio.bucket,
-        audioObjectKey: storedAudio.objectKey,
+        audioStorageId: storedAudio.storageId,
         audioSizeBytes: storedAudio.sizeBytes,
         audioMimeType: storedAudio.mimeType,
         audioRetentionExpiresAt: storedAudio.retentionExpiresAt,
@@ -904,14 +839,13 @@ async function handleTranslateAudio(req, res, next) {
     } catch (metadataError) {
       try {
         await removeStoredObject({
-          bucket: storedAudio.bucket,
-          objectKey: storedAudio.objectKey,
+          storageId: storedAudio.storageId,
         });
         storedAudio = null;
       } catch (cleanupError) {
         logTrace(traceId, 'Audio cleanup after metadata failure failed', {
           jobId: translationJob.id,
-          bucket: storedAudio.bucket,
+          storageId: storedAudio.storageId,
           errorName: cleanupError?.name,
           errorCode: cleanupError?.code,
         });
@@ -933,8 +867,7 @@ async function handleTranslateAudio(req, res, next) {
       audioBase64: providerPayload.audioBase64,
       audioBytes,
       audioStorageMetadata: {
-        audioBucket: storedAudio.bucket,
-        audioObjectKey: storedAudio.objectKey,
+        audioStorageId: storedAudio.storageId,
         audioMimeType: storedAudio.mimeType,
       },
       logTrace,
@@ -1023,7 +956,7 @@ async function handleTranslateAudio(req, res, next) {
         logTrace(traceId, 'Translation job failure recording failed', {
           jobId: translationJob.id,
           errorName: recordError?.name,
-          errorCode: recordError?.supabase?.code,
+          errorCode: recordError?.convex?.code,
         });
       }
     }
@@ -1066,7 +999,7 @@ app.listen(PORT, HOST, () => {
     darijaConfigured: Boolean(ASR_BASE_URL && ASR_API_KEY),
     darijaEndpoint: ASR_TRANSCRIBE_URL || null,
     openaiConfigured: Boolean(OPENAI_API_KEY),
-    supabaseConfigured: SUPABASE_CONFIGURED,
+    convexConfigured: CONVEX_CONFIGURED,
     models: {
       openai_transcription: OPENAI_TRANSCRIPTION_MODEL,
       consolidation: CONSOLIDATION_MODEL,

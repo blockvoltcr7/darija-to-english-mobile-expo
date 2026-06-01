@@ -13,12 +13,15 @@ Parse the local epic folder to extract:
 - phase number and mode from each task plan file:
   - preferred: `<NN>-<slug>/plan.md`
   - legacy: `<NN>-<slug>.plan.md`
-- task slug, task name, spec path, and plan path
+- task slug, task name, task folder path when applicable, spec path, and plan path
+- absolute task folder path when applicable, absolute spec path, and absolute plan path
 - `worktree_mode`, branch/worktree suggestion, and likely write scope
 - full task body and `## Acceptance Criteria`
 - current status per slug from `status.log`
 
 Plan files are required for every non-`done` task. If any required `plan.md` or legacy `*.plan.md` file is missing, stop before execution and tell the user to run `analyze-epic <epic_folder>`.
+
+For preferred folder-shaped tasks, the task folder name is the identity boundary and `task.md` / `plan.md` are role files inside that boundary. Parent and delegated prompts must always use resolved absolute paths; never rely on a bare `task.md` or `plan.md` reference during parallel execution.
 
 ### 2. Filter Completed
 
@@ -57,7 +60,7 @@ Use these role defaults:
 
 When delegating implementation:
 
-- state the task slug, spec path, plan path, required worktree path, and exact write ownership
+- state the task slug, absolute task folder path, absolute spec path, absolute plan path, required worktree path, and exact write ownership
 - tell the subagent it is not alone in the codebase and must not revert unrelated edits
 - tell the subagent not to edit `status.log` or `epic-overview.md`
 - require a concise `done`, `blocked`, or `failed` report with changed file paths and validation performed
@@ -121,14 +124,15 @@ If cleanup fails after a successful merge, warn with the worktree path but do no
 ```text
 You are a Codex subagent working on Task {task_number}: {task_name}.
 Slug: {slug}
-Spec file: {spec_path}
-Plan file: {plan_path}
+Task folder: {absolute_task_folder_path}
+Spec file: {absolute_spec_path}
+Plan file: {absolute_plan_path}
 Worktree: {worktree_path}
 Owned write scope: {owned_paths}
 
 You are not alone in this codebase. Do not revert unrelated edits, and do not modify files outside your owned scope unless you first explain why in your final report.
 
-Read the spec and plan, then implement the task exactly against its acceptance criteria.
+Read the spec and plan from the exact absolute paths above, then implement the task exactly against its acceptance criteria. Do not search globally for `task.md` or `plan.md`; those filenames are only meaningful inside the task folder shown above.
 
 Do not write to status.log.
 Do not regenerate epic-overview.md.

@@ -61,11 +61,19 @@ Evaluate each task with `references/enrichment-criteria.md` and classify it as:
 
 ### 3. Present the assessment
 
-Show the quality table and ask whether to enrich all tasks or a selected subset.
+Show the quality table, then proceed directly without asking for approval.
 
-### 4. Research selected tasks and support needs
+Enrich every task classified as:
+- Critical
+- Needs Enrichment
 
-Before rewriting task specs, research what each selected task needs. The research pass should identify task-spec gaps, relevant code paths, dependencies, acceptance criteria, and useful task-local support materials.
+Leave `Adequate` tasks unchanged unless the user explicitly requested all tasks, named a subset that includes them, or a minimal update is required to keep the refreshed `epic-overview.md` consistent with the enriched task set.
+
+If the user explicitly named a subset of tasks in the original request, use that subset without asking for confirmation. Do not pause to ask whether to enrich the epic after the assessment.
+
+### 4. Research tasks that need enrichment and support needs
+
+Before rewriting task specs, research what each task selected by Step 3 needs. The research pass should identify task-spec gaps, relevant code paths, dependencies, acceptance criteria, and useful task-local support materials.
 
 Default local mode:
 - The parent session audits task-local support needs task by task.
@@ -74,8 +82,8 @@ Default local mode:
 Explicit subagent mode:
 - Use subagents only when the user explicitly asks for subagents, parallel research, or batched research.
 - Subagents are read-only researchers. They inspect, analyze, and report; they do not edit or create files.
-- For small selected task sets, the parent may wait for all research reports before writing.
-- For large selected task sets, process tasks in batches of 3-5. The parent may write task-local updates as each report returns, but refreshes `epic-overview.md` and commits only after the batch is complete.
+- For small task sets selected by Step 3, the parent may wait for all research reports before writing.
+- For large task sets selected by Step 3, process tasks in batches of 3-5. The parent may write task-local updates as each report returns, but refreshes `epic-overview.md` and commits only after the batch is complete.
 
 Give each read-only subagent exactly one task folder to research.
 
@@ -142,9 +150,9 @@ Parent writeback rules:
 - Prefer one focused file over many tiny files when the material belongs together.
 - Preserve any existing manually written support files unless the user explicitly asked to rewrite them.
 
-### 5. Enrich the chosen tasks
+### 5. Enrich the tasks that need it
 
-After local research or subagent reports are complete for the current task or batch, the parent session rewrites each selected task spec body wholesale (replace, not merge). For folder-shaped tasks, rewrite only:
+After local research or subagent reports are complete for the current task or batch, the parent session rewrites each task spec selected by Step 3 wholesale (replace, not merge). For folder-shaped tasks, rewrite only:
 
 ```text
 <NN>-<slug>/task.md
