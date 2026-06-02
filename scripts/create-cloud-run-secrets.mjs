@@ -7,8 +7,8 @@ const parsed = dotenv.parse(readFileSync('.env.local'));
 const secrets = [
   ['CLERK_PUBLISHABLE_KEY', 'clerk-publishable-key'],
   ['CLERK_SECRET_KEY', 'clerk-secret-key'],
-  ['SUPABASE_URL', 'supabase-url'],
-  ['SUPABASE_SECRET_KEY', 'supabase-secret-key'],
+  ['CONVEX_URL', 'convex-url'],
+  ['CONVEX_SERVER_SECRET', 'convex-server-secret'],
   ['OPENAI_API_KEY', 'openai-api-key'],
   ['DARIJA_ASR_BASE_URL', 'darija-asr-base-url'],
   ['DARIJA_ASR_API_KEY', 'darija-asr-api-key'],

@@ -10,7 +10,7 @@ Expo Router screens and mobile UI live here.
 | --- | --- |
 | `_layout.tsx` | Router stack and app-level navigation shell. |
 | `index.tsx` | Public mobile landing screen for signed-out users. Signed-in users redirect to `translate.tsx`. |
-| `login.tsx` | Custom Clerk email/password sign-in and email-code sign-in entry. |
+| `login.tsx` | Custom Clerk email-code-only sign-in entry. |
 | `signup.tsx` | Custom Clerk account creation with name, email, password, acknowledgement, and email code delivery. |
 | `verify.tsx` | Custom Clerk email-code verification and missing-requirements recovery. |
 | `sign-in.tsx` | Backward-compatible redirect to `login.tsx`. |

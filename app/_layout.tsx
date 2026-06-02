@@ -1,6 +1,8 @@
 import { ClerkProvider, useAuth } from '@clerk/expo';
 import { tokenCache } from '@clerk/expo/token-cache';
 import { DarkTheme, ThemeProvider } from '@react-navigation/native';
+import { ConvexProviderWithClerk } from 'convex/react-clerk';
+import { ConvexReactClient } from 'convex/react';
 import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect } from 'react';
@@ -15,10 +17,17 @@ export const unstable_settings = {
 SplashScreen.preventAutoHideAsync();
 
 const clerkPublishableKey = process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY ?? '';
+const convexUrl = process.env.EXPO_PUBLIC_CONVEX_URL ?? '';
 
 if (!clerkPublishableKey) {
   throw new Error('EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY is not configured.');
 }
+
+if (!convexUrl) {
+  throw new Error('EXPO_PUBLIC_CONVEX_URL is not configured.');
+}
+
+const convex = new ConvexReactClient(convexUrl);
 
 function RootStack() {
   const { isLoaded, isSignedIn } = useAuth({ treatPendingAsSignedOut: false });
@@ -66,7 +75,9 @@ export default function RootLayout() {
 
   return (
     <ClerkProvider publishableKey={clerkPublishableKey} tokenCache={tokenCache}>
-      <RootStack />
+      <ConvexProviderWithClerk client={convex} useAuth={useAuth}>
+        <RootStack />
+      </ConvexProviderWithClerk>
     </ClerkProvider>
   );
 }

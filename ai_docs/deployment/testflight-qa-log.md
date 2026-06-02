@@ -58,3 +58,20 @@ Do not record Clerk session tokens, API keys, private audio contents, full trans
 - EAS submission result: binary uploaded successfully to App Store Connect; Apple processing pending.
 - TestFlight URL: `https://appstoreconnect.apple.com/apps/6770204437/testflight/ios`.
 - Note: the first auto-submit scheduling attempt failed because `--what-to-test` maps to the EAS changelog field, which requires an Enterprise Expo plan. The same finished build was submitted successfully without the changelog field.
+
+### 2026-05-24 Build 6 Deployment
+
+- Git commit deployed to EAS Build: `7f07420`.
+- App version: 1.0.0.
+- TestFlight build number: 6.
+- EAS build ID: `dcf1f6b3-d75b-4349-b58e-0e0a8acc41d9`.
+- EAS build profile: `staging`.
+- EAS channel: `staging`.
+- EAS environment: `preview`.
+- EAS build result: finished.
+- IPA artifact: `https://expo.dev/artifacts/eas/thqRMGSQ7KF1ts7wFozfqa.ipa`.
+- App Store Connect app ID: `6770204437`.
+- EAS submission ID: `7b714436-1084-436a-ae2d-cac2b07e1c19`.
+- EAS submission result: binary uploaded successfully to App Store Connect; Apple processing pending.
+- TestFlight URL: `https://appstoreconnect.apple.com/apps/6770204437/testflight/ios`.
+- Focus: verify English translation no longer includes literal `[unclear]` for nonessential uncertain spans, and generated English TTS does not say "unclear".

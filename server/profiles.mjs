@@ -1,15 +1,4 @@
-import { getSupabaseAdminClient } from './db.mjs';
-
-const PROFILE_COLUMNS = [
-  'id',
-  'clerk_user_id',
-  'primary_email',
-  'display_name',
-  'image_url',
-  'created_at',
-  'updated_at',
-  'deleted_at',
-].join(', ');
+import { callConvexFunction } from './db.mjs';
 
 function normalizeRequiredString(value, fieldName) {
   if (typeof value !== 'string') {
@@ -57,8 +46,8 @@ function createProfileRepositoryError(operation, error) {
   wrapped.name = 'ProfileRepositoryError';
   wrapped.status = 500;
   wrapped.operation = operation;
-  wrapped.supabase = {
-    code: error?.code,
+  wrapped.convex = {
+    code: error?.data?.code || error?.code,
     name: error?.name,
     status: error?.status,
   };
@@ -146,17 +135,16 @@ function normalizeClerkUser(clerkUser) {
 }
 
 async function upsertProfile(payload, operation) {
-  const { data, error } = await getSupabaseAdminClient()
-    .from('profiles')
-    .upsert(payload, { onConflict: 'clerk_user_id' })
-    .select(PROFILE_COLUMNS)
-    .single();
-
-  if (error) {
+  try {
+    return await callConvexFunction('profiles:getOrCreateProfile', {
+      clerkUserId: payload.clerk_user_id,
+      primaryEmail: payload.primary_email,
+      displayName: payload.display_name,
+      imageUrl: payload.image_url,
+    });
+  } catch (error) {
     throw createProfileRepositoryError(operation, error);
   }
-
-  return data;
 }
 
 export async function getOrCreateProfile({
@@ -194,16 +182,34 @@ export async function upsertProfileFromClerkUser(clerkUser) {
 }
 
 export async function softDeleteProfile(clerkUserId) {
-  const { data, error } = await getSupabaseAdminClient()
-    .from('profiles')
-    .update({ deleted_at: new Date().toISOString() })
-    .eq('clerk_user_id', normalizeRequiredString(clerkUserId, 'clerkUserId'))
-    .select(PROFILE_COLUMNS)
-    .maybeSingle();
-
-  if (error) {
+  try {
+    return await callConvexFunction('profiles:softDeleteProfile', {
+      clerkUserId: normalizeRequiredString(clerkUserId, 'clerkUserId'),
+    });
+  } catch (error) {
     throw createProfileRepositoryError('soft_delete_profile', error);
   }
+}
 
-  return data;
+export async function recordClerkWebhookEvent({ eventId, event }) {
+  try {
+    return await callConvexFunction('profiles:recordWebhookEvent', {
+      eventId: normalizeRequiredString(eventId, 'eventId'),
+      eventType: normalizeRequiredString(event.type, 'event.type'),
+      clerkUserId: typeof event?.data?.id === 'string' ? event.data.id : null,
+      payload: event,
+    });
+  } catch (error) {
+    throw createProfileRepositoryError('record_clerk_webhook_event', error);
+  }
+}
+
+export async function markClerkWebhookEventProcessed(eventId) {
+  try {
+    return await callConvexFunction('profiles:markWebhookEventProcessed', {
+      eventId: normalizeRequiredString(eventId, 'eventId'),
+    });
+  } catch (error) {
+    throw createProfileRepositoryError('mark_clerk_webhook_event_processed', error);
+  }
 }

@@ -15,9 +15,9 @@ Local Node/Express API for audio transcription, transcript consolidation, and tr
 Flow:
 
 1. Verify the Clerk session from `Authorization: Bearer <session_token>`.
-2. Resolve or create the Supabase profile for the Clerk user.
+2. Resolve or create the Convex profile for the Clerk user.
 3. Validate filename and base64 audio.
-4. Store the original audio in private Supabase Storage.
+4. Store the original audio in private Convex Storage.
 5. Create a translation row and dispatch `trigger/translate-audio-job.mjs`.
 6. Return `202` with `jobId`, `triggerRunId`, `status: queued`, and `detailUrl`.
 7. Serve polling through authenticated `GET /v1/translations/:id`.
@@ -33,8 +33,13 @@ The Trigger worker owns provider execution:
 5. Send both transcripts to OpenAI consolidation.
 6. Send consolidated Arabic/Darija transcript to OpenAI translation.
 7. Persist raw transcripts, consolidated transcript, English translation, aliases, and model metadata.
-8. If `ENABLE_TTS=true`, generate OpenAI English TTS after text result persistence, store generated audio in private Supabase Storage, and persist `translation_artifacts` metadata.
+8. If `ENABLE_TTS=true`, generate OpenAI English TTS after text result persistence, store generated audio in private Convex Storage, and persist `translationArtifacts` metadata.
 9. Final translation job status remains text-first: a TTS failure records failed artifact metadata but must not hide the English translation.
+
+`POST /v1/response-audio` accepts the same authenticated audio payload for the
+outbound reply workflow: English user speech -> OpenAI English STT -> Moroccan
+Darija reply text -> OpenAI Arabic/Darija TTS artifact. This first version is
+OpenAI-only; do not add Azure unless explicitly requested.
 
 ## Backend Rules
 
@@ -44,7 +49,7 @@ The Trigger worker owns provider execution:
 - Keep OpenAI TTS optional and server-side; mobile may only receive safe artifact metadata and authenticated API playback URLs.
 - Keep structured trace logs, but do not log secrets.
 - Do not log full transcripts or generated audio bytes by default in production-ready work; log lengths, byte counts, model names, timings, artifact IDs, and trace IDs.
-- Do not expose private Supabase bucket/object keys in public API responses.
+- Do not expose private Convex storage IDs or generated storage URLs in public API responses.
 - Any future auth, paywall, entitlement, and usage-meter checks must happen before model calls.
 - Keep `/health` public.
 
@@ -66,6 +71,8 @@ Do not log full transcripts, generated audio bytes, Clerk session tokens, or sec
 
 Required:
 
+- `CONVEX_URL` or `EXPO_PUBLIC_CONVEX_URL`
+- `CONVEX_SERVER_SECRET`
 - `OPENAI_API_KEY`
 - `DARIJA_ASR_API_KEY`
 - `DARIJA_ASR_BASE_URL` or `DARIJA_ASR_URL`
@@ -81,6 +88,12 @@ Model defaults:
 - `TTS_RESPONSE_FORMAT=aac`
 - `OPENAI_TTS_MODEL=gpt-4o-mini-tts`
 - `OPENAI_TTS_VOICE=cedar`
+- `ENABLE_RESPONSE_TTS` defaults to `ENABLE_TTS`
+- `RESPONSE_TTS_PROVIDER=openai`
+- `RESPONSE_TTS_LANGUAGE=ar`
+- `RESPONSE_TTS_FORMAT=mp3`
+- `OPENAI_RESPONSE_TTS_MODEL=gpt-4o-mini-tts`
+- `OPENAI_RESPONSE_TTS_VOICE=cedar`
 
 ## Verification
 
@@ -95,7 +108,7 @@ Expected health shape:
 ```json
 {
   "ok": true,
-  "dependencies": { "darija_asr": true, "openai": true },
+  "dependencies": { "convex": true, "darija_asr": true, "openai": true },
   "models": {
     "openai_transcription": "gpt-4o-mini-transcribe",
     "consolidation": "gpt-5.5",

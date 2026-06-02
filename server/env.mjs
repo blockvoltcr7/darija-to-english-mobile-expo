@@ -64,12 +64,12 @@ function readNumber(rawEnv, name, defaultValue, errors, options = {}) {
   return value;
 }
 
-function findPublicSupabaseSecretEnv(rawEnv) {
+function findPublicConvexSecretEnv(rawEnv) {
   const publicEnvPrefix = ['EXPO', 'PUBLIC'].join('_');
-  const publicSupabasePrefix = `${publicEnvPrefix}_SUPABASE_`;
+  const publicConvexPrefix = `${publicEnvPrefix}_CONVEX_`;
 
   return Object.keys(rawEnv)
-    .filter((name) => name.startsWith(publicSupabasePrefix))
+    .filter((name) => name.startsWith(publicConvexPrefix))
     .filter((name) => /(?:SECRET|SERVICE_ROLE|SERVICE|JWT|PASSWORD|PRIVATE)/.test(name))
     .sort();
 }
@@ -107,9 +107,9 @@ function buildTranscribeUrl(asrBaseUrl) {
     : `${asrBaseUrl}/transcribe`;
 }
 
-function validateSupabaseUrl(value, errors) {
+function validateHttpUrl(value, name, errors) {
   if (!value) {
-    errors.push('SUPABASE_URL is required.');
+    errors.push(`${name} is required.`);
     return;
   }
 
@@ -117,16 +117,33 @@ function validateSupabaseUrl(value, errors) {
     const url = new URL(value);
 
     if (!['http:', 'https:'].includes(url.protocol)) {
-      errors.push('SUPABASE_URL must use http or https.');
+      errors.push(`${name} must use http or https.`);
     }
   } catch {
-    errors.push('SUPABASE_URL must be a valid URL.');
+    errors.push(`${name} must be a valid URL.`);
   }
 }
 
+function isTriggerManagedIndexProcess() {
+  return process.argv.some((arg) => /managed-index/i.test(arg));
+}
+
+function withTriggerIndexerDefaults(rawEnv) {
+  if (!isTriggerManagedIndexProcess()) {
+    return rawEnv;
+  }
+
+  return {
+    CONVEX_SERVER_SECRET: 'trigger-managed-index-placeholder',
+    CONVEX_URL: 'https://trigger-managed-index.placeholder',
+    ...rawEnv,
+  };
+}
+
 function loadEnv(rawEnv = process.env) {
+  rawEnv = withTriggerIndexerDefaults(rawEnv);
   const errors = [];
-  const forbiddenPublicSecretVars = findPublicSupabaseSecretEnv(rawEnv);
+  const forbiddenPublicConvexSecretVars = findPublicConvexSecretEnv(rawEnv);
   const forbiddenPublicTriggerSecretVars = findPublicTriggerSecretEnv(rawEnv);
   const forbiddenPublicProviderSecretVars = findPublicProviderSecretEnv(rawEnv);
   const port = readNumber(rawEnv, 'PORT', 8787, errors, {
@@ -160,22 +177,39 @@ function loadEnv(rawEnv = process.env) {
     'DARIJA_ASR_BASE_URL',
     readString(rawEnv, 'DARIJA_ASR_URL'),
   )?.replace(/\/+$/, '');
-  const supabaseUrl = readString(rawEnv, 'SUPABASE_URL');
-  const supabaseSecretKey = readString(rawEnv, 'SUPABASE_SECRET_KEY');
-  const supabaseServiceRoleKey = readString(rawEnv, 'SUPABASE_SERVICE_ROLE_KEY');
+  const convexUrl = readString(
+    rawEnv,
+    'CONVEX_URL',
+    readString(rawEnv, 'EXPO_PUBLIC_CONVEX_URL'),
+  );
+  const convexSiteUrl = readString(
+    rawEnv,
+    'CONVEX_SITE_URL',
+    readString(rawEnv, 'EXPO_PUBLIC_CONVEX_SITE_URL'),
+  );
+  const convexServerSecret = readString(rawEnv, 'CONVEX_SERVER_SECRET');
   const clerkWebhookSigningSecret = readString(
     rawEnv,
     'CLERK_WEBHOOK_SIGNING_SECRET',
   );
   const enableTts = readBoolean(rawEnv, 'ENABLE_TTS', false, errors);
+  const enableResponseTts = readBoolean(
+    rawEnv,
+    'ENABLE_RESPONSE_TTS',
+    enableTts,
+    errors,
+  );
   const ttsProvider = readString(rawEnv, 'TTS_PROVIDER', 'openai');
   const ttsLanguage = readString(rawEnv, 'TTS_LANGUAGE', 'en');
   const ttsResponseFormat = readString(rawEnv, 'TTS_RESPONSE_FORMAT', 'aac');
+  const responseTtsProvider = readString(rawEnv, 'RESPONSE_TTS_PROVIDER', 'openai');
+  const responseTtsLanguage = readString(rawEnv, 'RESPONSE_TTS_LANGUAGE', 'ar');
+  const responseTtsFormat = readString(rawEnv, 'RESPONSE_TTS_FORMAT', 'mp3');
   const openaiApiKey = readString(rawEnv, 'OPENAI_API_KEY');
 
-  if (forbiddenPublicSecretVars.length > 0) {
+  if (forbiddenPublicConvexSecretVars.length > 0) {
     errors.push(
-      `Supabase server secrets must not use EXPO_PUBLIC_* env names: ${forbiddenPublicSecretVars.join(
+      `Convex server secrets must not use EXPO_PUBLIC_* env names: ${forbiddenPublicConvexSecretVars.join(
         ', ',
       )}.`,
     );
@@ -205,20 +239,34 @@ function loadEnv(rawEnv = process.env) {
     errors.push('TTS_LANGUAGE must be en for English playback.');
   }
 
+  if (responseTtsProvider !== 'openai') {
+    errors.push('RESPONSE_TTS_PROVIDER must be openai for the MVP.');
+  }
+
+  if (responseTtsLanguage !== 'ar') {
+    errors.push('RESPONSE_TTS_LANGUAGE must be ar for the MVP.');
+  }
+
   if (!['aac', 'mp3'].includes(ttsResponseFormat)) {
     errors.push('TTS_RESPONSE_FORMAT must be aac or mp3.');
+  }
+
+  if (!['aac', 'mp3'].includes(responseTtsFormat)) {
+    errors.push('RESPONSE_TTS_FORMAT must be aac or mp3.');
   }
 
   if (enableTts && !openaiApiKey) {
     errors.push('OPENAI_API_KEY is required when ENABLE_TTS is true.');
   }
 
-  validateSupabaseUrl(supabaseUrl, errors);
+  if (enableResponseTts && !openaiApiKey) {
+    errors.push('OPENAI_API_KEY is required when ENABLE_RESPONSE_TTS is true.');
+  }
 
-  if (!supabaseSecretKey && !supabaseServiceRoleKey) {
-    errors.push(
-      'SUPABASE_SECRET_KEY is required. SUPABASE_SERVICE_ROLE_KEY is accepted only as a legacy fallback.',
-    );
+  validateHttpUrl(convexUrl, 'CONVEX_URL or EXPO_PUBLIC_CONVEX_URL', errors);
+
+  if (!convexServerSecret) {
+    errors.push('CONVEX_SERVER_SECRET is required for server-owned Convex writes.');
   }
 
   if (errors.length > 0) {
@@ -269,24 +317,26 @@ function loadEnv(rawEnv = process.env) {
       'gpt-4o-mini-tts',
     ),
     OPENAI_TTS_VOICE: readString(rawEnv, 'OPENAI_TTS_VOICE', 'cedar'),
-    SUPABASE_URL: supabaseUrl,
-    SUPABASE_SECRET_KEY: supabaseSecretKey || supabaseServiceRoleKey,
-    SUPABASE_AUDIO_ORIGINALS_BUCKET: readString(
+    ENABLE_RESPONSE_TTS: enableResponseTts,
+    RESPONSE_TTS_PROVIDER: responseTtsProvider,
+    RESPONSE_TTS_LANGUAGE: responseTtsLanguage,
+    RESPONSE_TTS_FORMAT: responseTtsFormat,
+    OPENAI_RESPONSE_TTS_MODEL: readString(
       rawEnv,
-      'SUPABASE_AUDIO_ORIGINALS_BUCKET',
-      'audio-originals',
+      'OPENAI_RESPONSE_TTS_MODEL',
+      readString(rawEnv, 'OPENAI_TTS_MODEL', 'gpt-4o-mini-tts'),
     ),
-    SUPABASE_TRANSLATION_ARTIFACTS_BUCKET: readString(
+    OPENAI_RESPONSE_TTS_VOICE: readString(
       rawEnv,
-      'SUPABASE_TRANSLATION_ARTIFACTS_BUCKET',
-      'translation-artifacts',
+      'OPENAI_RESPONSE_TTS_VOICE',
+      readString(rawEnv, 'OPENAI_TTS_VOICE', 'cedar'),
     ),
-    SUPABASE_SECRET_KEY_SOURCE: supabaseSecretKey
-      ? 'SUPABASE_SECRET_KEY'
-      : 'SUPABASE_SERVICE_ROLE_KEY',
-    SUPABASE_CONFIGURED: Boolean(
-      supabaseUrl && (supabaseSecretKey || supabaseServiceRoleKey),
-    ),
+    CONVEX_DEPLOYMENT: readString(rawEnv, 'CONVEX_DEPLOYMENT'),
+    CONVEX_URL: convexUrl,
+    CONVEX_SITE_URL: convexSiteUrl,
+    CONVEX_SERVER_SECRET: convexServerSecret,
+    CONVEX_CONFIGURED: Boolean(convexUrl && convexServerSecret),
+    CLERK_JWT_ISSUER_DOMAIN: readString(rawEnv, 'CLERK_JWT_ISSUER_DOMAIN'),
     TRIGGER_PROJECT_REF: readString(
       rawEnv,
       'TRIGGER_PROJECT_REF',

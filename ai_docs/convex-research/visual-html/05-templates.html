@@ -1,0 +1,302 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>TypeScript Starter Templates | Convex Research</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f5f2ea;
+      --grid: rgba(28, 58, 77, 0.08);
+      --surface: #fffdf8;
+      --surface-2: #ebe6da;
+      --ink: #1d2528;
+      --muted: #637071;
+      --soft: #7d8989;
+      --line: rgba(29, 37, 40, 0.16);
+      --line-strong: rgba(29, 37, 40, 0.28);
+      --blue: #1e3a5f;
+      --blue-soft: #dbe5ee;
+      --gold: #b7791f;
+      --gold-soft: #f1dfb7;
+      --teal: #0f766e;
+      --teal-soft: #d2ebe7;
+      --rose: #9f1239;
+      --rose-soft: #f2d2dc;
+      --sage: #4d7c0f;
+      --sage-soft: #dbe9c4;
+      --shadow: 0 22px 55px rgba(30, 58, 95, 0.13);
+      --display: "Iowan Old Style", "Palatino Linotype", Georgia, serif;
+      --body: "Avenir Next", "Segoe UI", Verdana, sans-serif;
+      --mono: "SFMono-Regular", "Cascadia Mono", Consolas, monospace;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        color-scheme: dark;
+        --bg: #111716;
+        --grid: rgba(241, 223, 183, 0.06);
+        --surface: #19211f;
+        --surface-2: #222d2a;
+        --ink: #f2eee6;
+        --muted: #aebbb8;
+        --soft: #8d9b97;
+        --line: rgba(255,255,255,0.12);
+        --line-strong: rgba(255,255,255,0.25);
+        --blue: #9db9d6;
+        --blue-soft: rgba(157,185,214,0.14);
+        --gold: #e6c36f;
+        --gold-soft: rgba(230,195,111,0.14);
+        --teal: #58c6bb;
+        --teal-soft: rgba(88,198,187,0.14);
+        --rose: #f08aa6;
+        --rose-soft: rgba(240,138,166,0.14);
+        --sage: #a3c56b;
+        --sage-soft: rgba(163,197,107,0.14);
+        --shadow: 0 22px 55px rgba(0,0,0,0.32);
+      }
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      color: var(--ink);
+      font-family: var(--body);
+      background:
+        linear-gradient(90deg, var(--grid) 1px, transparent 1px),
+        linear-gradient(0deg, var(--grid) 1px, transparent 1px),
+        radial-gradient(circle at 16% 0%, rgba(183,121,31,0.16), transparent 34rem),
+        radial-gradient(circle at 88% 16%, rgba(15,118,110,0.14), transparent 28rem),
+        var(--bg);
+      background-size: 36px 36px, 36px 36px, auto, auto, auto;
+    }
+    a { color: var(--teal); text-underline-offset: 3px; }
+    .shell { width: min(1180px, calc(100% - 40px)); margin: 0 auto; padding: 24px 0 58px; }
+    .package-nav {
+      position: sticky;
+      top: 12px;
+      z-index: 20;
+      display: flex;
+      gap: 7px;
+      overflow-x: auto;
+      padding: 9px;
+      margin-bottom: 34px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: color-mix(in srgb, var(--surface) 88%, transparent);
+      backdrop-filter: blur(14px);
+      box-shadow: 0 10px 30px rgba(30,58,95,0.08);
+    }
+    .package-nav a {
+      flex: 0 0 auto;
+      padding: 9px 13px;
+      border-radius: 999px;
+      color: var(--muted);
+      text-decoration: none;
+      font-family: var(--mono);
+      font-size: 11px;
+      font-weight: 700;
+      border: 1px solid transparent;
+    }
+    .package-nav a:hover { color: var(--ink); background: var(--surface-2); }
+    .package-nav a.active {
+      color: var(--surface);
+      background: var(--blue);
+      border-color: var(--blue);
+    }
+    .hero {
+      display: grid;
+      grid-template-columns: minmax(0, 1.1fr) minmax(280px, 0.9fr);
+      gap: 24px;
+      align-items: stretch;
+      margin-bottom: 26px;
+    }
+    .hero-main, .hero-side, .panel, .card {
+      border: 1px solid var(--line);
+      background: var(--surface);
+      border-radius: 10px;
+    }
+    .hero-main { padding: 34px; box-shadow: var(--shadow); }
+    .eyebrow {
+      font-family: var(--mono);
+      font-size: 11px;
+      letter-spacing: 1.8px;
+      text-transform: uppercase;
+      color: var(--gold);
+      font-weight: 800;
+      margin-bottom: 16px;
+    }
+    h1, h2, h3 { margin: 0; }
+    h1 {
+      font-family: var(--display);
+      font-size: clamp(42px, 6vw, 78px);
+      line-height: 0.95;
+      letter-spacing: 0;
+      max-width: 850px;
+    }
+    .deck { margin-top: 18px; color: var(--muted); font-size: 18px; line-height: 1.55; max-width: 760px; }
+    .hero-side { padding: 20px; display: grid; gap: 12px; align-content: start; }
+    .metric {
+      border: 1px solid var(--line);
+      background: var(--surface-2);
+      border-radius: 8px;
+      padding: 15px;
+    }
+    .metric strong { display: block; font-size: 28px; font-family: var(--display); }
+    .metric span { display: block; color: var(--muted); font-family: var(--mono); font-size: 11px; margin-top: 4px; }
+    .grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; margin: 18px 0 28px; }
+    .grid.two { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .grid.four { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+    .card { padding: 18px; min-height: 100%; }
+    .card h3 { font-size: 16px; margin-bottom: 10px; }
+    .card p, .card li { color: var(--muted); line-height: 1.5; }
+    .card ul { margin: 0; padding-left: 18px; }
+    .blue { border-color: color-mix(in srgb, var(--blue) 35%, var(--line)); background: linear-gradient(180deg, var(--blue-soft), var(--surface)); }
+    .gold { border-color: color-mix(in srgb, var(--gold) 35%, var(--line)); background: linear-gradient(180deg, var(--gold-soft), var(--surface)); }
+    .teal { border-color: color-mix(in srgb, var(--teal) 35%, var(--line)); background: linear-gradient(180deg, var(--teal-soft), var(--surface)); }
+    .rose { border-color: color-mix(in srgb, var(--rose) 35%, var(--line)); background: linear-gradient(180deg, var(--rose-soft), var(--surface)); }
+    .sage { border-color: color-mix(in srgb, var(--sage) 35%, var(--line)); background: linear-gradient(180deg, var(--sage-soft), var(--surface)); }
+    .panel { padding: 26px; margin: 18px 0 28px; }
+    .panel h2 { font-family: var(--display); font-size: 32px; margin-bottom: 14px; }
+    .panel > p { color: var(--muted); line-height: 1.6; }
+    .flow {
+      display: grid;
+      grid-template-columns: repeat(6, minmax(120px, 1fr));
+      gap: 10px;
+      align-items: stretch;
+      margin-top: 18px;
+    }
+    .step {
+      position: relative;
+      border: 1px solid var(--line);
+      background: var(--surface-2);
+      border-radius: 8px;
+      padding: 14px;
+      min-height: 112px;
+    }
+    .step b { display: block; font-size: 13px; margin-bottom: 7px; }
+    .step span { color: var(--muted); font-size: 13px; line-height: 1.4; }
+    .step:not(:last-child)::after {
+      content: "";
+      position: absolute;
+      right: -9px;
+      top: 50%;
+      width: 8px;
+      height: 1px;
+      background: var(--line-strong);
+    }
+    table { width: 100%; border-collapse: collapse; margin-top: 12px; font-size: 14px; }
+    th, td { text-align: left; padding: 12px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+    th { font-family: var(--mono); font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: var(--soft); }
+    td { color: var(--muted); }
+    td strong { color: var(--ink); }
+    pre {
+      margin: 14px 0 0;
+      padding: 16px;
+      overflow-x: auto;
+      background: #17201d;
+      color: #f5f2ea;
+      border-radius: 8px;
+      font-family: var(--mono);
+      font-size: 12px;
+      line-height: 1.6;
+    }
+    .callout {
+      border-left: 4px solid var(--gold);
+      background: var(--gold-soft);
+      padding: 16px 18px;
+      border-radius: 8px;
+      color: var(--ink);
+      margin-top: 14px;
+    }
+    .links { display: flex; flex-wrap: wrap; gap: 9px; margin-top: 16px; }
+    .links a {
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      padding: 8px 11px;
+      background: var(--surface-2);
+      text-decoration: none;
+      font-family: var(--mono);
+      font-size: 11px;
+    }
+    .footer-nav {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      margin-top: 32px;
+      padding-top: 20px;
+      border-top: 1px solid var(--line);
+      font-family: var(--mono);
+      font-size: 12px;
+    }
+    @keyframes fadeUp { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+    .hero, .panel, .card { animation: fadeUp .45s ease both; }
+    @media (max-width: 980px) {
+      .hero, .grid, .grid.two, .grid.four { grid-template-columns: 1fr; }
+      .flow { grid-template-columns: 1fr; }
+      .step:not(:last-child)::after { display: none; }
+      .hero-main { padding: 24px; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { animation-duration: .01ms !important; scroll-behavior: auto !important; transition-duration: .01ms !important; }
+    }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <nav class="package-nav" aria-label="Convex research pages">
+    <a href="index.html">Index</a>
+    <a href="01-project-fit.html">01 Fit</a>
+    <a href="02-implementation.html">02 Build</a>
+    <a href="03-codex-mcp-skills.html">03 Codex</a>
+    <a href="04-agent-plan.html">04 Agents</a>
+    <a class="active" aria-current="page" href="05-templates.html">05 Templates</a>
+    <a href="06-checklist.html">06 Checklist</a>
+  </nav>
+    <header class="hero">
+      <div class="hero-main">
+        <div class="eyebrow">05 templates</div>
+        <h1>TypeScript Starter Templates</h1>
+        <p class="deck">The leanest path is the official Convex bare TypeScript template. Other starters are useful only when their extra surface area is intentional.</p>
+      </div>
+      <aside class="hero-side"><div class="metric"><strong>bare</strong><span>recommended template</span></div><div class="metric"><strong>Vite</strong><span>optional UI path</span></div><div class="metric"><strong>Next</strong><span>heavier agent endpoint option</span></div></aside>
+    </header>
+    <main>
+      <section class="panel">
+      <h2>Best Fit</h2>
+      <pre><code>npm create convex@latest loan-processor -- -t bare
+cd loan-processor
+npx convex dev</code></pre>
+      <p>Use this when the deliverable is mostly backend, HTTP Actions, seed data, scoring, and tool-call proof.</p>
+    </section>
+<section class="panel">
+      <h2>Template Matrix</h2>
+      <table>
+        <tr><th>Starter</th><th>Command</th><th>Fit</th></tr>
+        <tr><td><strong>Bare Convex TS</strong></td><td><code>-t bare</code></td><td>Best required backend fit.</td></tr>
+        <tr><td><strong>React Vite shadcn</strong></td><td><code>-t react-vite-shadcn</code></td><td>Good optional evaluator UI.</td></tr>
+        <tr><td><strong>React Vite</strong></td><td><code>-t react-vite</code></td><td>Good minimal UI.</td></tr>
+        <tr><td><strong>Next.js</strong></td><td><code>-t nextjs</code></td><td>Acceptable but heavier.</td></tr>
+        <tr><td><strong>Next.js Clerk</strong></td><td><code>-t nextjs-clerk-shadcn</code></td><td>Poor MVP fit because auth is out of scope.</td></tr>
+        <tr><td><strong>@convex-dev/agent</strong></td><td><code>npm install @convex-dev/agent</code></td><td>Future Convex-native agent option, not replacement runtime.</td></tr>
+      </table>
+    </section>
+<section class="grid two">
+      <article class="card teal">
+    <h3>Optional UI Add-On</h3>
+    <div><pre><code>npm create vite@latest evaluator-ui -- --template react-ts</code></pre><p>Keep UI as a client of the server-side agent endpoint.</p></div>
+  </article>
+      <article class="card gold">
+    <h3>Agent Service</h3>
+    <div><p>A small Node/TypeScript service can host the OpenAI Agents SDK endpoint and call the public Convex qualification API. Cloud Run is optional for hosting this service.</p></div>
+  </article>
+    </section>
+    </main>
+    <footer class="footer-nav">
+    <span><a href="04-agent-plan.html">Previous: 04 Agents</a></span>
+    <span><a href="06-checklist.html">Next: 06 Checklist</a></span>
+  </footer>
+  </div>
+</body>
+</html>

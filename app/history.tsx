@@ -81,6 +81,16 @@ function modelLine(item: TranslationHistoryListItem) {
     .join(' / ');
 }
 
+function detailMode(detail: TranslationHistoryDetail) {
+  const metadata = detail.result?.modelMetadata;
+
+  if (!metadata || typeof metadata !== 'object' || Array.isArray(metadata)) {
+    return undefined;
+  }
+
+  return typeof metadata.mode === 'string' ? metadata.mode : undefined;
+}
+
 export default function HistoryScreen() {
   const { getToken, isLoaded, userId } = useAuth();
   const [items, setItems] = useState<TranslationHistoryListItem[]>([]);
@@ -363,19 +373,60 @@ export default function HistoryScreen() {
 
                       {!isDetailLoading && detail ? (
                         <View style={styles.detailContent}>
-                          <Text style={styles.detailLabel}>English</Text>
-                          <EnglishAudioPlayback
-                            getToken={() => getTokenRef.current()}
-                            tts={detail.tts}
-                          />
-                          <Text maxFontSizeMultiplier={1.15} selectable style={styles.detailPrimary}>
-                            {detail.result?.englishText || detail.errorMessage || 'Pending'}
-                          </Text>
+                          {detailMode(detail) === 'response_audio' ? (
+                            <>
+                              <Text style={styles.detailLabel}>Your English Transcript</Text>
+                              <Text
+                                maxFontSizeMultiplier={1.15}
+                                selectable
+                                style={styles.detailPrimary}
+                              >
+                                {detail.result?.englishText || detail.errorMessage || 'Pending'}
+                              </Text>
 
-                          <Text style={styles.detailLabel}>Darija</Text>
-                          <Text selectable style={styles.detailSecondary}>
-                            {detail.result?.consolidatedArabicText || 'Pending'}
-                          </Text>
+                              <Text style={styles.detailLabel}>Arabic/Darija Reply</Text>
+                              <EnglishAudioPlayback
+                                accessibilityPauseLabel="Pause Arabic reply audio"
+                                accessibilityPlayLabel="Play Arabic reply audio"
+                                allowShare
+                                disclosure="AI-generated Arabic/Darija voice"
+                                failedLabel="Arabic reply voice unavailable"
+                                getToken={() => getTokenRef.current()}
+                                loadingLabel="Preparing Arabic reply voice"
+                                playingLabel="Playing Arabic reply"
+                                playLabel="Listen to Arabic reply"
+                                shareFilename={`darija-reply-${detail.id}.${
+                                  detail.responseAudio?.format || 'mp3'
+                                }`}
+                                shareLabel="Share Arabic reply audio"
+                                shareMessage="AI-generated Arabic/Darija reply audio"
+                                tts={detail.responseAudio}
+                              />
+                              <Text selectable style={styles.detailSecondary}>
+                                {detail.result?.consolidatedArabicText || 'Pending'}
+                              </Text>
+                            </>
+                          ) : (
+                            <>
+                              <Text style={styles.detailLabel}>English</Text>
+                              <EnglishAudioPlayback
+                                getToken={() => getTokenRef.current()}
+                                tts={detail.tts}
+                              />
+                              <Text
+                                maxFontSizeMultiplier={1.15}
+                                selectable
+                                style={styles.detailPrimary}
+                              >
+                                {detail.result?.englishText || detail.errorMessage || 'Pending'}
+                              </Text>
+
+                              <Text style={styles.detailLabel}>Darija</Text>
+                              <Text selectable style={styles.detailSecondary}>
+                                {detail.result?.consolidatedArabicText || 'Pending'}
+                              </Text>
+                            </>
+                          )}
 
                           <View style={styles.detailGrid}>
                             <View style={styles.detailMetric}>

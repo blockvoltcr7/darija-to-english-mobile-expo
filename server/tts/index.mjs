@@ -31,6 +31,14 @@ function normalizeRequiredString(value, fieldName) {
   return normalized;
 }
 
+export function sanitizeEnglishTextForTts(englishText) {
+  return normalizeRequiredString(englishText, 'englishText')
+    .replace(/\s*\[(?:unclear|inaudible|unintelligible)\]\s*/gi, ' ')
+    .replace(/\s+/g, ' ')
+    .replace(/\s+([,.;:!?])/g, '$1')
+    .trim();
+}
+
 function stableSerialize(value) {
   if (value === null || typeof value !== 'object') {
     return JSON.stringify(value);
@@ -72,7 +80,7 @@ export function resolveTtsConfig(overrides = {}) {
     throw ttsRouterError(400, 'unsupported_tts_provider', 'Unsupported TTS provider.');
   }
 
-  if (language !== 'en') {
+  if (!['en', 'ar'].includes(language)) {
     throw ttsRouterError(400, 'unsupported_tts_language', 'Unsupported TTS language.');
   }
 
@@ -89,24 +97,30 @@ export function resolveTtsConfig(overrides = {}) {
 }
 
 export function createTtsInputHash({
+  text,
   englishText,
   provider,
   model,
   voice,
   format,
+  language,
+  kind,
 }) {
   const hashInput = {
-    englishText: normalizeRequiredString(englishText, 'englishText'),
+    text: normalizeRequiredString(text ?? englishText, 'text'),
     provider: normalizeRequiredString(provider, 'provider'),
     model: normalizeRequiredString(model, 'model'),
     voice: normalizeRequiredString(voice, 'voice'),
     format: normalizeRequiredString(format, 'format'),
+    language: normalizeRequiredString(language || env.TTS_LANGUAGE, 'language'),
+    kind: kind ? normalizeRequiredString(kind, 'kind') : undefined,
   };
 
   return createHash('sha256').update(stableSerialize(hashInput)).digest('hex');
 }
 
 export async function generateTtsAudio({ englishText, configOverrides } = {}) {
+  const text = configOverrides?.text ?? englishText;
   const config = resolveTtsConfig(configOverrides);
 
   if (!config.enabled) {
@@ -122,7 +136,7 @@ export async function generateTtsAudio({ englishText, configOverrides } = {}) {
   }
 
   const result = await generateOpenAiTtsAudio({
-    englishText,
+    text,
     model: config.model,
     voice: config.voice,
     format: config.format,
