@@ -50,10 +50,9 @@ export default function SignupScreen() {
   const { fetchStatus, signUp } = useSignUp();
   const [name, setName] = useState('');
   const [email, setEmail] = useState(emailParam ?? '');
-  const [password, setPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
-  const [accepted, setAccepted] = useState(false);
-  const [showPassword, setShowPassword] = useState(false);
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
+  const [acceptedAi, setAcceptedAi] = useState(false);
+  const [acceptedAccuracy, setAcceptedAccuracy] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -85,18 +84,8 @@ export default function SignupScreen() {
       return;
     }
 
-    if (password.length < 8) {
-      setError('Use a password with at least 8 characters.');
-      return;
-    }
-
-    if (password !== confirmPassword) {
-      setError('Passwords do not match.');
-      return;
-    }
-
-    if (!accepted) {
-      setError('Confirm that you understand uploaded audio is processed for translation.');
+    if (!acceptedTerms || !acceptedAi || !acceptedAccuracy) {
+      setError('Accept the terms, AI processing, and accuracy acknowledgements.');
       return;
     }
 
@@ -108,7 +97,6 @@ export default function SignupScreen() {
     try {
       const createResult = await signUp.create({
         emailAddress: normalizedEmail,
-        password,
         firstName,
         lastName,
         legalAccepted: true,
@@ -120,7 +108,7 @@ export default function SignupScreen() {
 
       router.push({
         pathname: '/verify',
-        params: { mode: 'signUp', email: normalizedEmail },
+        params: { mode: 'signUp', email: normalizedEmail, consent: 'signup' },
       });
     } catch (caughtError) {
       const code = clerkErrorCode(caughtError);
@@ -156,7 +144,7 @@ export default function SignupScreen() {
           <View style={styles.hero}>
             <Text style={styles.title}>Create account</Text>
             <Text style={styles.subtitle}>
-              Set up access for saved translations and fresh-user QA.
+              Sign in with an email code and choose when to save translation outputs.
             </Text>
           </View>
 
@@ -192,68 +180,21 @@ export default function SignupScreen() {
               value={email}
             />
 
-            <Text style={[styles.label, styles.fieldSpacing]}>Password</Text>
-            <View style={styles.passwordWrap}>
-              <TextInput
-                autoCapitalize="none"
-                autoComplete="new-password"
-                autoCorrect={false}
-                editable={isReady && !isSubmitting}
-                onChangeText={setPassword}
-                placeholder="At least 8 characters"
-                placeholderTextColor={palette.textSubtle}
-                returnKeyType="next"
-                secureTextEntry={!showPassword}
-                style={styles.passwordInput}
-                textContentType="newPassword"
-                value={password}
-              />
-              <Pressable
-                accessibilityLabel={showPassword ? 'Hide password' : 'Show password'}
-                accessibilityRole="button"
-                onPress={() => setShowPassword((current) => !current)}
-                style={styles.iconButton}
-              >
-                <Ionicons
-                  name={showPassword ? 'eye-off-outline' : 'eye-outline'}
-                  size={20}
-                  color={palette.textMuted}
-                />
-              </Pressable>
-            </View>
-
-            <Text style={[styles.label, styles.fieldSpacing]}>Confirm password</Text>
-            <TextInput
-              autoCapitalize="none"
-              autoComplete="new-password"
-              autoCorrect={false}
-              editable={isReady && !isSubmitting}
-              onChangeText={setConfirmPassword}
-              onSubmitEditing={submitSignup}
-              placeholder="Repeat password"
-              placeholderTextColor={palette.textSubtle}
-              returnKeyType="done"
-              secureTextEntry={!showPassword}
-              style={styles.input}
-              textContentType="newPassword"
-              value={confirmPassword}
+            <ConsentCheck
+              checked={acceptedTerms}
+              label="I agree to the Terms of Use, Privacy Policy, Data Deletion Policy, and AI Processing Disclosure."
+              onPress={() => setAcceptedTerms((current) => !current)}
             />
-
-            <Pressable
-              accessibilityRole="checkbox"
-              accessibilityState={{ checked: accepted }}
-              onPress={() => setAccepted((current) => !current)}
-              style={styles.checkboxRow}
-            >
-              <View style={[styles.checkbox, accepted ? styles.checkboxChecked : null]}>
-                {accepted ? (
-                  <Ionicons name="checkmark" size={16} color={palette.stoneText} />
-                ) : null}
-              </View>
-              <Text style={styles.checkboxText}>
-                I understand uploaded audio is processed to produce transcripts and translations.
-              </Text>
-            </Pressable>
+            <ConsentCheck
+              checked={acceptedAi}
+              label="I consent to my audio and text being processed by Darija to English and its listed service providers for transcription, translation, and speech generation."
+              onPress={() => setAcceptedAi((current) => !current)}
+            />
+            <ConsentCheck
+              checked={acceptedAccuracy}
+              label="I understand AI-generated text and audio may be inaccurate and should not be used for high-stakes decisions."
+              onPress={() => setAcceptedAccuracy((current) => !current)}
+            />
 
             {error ? (
               <View style={styles.errorBox}>
@@ -295,6 +236,32 @@ export default function SignupScreen() {
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
+  );
+}
+
+function ConsentCheck({
+  checked,
+  label,
+  onPress,
+}: {
+  checked: boolean;
+  label: string;
+  onPress: () => void;
+}) {
+  return (
+    <Pressable
+      accessibilityRole="checkbox"
+      accessibilityState={{ checked }}
+      onPress={onPress}
+      style={styles.checkboxRow}
+    >
+      <View style={[styles.checkbox, checked ? styles.checkboxChecked : null]}>
+        {checked ? (
+          <Ionicons name="checkmark" size={16} color={palette.stoneText} />
+        ) : null}
+      </View>
+      <Text style={styles.checkboxText}>{label}</Text>
+    </Pressable>
   );
 }
 

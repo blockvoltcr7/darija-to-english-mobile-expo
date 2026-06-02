@@ -172,6 +172,13 @@ function loadEnv(rawEnv = process.env) {
     errors,
     { integer: true, min: 1 },
   );
+  const ephemeralRetentionHours = readNumber(
+    rawEnv,
+    'EPHEMERAL_RESULT_RETENTION_HOURS',
+    24,
+    errors,
+    { integer: true, min: 1 },
+  );
   const asrBaseUrl = readString(
     rawEnv,
     'DARIJA_ASR_BASE_URL',
@@ -206,6 +213,7 @@ function loadEnv(rawEnv = process.env) {
   const responseTtsLanguage = readString(rawEnv, 'RESPONSE_TTS_LANGUAGE', 'ar');
   const responseTtsFormat = readString(rawEnv, 'RESPONSE_TTS_FORMAT', 'mp3');
   const openaiApiKey = readString(rawEnv, 'OPENAI_API_KEY');
+  const retentionCleanupSecret = readString(rawEnv, 'RETENTION_CLEANUP_SECRET');
 
   if (forbiddenPublicConvexSecretVars.length > 0) {
     errors.push(
@@ -291,6 +299,30 @@ function loadEnv(rawEnv = process.env) {
     DARIJA_ASR_TIMEOUT_MS: darijaAsrTimeoutMs,
     AUDIO_UPLOAD_MAX_BYTES: audioUploadMaxBytes,
     AUDIO_RETENTION_DAYS: audioRetentionDays,
+    EPHEMERAL_RESULT_RETENTION_HOURS: ephemeralRetentionHours,
+    TERMS_VERSION: readString(rawEnv, 'TERMS_VERSION', '2026-06-02'),
+    PRIVACY_POLICY_VERSION: readString(
+      rawEnv,
+      'PRIVACY_POLICY_VERSION',
+      '2026-06-02',
+    ),
+    AI_PROCESSING_CONSENT_VERSION: readString(
+      rawEnv,
+      'AI_PROCESSING_CONSENT_VERSION',
+      '2026-06-02',
+    ),
+    PROVIDERS_DISCLOSURE_VERSION: readString(
+      rawEnv,
+      'PROVIDERS_DISCLOSURE_VERSION',
+      '2026-06-02',
+    ),
+    RETENTION_POLICY_VERSION: readString(
+      rawEnv,
+      'RETENTION_POLICY_VERSION',
+      '2026-06-02',
+    ),
+    RETENTION_CLEANUP_CONFIGURED: Boolean(retentionCleanupSecret),
+    RETENTION_CLEANUP_SECRET: retentionCleanupSecret,
     OPENAI_API_KEY: openaiApiKey,
     OPENAI_TRANSCRIPTION_MODEL: readString(
       rawEnv,

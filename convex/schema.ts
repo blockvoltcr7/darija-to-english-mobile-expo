@@ -54,6 +54,39 @@ export default defineSchema({
     deletedAt: v.optional(timestamp),
   }).index("by_clerk_user_id", ["clerkUserId"]),
 
+  userConsents: defineTable({
+    clerkUserId: v.string(),
+    clerkUserIdHash: v.optional(v.string()),
+    profileId: v.optional(v.string()),
+    primaryEmail: v.optional(v.string()),
+    displayName: v.optional(v.string()),
+    termsVersion: v.string(),
+    privacyPolicyVersion: v.string(),
+    aiProcessingConsentVersion: v.string(),
+    providersVersion: v.string(),
+    retentionPolicyVersion: v.string(),
+    acceptedAt: timestamp,
+    revokedAt: v.optional(timestamp),
+    accountDeletedAt: v.optional(timestamp),
+    deletionRequestId: v.optional(v.string()),
+    source: v.string(),
+    platform: v.optional(v.string()),
+    appVersion: v.optional(v.string()),
+    ipHash: v.optional(v.string()),
+    userAgentHash: v.optional(v.string()),
+    createdAt: timestamp,
+    updatedAt: timestamp,
+  })
+    .index("by_clerk_user_id_accepted_at", ["clerkUserId", "acceptedAt"])
+    .index("by_clerk_user_id_revoked_at", ["clerkUserId", "revokedAt"]),
+
+  privacyPreferences: defineTable({
+    clerkUserId: v.string(),
+    saveHistoryByDefault: v.boolean(),
+    createdAt: timestamp,
+    updatedAt: timestamp,
+  }).index("by_clerk_user_id", ["clerkUserId"]),
+
   clerkWebhookEvents: defineTable({
     eventId: v.string(),
     eventType: v.string(),
@@ -77,6 +110,10 @@ export default defineSchema({
     audioMimeType: v.optional(v.string()),
     audioRetentionExpiresAt: v.optional(timestamp),
     audioDeletedAt: v.optional(timestamp),
+    saveToHistory: v.optional(v.boolean()),
+    savedToHistoryAt: v.optional(timestamp),
+    ephemeralExpiresAt: v.optional(timestamp),
+    contentDeletedAt: v.optional(timestamp),
     triggerRunId: v.optional(v.string()),
     traceId: v.optional(v.string()),
     errorCode: v.optional(v.string()),
@@ -89,6 +126,15 @@ export default defineSchema({
   })
     .index("by_job_id", ["jobId"])
     .index("by_clerk_user_id_created_at", ["clerkUserId", "createdAt"])
+    .index("by_clerk_user_id_save_to_history_created_at", [
+      "clerkUserId",
+      "saveToHistory",
+      "createdAt",
+    ])
+    .index("by_save_to_history_ephemeral_expires_at", [
+      "saveToHistory",
+      "ephemeralExpiresAt",
+    ])
     .index("by_status_created_at", ["status", "createdAt"])
     .index("by_trace_id", ["traceId"]),
 
@@ -101,6 +147,7 @@ export default defineSchema({
     consolidatedArabicText: v.string(),
     englishText: v.string(),
     modelMetadata: v.any(),
+    contentDeletedAt: v.optional(timestamp),
     createdAt: timestamp,
     updatedAt: timestamp,
   })

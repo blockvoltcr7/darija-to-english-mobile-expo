@@ -36,7 +36,7 @@
       [
         "expo-audio",
         {
-          "microphonePermission": "Allow Darija to English to record audio.",
+          "microphonePermission": "Allow Darija to English to record audio for AI-powered translation and reply generation.",
           "recordAudioAndroid": true,
           "enableBackgroundRecording": false
         }

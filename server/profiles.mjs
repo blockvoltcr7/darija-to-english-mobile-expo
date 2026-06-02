@@ -134,6 +134,33 @@ function normalizeClerkUser(clerkUser) {
   };
 }
 
+function sanitizeClerkWebhookEvent(event) {
+  return {
+    type: event?.type ?? null,
+    object: event?.object ?? null,
+    data: {
+      id:
+        event?.type === 'user.deleted'
+          ? null
+          : typeof event?.data?.id === 'string'
+            ? event.data.id
+            : null,
+      object: event?.data?.object ?? null,
+      created_at: event?.data?.created_at ?? null,
+      updated_at: event?.data?.updated_at ?? null,
+      deleted: event?.type === 'user.deleted',
+    },
+  };
+}
+
+function retainedWebhookClerkUserId(event) {
+  if (event?.type === 'user.deleted') {
+    return null;
+  }
+
+  return typeof event?.data?.id === 'string' ? event.data.id : null;
+}
+
 async function upsertProfile(payload, operation) {
   try {
     return await callConvexFunction('profiles:getOrCreateProfile', {
@@ -196,8 +223,8 @@ export async function recordClerkWebhookEvent({ eventId, event }) {
     return await callConvexFunction('profiles:recordWebhookEvent', {
       eventId: normalizeRequiredString(eventId, 'eventId'),
       eventType: normalizeRequiredString(event.type, 'event.type'),
-      clerkUserId: typeof event?.data?.id === 'string' ? event.data.id : null,
-      payload: event,
+      clerkUserId: retainedWebhookClerkUserId(event),
+      payload: sanitizeClerkWebhookEvent(event),
     });
   } catch (error) {
     throw createProfileRepositoryError('record_clerk_webhook_event', error);

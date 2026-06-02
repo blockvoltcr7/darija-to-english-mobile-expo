@@ -1,4 +1,4 @@
-import { mutation, query } from "./_generated/server";
+import { internalMutation, mutation, query } from "./_generated/server";
 import { v } from "convex/values";
 import { requireServerSecret } from "./model/auth";
 import {
@@ -40,8 +40,44 @@ function now() {
   return new Date().toISOString();
 }
 
+function defaultEphemeralExpiresAt(createdAt: string) {
+  return new Date(Date.parse(createdAt) + 24 * 60 * 60 * 1000).toISOString();
+}
+
 function optionalValue<T>(value: T | null | undefined) {
   return value === null || value === undefined ? undefined : value;
+}
+
+function optionalConsentVersions(args: any) {
+  const versions = [
+    args.termsVersion,
+    args.privacyPolicyVersion,
+    args.aiProcessingConsentVersion,
+    args.providersVersion,
+    args.retentionPolicyVersion,
+  ];
+
+  return versions.every((value) => typeof value === "string" && value.trim())
+    ? {
+        termsVersion: args.termsVersion,
+        privacyPolicyVersion: args.privacyPolicyVersion,
+        aiProcessingConsentVersion: args.aiProcessingConsentVersion,
+        providersVersion: args.providersVersion,
+        retentionPolicyVersion: args.retentionPolicyVersion,
+      }
+    : null;
+}
+
+function consentMatchesVersions(consent: any, versions: any) {
+  return Boolean(
+    consent &&
+      consent.termsVersion === versions.termsVersion &&
+      consent.privacyPolicyVersion === versions.privacyPolicyVersion &&
+      consent.aiProcessingConsentVersion ===
+        versions.aiProcessingConsentVersion &&
+      consent.providersVersion === versions.providersVersion &&
+      consent.retentionPolicyVersion === versions.retentionPolicyVersion,
+  );
 }
 
 function withUpdatedAt(payload: Record<string, unknown>) {
@@ -63,6 +99,30 @@ async function findResult(ctx: any, jobId: string) {
     .query("translationResults")
     .withIndex("by_job_id", (q: any) => q.eq("jobId", jobId))
     .unique();
+}
+
+async function findLatestConsent(ctx: any, clerkUserId: string) {
+  const rows = await ctx.db
+    .query("userConsents")
+    .withIndex("by_clerk_user_id_accepted_at", (q: any) =>
+      q.eq("clerkUserId", clerkUserId),
+    )
+    .order("desc")
+    .take(1);
+
+  return rows[0] ?? null;
+}
+
+async function assertProcessingConsent(ctx: any, args: any) {
+  const consent = await findLatestConsent(ctx, args.clerkUserId);
+  const versions = optionalConsentVersions(args);
+  const consentIsActive = Boolean(consent && !consent.revokedAt);
+  const consentIsCurrent =
+    consentIsActive && (!versions || consentMatchesVersions(consent, versions));
+
+  if (!consentIsCurrent) {
+    throw new Error("consent_required");
+  }
 }
 
 async function updateJob(
@@ -99,6 +159,104 @@ async function jobWithRelations(ctx: any, job: any) {
   };
 }
 
+async function deleteRowsByJobId(ctx: any, tableName: string, jobId: string) {
+  const rows = await ctx.db
+    .query(tableName)
+    .withIndex("by_job_id_created_at", (q: any) => q.eq("jobId", jobId))
+    .collect();
+
+  for (const row of rows) {
+    await ctx.db.delete(row._id);
+  }
+
+  return rows.length;
+}
+
+async function cleanupExpiredEphemeralContentBatch(
+  ctx: any,
+  before: string,
+  limit: number,
+) {
+  const batchLimit = Math.min(Math.max(Math.floor(limit), 1), 50);
+  const timestamp = now();
+  const rows = await ctx.db
+    .query("translationJobs")
+    .withIndex("by_save_to_history_ephemeral_expires_at", (q: any) =>
+      q.eq("saveToHistory", false).lt("ephemeralExpiresAt", before),
+    )
+    .take(batchLimit);
+  const summary = {
+    jobs: 0,
+    results: 0,
+    providerRuns: 0,
+    artifacts: 0,
+    storageObjects: 0,
+    storageDeleteFailures: 0,
+  };
+
+  for (const job of rows) {
+    if (job.deletedAt || job.contentDeletedAt || job.saveToHistory) {
+      await ctx.db.patch(job._id, {
+        ephemeralExpiresAt: undefined,
+        updatedAt: timestamp,
+      });
+      continue;
+    }
+
+    const artifactRows = await ctx.db
+      .query("translationArtifacts")
+      .withIndex("by_job_id_created_at", (q: any) => q.eq("jobId", job.jobId))
+      .collect();
+
+    for (const artifact of artifactRows) {
+      if (artifact.storageId) {
+        try {
+          await ctx.storage.delete(artifact.storageId);
+          summary.storageObjects += 1;
+        } catch {
+          summary.storageDeleteFailures += 1;
+        }
+      }
+
+      await ctx.db.delete(artifact._id);
+      summary.artifacts += 1;
+    }
+
+    const result = await findResult(ctx, job.jobId);
+
+    if (result) {
+      await ctx.db.delete(result._id);
+      summary.results += 1;
+    }
+
+    summary.providerRuns += await deleteRowsByJobId(
+      ctx,
+      "providerRuns",
+      job.jobId,
+    );
+
+    await ctx.db.patch(job._id, {
+      audioStorageId: undefined,
+      sourceFilename: undefined,
+      sourceAudioBytes: undefined,
+      audioSizeBytes: undefined,
+      audioMimeType: undefined,
+      audioRetentionExpiresAt: undefined,
+      ephemeralExpiresAt: undefined,
+      contentDeletedAt: timestamp,
+      updatedAt: timestamp,
+    });
+    summary.jobs += 1;
+  }
+
+  return {
+    ...summary,
+    before,
+    limit: batchLimit,
+    completedAt: timestamp,
+  };
+}
+
 export const createTranslationJob = mutation({
   args: {
     serverSecret: v.string(),
@@ -108,10 +266,20 @@ export const createTranslationJob = mutation({
     filename: optionalString,
     audioBytes: optionalNumber,
     traceId: optionalString,
+    saveToHistory: v.optional(v.boolean()),
+    ephemeralExpiresAt: optionalString,
+    termsVersion: optionalString,
+    privacyPolicyVersion: optionalString,
+    aiProcessingConsentVersion: optionalString,
+    providersVersion: optionalString,
+    retentionPolicyVersion: optionalString,
   },
   handler: async (ctx, args) => {
     requireServerSecret(args);
+    await assertProcessingConsent(ctx, args);
+
     const timestamp = now();
+    const saveToHistory = args.saveToHistory === true;
     const id = await ctx.db.insert("translationJobs", {
       jobId: args.jobId,
       clerkUserId: args.clerkUserId,
@@ -120,6 +288,12 @@ export const createTranslationJob = mutation({
       sourceFilename: optionalValue(args.filename),
       sourceAudioBytes: optionalValue(args.audioBytes),
       traceId: optionalValue(args.traceId),
+      saveToHistory,
+      savedToHistoryAt: saveToHistory ? timestamp : undefined,
+      ephemeralExpiresAt: saveToHistory
+        ? undefined
+        : optionalValue(args.ephemeralExpiresAt) ??
+          defaultEphemeralExpiresAt(timestamp),
       createdAt: timestamp,
       updatedAt: timestamp,
     });
@@ -161,8 +335,56 @@ export const markAudioDeleted = mutation({
     requireServerSecret(args);
 
     return await updateJob(ctx, args.jobId, args.clerkUserId, {
+      audioStorageId: undefined,
       audioDeletedAt: optionalValue(args.deletedAt) ?? now(),
     });
+  },
+});
+
+export const markSavedToHistory = mutation({
+  args: {
+    serverSecret: v.string(),
+    jobId: v.string(),
+    clerkUserId: v.string(),
+  },
+  handler: async (ctx, args) => {
+    requireServerSecret(args);
+
+    return await updateJob(ctx, args.jobId, args.clerkUserId, {
+      saveToHistory: true,
+      savedToHistoryAt: now(),
+      ephemeralExpiresAt: undefined,
+    });
+  },
+});
+
+export const cleanupExpiredEphemeralContent = mutation({
+  args: {
+    serverSecret: v.string(),
+    before: optionalString,
+    limit: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    requireServerSecret(args);
+
+    return await cleanupExpiredEphemeralContentBatch(
+      ctx,
+      optionalValue(args.before) ?? now(),
+      args.limit ?? 50,
+    );
+  },
+});
+
+export const cleanupExpiredEphemeralContentInternal = internalMutation({
+  args: {
+    limit: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    return await cleanupExpiredEphemeralContentBatch(
+      ctx,
+      now(),
+      args.limit ?? 50,
+    );
   },
 });
 
@@ -353,6 +575,7 @@ export const writeResult = mutation({
       consolidatedArabicText: args.consolidatedArabicText,
       englishText: args.englishText,
       modelMetadata: args.modelMetadata ?? {},
+      contentDeletedAt: undefined,
       updatedAt: timestamp,
     };
 
@@ -385,10 +608,13 @@ export const listForUser = query({
     const limit = Math.min(Math.max(Math.floor(args.limit), 1), 50);
     const rows = await ctx.db
       .query("translationJobs")
-      .withIndex("by_clerk_user_id_created_at", (q: any) =>
+      .withIndex("by_clerk_user_id_save_to_history_created_at", (q: any) =>
         optionalValue(args.cursor)
-          ? q.eq("clerkUserId", args.clerkUserId).lt("createdAt", args.cursor)
-          : q.eq("clerkUserId", args.clerkUserId),
+          ? q
+              .eq("clerkUserId", args.clerkUserId)
+              .eq("saveToHistory", true)
+              .lt("createdAt", args.cursor)
+          : q.eq("clerkUserId", args.clerkUserId).eq("saveToHistory", true),
       )
       .order("desc")
       .take(limit + 1);

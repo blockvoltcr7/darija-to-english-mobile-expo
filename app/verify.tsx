@@ -59,6 +59,7 @@ export default function VerifyScreen() {
   const { email: emailParam, mode: modeParam } = useLocalSearchParams<{
     email?: string;
     mode?: AuthMode;
+    consent?: string;
   }>();
   const { isLoaded: authLoaded, isSignedIn } = useAuth({
     treatPendingAsSignedOut: false,
@@ -77,6 +78,7 @@ export default function VerifyScreen() {
   const [error, setError] = useState<string | null>(null);
 
   const mode: AuthMode = modeParam === 'signUp' ? 'signUp' : 'signIn';
+  const consentSource = mode === 'signUp' ? 'signup' : undefined;
   const email = useMemo(() => (emailParam ?? '').trim().toLowerCase(), [emailParam]);
   const trimmedCode = useMemo(() => code.trim(), [code]);
   const signInReady = signInFetchStatus !== 'fetching' && Boolean(signIn);
@@ -99,6 +101,10 @@ export default function VerifyScreen() {
   }
 
   if (isSignedIn) {
+    if (consentSource) {
+      return <Redirect href={{ pathname: '/consent', params: { source: consentSource } }} />;
+    }
+
     return <Redirect href="/translate" />;
   }
 
@@ -110,7 +116,7 @@ export default function VerifyScreen() {
     }
 
     throwIfClerkError(result);
-    router.replace('/translate');
+    router.replace({ pathname: '/consent', params: { source: 'signup' } });
   }
 
   async function finalizeSignUp() {

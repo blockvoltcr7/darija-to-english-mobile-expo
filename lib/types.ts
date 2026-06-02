@@ -27,6 +27,7 @@ export interface TranslationResult {
   mode?: string;
   jobId?: string;
   translationJobId?: string;
+  saveToHistory?: boolean;
   transcript: string;
   openaiArabicText?: string;
   darijaArabicText?: string;
@@ -66,6 +67,8 @@ export interface TranslationResult {
 
 export interface TranslationHistoryListItem {
   id: string;
+  mode?: string | null;
+  saveToHistory?: boolean | null;
   status: 'queued' | 'running' | 'succeeded' | 'failed' | 'canceled' | string;
   triggerRunId?: string | null;
   filename?: string | null;
@@ -95,12 +98,14 @@ export interface AsyncTranslationSubmitResponse {
   triggerRunId?: string | null;
   createdAt?: string | null;
   detailUrl: string;
+  saveToHistory?: boolean;
 }
 
 export interface QueuedTranslationJob {
   jobId: string;
   translationJobId: string;
   status?: string;
+  saveToHistory?: boolean;
   triggerRunId?: string | null;
   traceId?: string;
   createdAt?: string | null;
@@ -124,6 +129,7 @@ export interface TranslationProviderRunSummary {
 export interface TranslationHistoryDetail {
   id: string;
   status: string;
+  saveToHistory?: boolean | null;
   triggerRunId?: string | null;
   filename?: string | null;
   sourceAudioBytes?: number | null;
@@ -146,6 +152,68 @@ export interface TranslationHistoryDetail {
   tts?: TranslationTtsArtifact | null;
   responseAudio?: TranslationTtsArtifact | null;
   providerRuns: TranslationProviderRunSummary[];
+}
+
+export interface RequiredConsentVersions {
+  terms_version: string;
+  privacy_policy_version: string;
+  ai_processing_consent_version: string;
+  providers_version: string;
+  retention_policy_version: string;
+}
+
+export interface UserConsentRecord {
+  id: string;
+  clerk_user_id: string;
+  clerk_user_id_hash?: string | null;
+  profile_id?: string | null;
+  primary_email?: string | null;
+  display_name?: string | null;
+  terms_version: string;
+  privacy_policy_version: string;
+  ai_processing_consent_version: string;
+  providers_version: string;
+  retention_policy_version: string;
+  accepted_at: string;
+  revoked_at?: string | null;
+  account_deleted_at?: string | null;
+  deletion_request_id?: string | null;
+  source: string;
+  platform?: string | null;
+  app_version?: string | null;
+}
+
+export interface PrivacyPreferences {
+  clerk_user_id: string;
+  save_history_by_default: boolean;
+  created_at?: string | null;
+  updated_at?: string | null;
+}
+
+export interface PrivacyState {
+  consent_required: boolean;
+  current_consent?: UserConsentRecord | null;
+  preferences: PrivacyPreferences;
+  required_versions: RequiredConsentVersions;
+}
+
+export interface AccountDeletionSummary {
+  profilesDeleted?: number;
+  consentsAnonymized?: number;
+  preferencesDeleted?: number;
+  webhookEventsSanitized?: number;
+  jobsDeleted?: number;
+  resultsDeleted?: number;
+  providerRunsDeleted?: number;
+  artifactsDeleted?: number;
+  storageObjectsDeleted?: number;
+  storageDeleteFailures?: number;
+}
+
+export interface AccountDeletionResponse {
+  status: 'completed' | 'scheduled' | string;
+  deletion_request_id?: string;
+  app_data?: AccountDeletionSummary;
 }
 
 export type WorkStatus =

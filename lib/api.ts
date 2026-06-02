@@ -1,7 +1,9 @@
 import { CONFIG } from '@/lib/config';
 import type {
+  AccountDeletionResponse,
   AsyncTranslationSubmitResponse,
   QueuedTranslationJob,
+  PrivacyState,
   TranslationHistoryDetail,
   TranslationHistoryListResponse,
   TranslationResult,
@@ -18,6 +20,7 @@ interface TranslateAudioParams {
   onJobStatus?: (status: string) => void;
   onQueuedJob?: (job: QueuedTranslationJob) => void;
   signal?: AbortSignal;
+  saveToHistory?: boolean;
 }
 
 interface ApiErrorBody {
@@ -25,6 +28,19 @@ interface ApiErrorBody {
   detail?: string;
   reason?: string;
   traceId?: string;
+}
+
+interface AcceptConsentParams {
+  accessToken: string;
+  source?: string;
+  platform?: string;
+  appVersion?: string;
+  signal?: AbortSignal;
+}
+
+interface AuthenticatedRequestParams {
+  accessToken: string;
+  signal?: AbortSignal;
 }
 
 interface HistoryListParams {
@@ -100,6 +116,7 @@ export async function translateAudioFile({
   onJobStatus,
   onQueuedJob,
   signal,
+  saveToHistory = false,
 }: TranslateAudioParams): Promise<TranslationResult> {
   const endpoint = `${CONFIG.API_BASE_URL}/v1/translations`;
   const startedAt = Date.now();
@@ -121,6 +138,7 @@ export async function translateAudioFile({
       body: JSON.stringify({
         filename,
         audio_base64: audioBase64,
+        save_to_history: saveToHistory,
       }),
       signal,
     });
@@ -147,6 +165,7 @@ export async function translateAudioFile({
     traceId,
     createdAt: queued.createdAt || null,
     detailUrl: queued.detailUrl,
+    saveToHistory: queued.saveToHistory ?? false,
   };
 
   onTrace?.(`Queued job ${queued.jobId} triggerRun=${queued.triggerRunId || 'n/a'}`);
@@ -176,6 +195,7 @@ export async function createResponseAudioFile({
   onJobStatus,
   onQueuedJob,
   signal,
+  saveToHistory = false,
 }: TranslateAudioParams): Promise<TranslationResult> {
   const endpoint = `${CONFIG.API_BASE_URL}/v1/response-audio`;
   const startedAt = Date.now();
@@ -197,6 +217,7 @@ export async function createResponseAudioFile({
       body: JSON.stringify({
         filename,
         audio_base64: audioBase64,
+        save_to_history: saveToHistory,
       }),
       signal,
     });
@@ -223,6 +244,7 @@ export async function createResponseAudioFile({
     traceId,
     createdAt: queued.createdAt || null,
     detailUrl: queued.detailUrl,
+    saveToHistory: queued.saveToHistory ?? false,
   };
 
   onTrace?.(`Queued response audio job ${queued.jobId} triggerRun=${queued.triggerRunId || 'n/a'}`);
@@ -354,6 +376,7 @@ function toTranslationResult(detail: TranslationHistoryDetail): TranslationResul
   return {
     jobId: detail.id,
     mode,
+    saveToHistory: detail.saveToHistory ?? false,
     translationJobId: detail.id,
     transcript: result.consolidatedArabicText,
     openaiArabicText: result.openaiArabicText || undefined,
@@ -385,6 +408,125 @@ function toTranslationResult(detail: TranslationHistoryDetail): TranslationResul
       filename: detail.filename || undefined,
       audio_bytes: detail.sourceAudioBytes || undefined,
     },
+    tts: normalizeTtsArtifact(detail.tts),
+    responseAudio: normalizeTtsArtifact(detail.responseAudio),
+  };
+}
+
+export async function getPrivacyState({
+  accessToken,
+  signal,
+}: AuthenticatedRequestParams): Promise<PrivacyState> {
+  const endpoint = `${CONFIG.API_BASE_URL}/v1/me/privacy`;
+  const res = await fetch(endpoint, {
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+    signal,
+  });
+
+  if (!res.ok) {
+    throw new Error(await readError(res));
+  }
+
+  return (await res.json()) as PrivacyState;
+}
+
+export async function acceptPrivacyConsent({
+  accessToken,
+  source = 'mobile_consent_gate',
+  platform,
+  appVersion,
+  signal,
+}: AcceptConsentParams): Promise<PrivacyState> {
+  const endpoint = `${CONFIG.API_BASE_URL}/v1/me/consent`;
+  const res = await fetch(endpoint, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      source,
+      platform,
+      app_version: appVersion,
+    }),
+    signal,
+  });
+
+  if (!res.ok) {
+    throw new Error(await readError(res));
+  }
+
+  const payload = (await res.json()) as { privacy: PrivacyState };
+
+  return payload.privacy;
+}
+
+export async function revokePrivacyConsent({
+  accessToken,
+  signal,
+}: AuthenticatedRequestParams): Promise<PrivacyState> {
+  const endpoint = `${CONFIG.API_BASE_URL}/v1/me/consent/revoke`;
+  const res = await fetch(endpoint, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+    signal,
+  });
+
+  if (!res.ok) {
+    throw new Error(await readError(res));
+  }
+
+  const payload = (await res.json()) as { privacy: PrivacyState };
+
+  return payload.privacy;
+}
+
+export async function deleteAccount({
+  accessToken,
+  signal,
+}: AuthenticatedRequestParams): Promise<AccountDeletionResponse> {
+  const endpoint = `${CONFIG.API_BASE_URL}/v1/account`;
+  const res = await fetch(endpoint, {
+    method: 'DELETE',
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+    signal,
+  });
+
+  if (!res.ok) {
+    throw new Error(await readError(res));
+  }
+
+  return (await res.json()) as AccountDeletionResponse;
+}
+
+export async function saveTranslationToHistory({
+  accessToken,
+  id,
+  signal,
+}: AuthenticatedRequestParams & { id: string }): Promise<TranslationHistoryDetail> {
+  const endpoint = `${CONFIG.API_BASE_URL}/v1/translations/${encodeURIComponent(id)}/save`;
+  const res = await fetch(endpoint, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+    signal,
+  });
+
+  if (!res.ok) {
+    throw new Error(await readError(res));
+  }
+
+  const detail = (await res.json()) as TranslationHistoryDetail;
+
+  return {
+    ...detail,
     tts: normalizeTtsArtifact(detail.tts),
     responseAudio: normalizeTtsArtifact(detail.responseAudio),
   };

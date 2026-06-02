@@ -60,13 +60,14 @@ export default function LandingScreen() {
           </View>
           <Text style={styles.title}>Darija to English</Text>
           <Text style={styles.subtitle}>
-            Translate Moroccan Darija audio and keep each result in your account history.
+            Translate Moroccan Darija audio, create Darija voice replies, and save only
+            the outputs you choose to keep.
           </Text>
         </View>
 
         <View style={styles.workflow}>
           <FeatureRow icon="mic-outline" label="Record or upload audio" />
-          <FeatureRow icon="git-compare-outline" label="Compare two speech-to-text paths" />
+          <FeatureRow icon="shield-checkmark-outline" label="Private by default, save by choice" />
           <FeatureRow icon="document-text-outline" label="Review transcript and translation" />
         </View>
 

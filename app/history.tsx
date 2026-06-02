@@ -1,6 +1,6 @@
 import { useAuth } from '@clerk/expo';
 import { Ionicons } from '@expo/vector-icons';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Pressable,
@@ -13,6 +13,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { EnglishAudioPlayback } from '@/components/EnglishAudioPlayback';
+import { GlassSurface } from '@/components/GlassSurface';
 import { getTranslation, listTranslations } from '@/lib/api';
 import type {
   TranslationHistoryDetail,
@@ -20,6 +21,7 @@ import type {
 } from '@/lib/types';
 
 const HISTORY_REQUEST_TIMEOUT_MS = 10000;
+type HistoryFilter = 'all' | 'translations' | 'replies';
 
 const palette = {
   shell: '#242424',
@@ -74,11 +76,19 @@ function statusTone(status: string) {
   }
 }
 
-function modelLine(item: TranslationHistoryListItem) {
-  const models = item.models || {};
-  return [models.openaiTranscription, models.darija, models.translation]
-    .filter(Boolean)
-    .join(' / ');
+function statusLabel(status: string) {
+  switch (status) {
+    case 'succeeded':
+      return 'Ready';
+    case 'failed':
+    case 'canceled':
+      return 'Needs attention';
+    case 'queued':
+    case 'running':
+      return 'Processing';
+    default:
+      return status;
+  }
 }
 
 function detailMode(detail: TranslationHistoryDetail) {
@@ -91,6 +101,10 @@ function detailMode(detail: TranslationHistoryDetail) {
   return typeof metadata.mode === 'string' ? metadata.mode : undefined;
 }
 
+function itemMode(item: TranslationHistoryListItem) {
+  return item.mode === 'response_audio' ? 'reply' : 'translation';
+}
+
 export default function HistoryScreen() {
   const { getToken, isLoaded, userId } = useAuth();
   const [items, setItems] = useState<TranslationHistoryListItem[]>([]);
@@ -100,6 +114,7 @@ export default function HistoryScreen() {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isDetailLoading, setIsDetailLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [filter, setFilter] = useState<HistoryFilter>('all');
   const activeUserIdRef = useRef<string | null | undefined>(userId);
   const activeRequestRef = useRef<AbortController | null>(null);
   const getTokenRef = useRef(getToken);
@@ -264,6 +279,22 @@ export default function HistoryScreen() {
   }
 
   const hasItems = items.length > 0;
+  const filteredItems = useMemo(
+    () =>
+      items.filter((item) => {
+        if (filter === 'replies') {
+          return itemMode(item) === 'reply';
+        }
+
+        if (filter === 'translations') {
+          return itemMode(item) === 'translation';
+        }
+
+        return true;
+      }),
+    [filter, items],
+  );
+  const hasFilteredItems = filteredItems.length > 0;
 
   return (
     <SafeAreaView edges={['bottom']} style={styles.safeArea}>
@@ -277,10 +308,48 @@ export default function HistoryScreen() {
           />
         }
       >
-        <View style={styles.header}>
+        <GlassSurface variant="nav" style={styles.header}>
           <Text style={styles.title}>History</Text>
-          <Text style={styles.subtitle}>Recent translations</Text>
-        </View>
+          <Text style={styles.subtitle}>Recent translations and replies</Text>
+          <View style={styles.filterTabs} accessibilityRole="tablist">
+            {[
+              ['all', 'All'],
+              ['translations', 'Translations'],
+              ['replies', 'Replies'],
+            ].map(([value, label]) => {
+              const typedValue = value as HistoryFilter;
+              const isSelected = filter === typedValue;
+
+              return (
+                <Pressable
+                  accessibilityLabel={`Show ${label.toLowerCase()} history`}
+                  accessibilityRole="tab"
+                  accessibilityState={{ selected: isSelected }}
+                  key={value}
+                  onPress={() => {
+                    setFilter(typedValue);
+                    setSelectedId(null);
+                    setDetail(null);
+                  }}
+                  style={({ pressed }) => [
+                    styles.filterTab,
+                    isSelected ? styles.filterTabSelected : null,
+                    pressed ? styles.pressedButton : null,
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.filterTabText,
+                      isSelected ? styles.filterTabTextSelected : null,
+                    ]}
+                  >
+                    {label}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
+        </GlassSurface>
 
         {isLoading && !hasItems ? (
           <View style={styles.statePanel}>
@@ -310,15 +379,22 @@ export default function HistoryScreen() {
         {!isLoading && !error && !hasItems ? (
           <View style={styles.statePanel}>
             <Ionicons name="time-outline" size={24} color={palette.stone} />
-            <Text style={styles.stateText}>No translations yet</Text>
+            <Text style={styles.stateText}>No saved translations yet</Text>
           </View>
         ) : null}
 
-        {hasItems ? (
+        {!isLoading && !error && hasItems && !hasFilteredItems ? (
+          <View style={styles.statePanel}>
+            <Ionicons name="filter-outline" size={24} color={palette.stone} />
+            <Text style={styles.stateText}>No items for this filter</Text>
+          </View>
+        ) : null}
+
+        {hasFilteredItems ? (
           <View style={styles.list}>
-            {items.map((item) => {
+            {filteredItems.map((item) => {
               const isSelected = selectedId === item.id;
-              const models = modelLine(item);
+              const isReply = itemMode(item) === 'reply';
 
               return (
                 <View key={item.id} style={styles.rowWrap}>
@@ -334,10 +410,19 @@ export default function HistoryScreen() {
                     <View style={styles.rowTop}>
                       <View style={styles.rowTitleWrap}>
                         <Text numberOfLines={1} style={styles.rowTitle}>
-                          {item.englishPreview || item.filename || item.id}
+                          {isReply
+                            ? item.consolidatedArabicPreview ||
+                              item.englishPreview ||
+                              item.filename ||
+                              item.id
+                            : item.englishPreview || item.filename || item.id}
                         </Text>
                         <Text numberOfLines={1} style={styles.rowSubtitle}>
-                          {item.consolidatedArabicPreview || item.filename || 'Pending'}
+                          {isReply
+                            ? item.englishPreview || item.filename || 'Pending reply'
+                            : item.consolidatedArabicPreview ||
+                              item.filename ||
+                              'Pending translation'}
                         </Text>
                       </View>
                       <View
@@ -347,7 +432,7 @@ export default function HistoryScreen() {
                         ]}
                       >
                         <Text style={[styles.statusText, { color: statusTone(item.status) }]}>
-                          {item.status}
+                          {statusLabel(item.status)}
                         </Text>
                       </View>
                     </View>
@@ -355,11 +440,9 @@ export default function HistoryScreen() {
                       <Text numberOfLines={1} style={styles.metaText}>
                         {formatDate(item.completedAt || item.createdAt)}
                       </Text>
-                      {models ? (
-                        <Text numberOfLines={1} style={styles.metaText}>
-                          {models}
-                        </Text>
-                      ) : null}
+                      <Text numberOfLines={1} style={styles.metaText}>
+                        {isReply ? 'Reply' : 'Translation'}
+                      </Text>
                     </View>
                   </Pressable>
 
@@ -428,33 +511,16 @@ export default function HistoryScreen() {
                             </>
                           )}
 
-                          <View style={styles.detailGrid}>
-                            <View style={styles.detailMetric}>
-                              <Text style={styles.metricLabel}>File</Text>
-                              <Text numberOfLines={1} style={styles.metricValue}>
-                                {detail.filename || 'Unknown'}
-                              </Text>
-                            </View>
-                            <View style={styles.detailMetric}>
-                              <Text style={styles.metricLabel}>Completed</Text>
-                              <Text numberOfLines={1} style={styles.metricValue}>
-                                {formatDate(detail.completedAt)}
-                              </Text>
-                            </View>
+                          <View style={styles.detailFooter}>
+                            <Ionicons
+                              name={detailMode(detail) === 'response_audio' ? 'mic' : 'language'}
+                              size={15}
+                              color={palette.textSubtle}
+                            />
+                            <Text numberOfLines={1} style={styles.detailFooterText}>
+                              {formatDate(detail.completedAt)}
+                            </Text>
                           </View>
-
-                          {detail.providerRuns.length > 0 ? (
-                            <View style={styles.providerList}>
-                              {detail.providerRuns.map((run) => (
-                                <View key={run.id} style={styles.providerRow}>
-                                  <Text numberOfLines={1} style={styles.providerName}>
-                                    {run.operation}
-                                  </Text>
-                                  <Text style={styles.providerStatus}>{run.status}</Text>
-                                </View>
-                              ))}
-                            </View>
-                          ) : null}
                         </View>
                       ) : null}
                     </View>
@@ -479,8 +545,8 @@ const styles = StyleSheet.create({
     padding: 18,
   },
   header: {
-    gap: 4,
-    paddingBottom: 4,
+    gap: 10,
+    padding: 16,
   },
   title: {
     color: palette.text,
@@ -491,6 +557,30 @@ const styles = StyleSheet.create({
     color: palette.textMuted,
     fontSize: 13,
     fontWeight: '700',
+  },
+  filterTabs: {
+    flexDirection: 'row',
+    gap: 7,
+    paddingTop: 2,
+  },
+  filterTab: {
+    alignItems: 'center',
+    borderRadius: 999,
+    flex: 1,
+    minHeight: 40,
+    justifyContent: 'center',
+    paddingHorizontal: 10,
+  },
+  filterTabSelected: {
+    backgroundColor: palette.stone,
+  },
+  filterTabText: {
+    color: palette.text,
+    fontSize: 12,
+    fontWeight: '900',
+  },
+  filterTabTextSelected: {
+    color: palette.stoneText,
   },
   statePanel: {
     alignItems: 'center',
@@ -619,58 +709,16 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     lineHeight: 22,
   },
-  detailGrid: {
+  detailFooter: {
+    alignItems: 'center',
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 10,
+    gap: 6,
+    paddingTop: 4,
   },
-  detailMetric: {
-    backgroundColor: palette.cardRaised,
-    borderColor: palette.border,
-    borderRadius: 12,
-    borderWidth: 1,
-    flexBasis: '48%',
-    flexGrow: 1,
-    gap: 4,
-    minHeight: 64,
-    padding: 10,
-  },
-  metricLabel: {
+  detailFooterText: {
     color: palette.textSubtle,
-    fontSize: 10,
-    fontWeight: '900',
-    textTransform: 'uppercase',
-  },
-  metricValue: {
-    color: palette.text,
     fontSize: 12,
     fontWeight: '800',
-  },
-  providerList: {
-    gap: 8,
-  },
-  providerRow: {
-    alignItems: 'center',
-    backgroundColor: palette.cardRaised,
-    borderColor: palette.border,
-    borderRadius: 10,
-    borderWidth: 1,
-    flexDirection: 'row',
-    gap: 8,
-    justifyContent: 'space-between',
-    padding: 10,
-  },
-  providerName: {
-    color: palette.textMuted,
-    flex: 1,
-    fontSize: 11,
-    fontWeight: '800',
-  },
-  providerStatus: {
-    color: palette.stone,
-    fontSize: 10,
-    fontWeight: '900',
-    textTransform: 'uppercase',
   },
   pressedButton: {
     opacity: 0.84,

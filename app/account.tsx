@@ -1,4 +1,4 @@
-import { useClerk, useUser } from '@clerk/expo';
+import { useAuth, useClerk, useUser } from '@clerk/expo';
 import { UserProfileView } from '@clerk/expo/native';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
@@ -15,6 +15,8 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+
+import { deleteAccount, revokePrivacyConsent } from '@/lib/api';
 
 const palette = {
   shell: '#242424',
@@ -37,9 +39,12 @@ type ProfilePanel = 'profile' | 'security' | null;
 
 export default function AccountScreen() {
   const { signOut } = useClerk();
+  const { getToken } = useAuth();
   const { isLoaded, user } = useUser();
   const [activePanel, setActivePanel] = useState<ProfilePanel>(null);
   const [isSigningOut, setIsSigningOut] = useState(false);
+  const [isRevokingConsent, setIsRevokingConsent] = useState(false);
+  const [isDeletingAccount, setIsDeletingAccount] = useState(false);
   const [signOutError, setSignOutError] = useState<string | null>(null);
   const email = user?.primaryEmailAddress?.emailAddress || user?.emailAddresses[0]?.emailAddress;
   const displayName = user?.fullName || user?.username || 'Signed in';
@@ -75,6 +80,98 @@ export default function AccountScreen() {
         },
       },
     ]);
+  }
+
+  function confirmDeleteAccount() {
+    if (isDeletingAccount) {
+      return;
+    }
+
+    Alert.alert(
+      'Delete account?',
+      'This permanently deletes your sign-in account and removes or anonymizes app data tied to your account. Saved outputs and generated audio are removed from active app storage. This cannot be undone.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete account',
+          style: 'destructive',
+          onPress: () => {
+            void performDeleteAccount();
+          },
+        },
+      ],
+    );
+  }
+
+  async function performDeleteAccount() {
+    setIsDeletingAccount(true);
+    setSignOutError(null);
+
+    try {
+      const token = await getToken();
+
+      if (!token) {
+        throw new Error('Sign in is required.');
+      }
+
+      await deleteAccount({ accessToken: token });
+
+      try {
+        await signOut();
+      } catch {
+        // Clerk may already have invalidated the user/session after deletion.
+      }
+
+      router.replace('/login' as Href);
+    } catch (caughtError) {
+      const message =
+        caughtError instanceof Error ? caughtError.message : 'Unable to delete account.';
+      setSignOutError(message);
+      setIsDeletingAccount(false);
+    }
+  }
+
+  function confirmRevokeConsent() {
+    if (isRevokingConsent) {
+      return;
+    }
+
+    Alert.alert(
+      'Withdraw AI consent?',
+      'You will not be able to translate or generate reply audio again until you accept the current AI processing disclosure.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Withdraw',
+          style: 'destructive',
+          onPress: () => {
+            void revokeConsent();
+          },
+        },
+      ],
+    );
+  }
+
+  async function revokeConsent() {
+    setIsRevokingConsent(true);
+    setSignOutError(null);
+
+    try {
+      const token = await getToken();
+
+      if (!token) {
+        throw new Error('Sign in is required.');
+      }
+
+      await revokePrivacyConsent({ accessToken: token });
+      router.replace({ pathname: '/consent', params: { next: 'translate' } });
+    } catch (caughtError) {
+      const message =
+        caughtError instanceof Error ? caughtError.message : 'Unable to withdraw consent.';
+      setSignOutError(message);
+    } finally {
+      setIsRevokingConsent(false);
+    }
   }
 
   if (!isLoaded) {
@@ -125,6 +222,28 @@ export default function AccountScreen() {
             label="Translation history"
             description="Review translations for this signed-in user"
             onPress={() => router.push('/history' as Href)}
+          />
+          <AccountAction
+            icon="shield-outline"
+            label="Privacy & AI Use"
+            description="Review terms, privacy, deletion, and AI processing disclosures"
+            onPress={() => router.push('/legal' as Href)}
+          />
+          <AccountAction
+            icon="ban-outline"
+            label="Withdraw AI consent"
+            description="Block future AI processing until you consent again"
+            onPress={confirmRevokeConsent}
+          />
+          <AccountAction
+            icon="trash-outline"
+            label="Delete account"
+            description={
+              isDeletingAccount
+                ? 'Deleting account and app data...'
+                : 'Delete your account and remove saved app data'
+            }
+            onPress={confirmDeleteAccount}
           />
         </View>
 

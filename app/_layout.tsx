@@ -55,6 +55,22 @@ function RootStack() {
             }}
           />
           <Stack.Screen
+            name="consent"
+            options={{
+              headerStyle: { backgroundColor: '#111111' },
+              headerTintColor: '#F4F1EA',
+              headerTitle: 'Consent',
+            }}
+          />
+          <Stack.Screen
+            name="legal"
+            options={{
+              headerStyle: { backgroundColor: '#111111' },
+              headerTintColor: '#F4F1EA',
+              headerTitle: 'Privacy & AI Use',
+            }}
+          />
+          <Stack.Screen
             name="history"
             options={{
               headerStyle: { backgroundColor: '#111111' },

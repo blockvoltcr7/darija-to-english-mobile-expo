@@ -38,6 +38,10 @@ export function toTranslationJobRow(job: any) {
     audio_mime_type: nullable(job.audioMimeType),
     audio_retention_expires_at: nullable(job.audioRetentionExpiresAt),
     audio_deleted_at: nullable(job.audioDeletedAt),
+    save_to_history: job.saveToHistory ?? false,
+    saved_to_history_at: nullable(job.savedToHistoryAt),
+    ephemeral_expires_at: nullable(job.ephemeralExpiresAt),
+    content_deleted_at: nullable(job.contentDeletedAt),
     artifact_bucket: null,
     artifact_prefix: null,
     artifacts_deleted_at: null,
@@ -67,6 +71,7 @@ export function toTranslationResultRow(result: any) {
     consolidated_arabic_text: result.consolidatedArabicText,
     english_text: result.englishText,
     model_metadata: result.modelMetadata || {},
+    content_deleted_at: nullable(result.contentDeletedAt),
     created_at: result.createdAt,
     updated_at: result.updatedAt,
   };

@@ -5,6 +5,7 @@ const DEFAULT_API_BASE_URL =
   process.env.EXPO_OS === 'android'
     ? ANDROID_EMULATOR_API_BASE_URL
     : IOS_SIMULATOR_API_BASE_URL;
+const DEFAULT_LEGAL_BASE_URL = 'https://darija-to-english-legal.pages.dev';
 
 function trimTrailingSlash(value: string) {
   return value.replace(/\/+$/, '');
@@ -32,4 +33,23 @@ function resolveApiBaseUrl() {
 
 export const CONFIG = {
   API_BASE_URL: resolveApiBaseUrl(),
+  SHOW_DIAGNOSTICS: process.env.EXPO_PUBLIC_SHOW_DIAGNOSTICS === 'true',
+  APP_VERSION: process.env.EXPO_PUBLIC_APP_VERSION || '1.0.0',
+  LEGAL_URLS: {
+    privacyPolicy:
+      process.env.EXPO_PUBLIC_LEGAL_PRIVACY_URL ||
+      `${DEFAULT_LEGAL_BASE_URL}/privacy`,
+    terms:
+      process.env.EXPO_PUBLIC_LEGAL_TERMS_URL ||
+      `${DEFAULT_LEGAL_BASE_URL}/terms`,
+    dataDeletion:
+      process.env.EXPO_PUBLIC_LEGAL_DATA_DELETION_URL ||
+      `${DEFAULT_LEGAL_BASE_URL}/data-deletion`,
+    aiDisclosure:
+      process.env.EXPO_PUBLIC_LEGAL_AI_DISCLOSURE_URL ||
+      `${DEFAULT_LEGAL_BASE_URL}/ai-processing`,
+    support:
+      process.env.EXPO_PUBLIC_SUPPORT_URL ||
+      `${DEFAULT_LEGAL_BASE_URL}/support`,
+  },
 } as const;

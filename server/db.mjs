@@ -7,6 +7,10 @@ export const CONVEX_DEPLOYMENT_NAME = env.CONVEX_DEPLOYMENT || 'jovial-ibis-363'
 let convexClient;
 
 const CONVEX_FUNCTIONS = Object.freeze({
+  'accountDeletion:deleteUserAppDataBatch': {
+    type: 'mutation',
+    ref: api.accountDeletion.deleteUserAppDataBatch,
+  },
   'artifacts:createOrMarkTtsArtifactRunning': {
     type: 'mutation',
     ref: api.artifacts.createOrMarkTtsArtifactRunning,
@@ -34,6 +38,22 @@ const CONVEX_FUNCTIONS = Object.freeze({
   'artifacts:markTtsArtifactSucceeded': {
     type: 'mutation',
     ref: api.artifacts.markTtsArtifactSucceeded,
+  },
+  'consents:acceptConsent': {
+    type: 'mutation',
+    ref: api.consents.acceptConsent,
+  },
+  'consents:getPrivacyState': {
+    type: 'query',
+    ref: api.consents.getPrivacyState,
+  },
+  'consents:revokeConsent': {
+    type: 'mutation',
+    ref: api.consents.revokeConsent,
+  },
+  'consents:setPrivacyPreferences': {
+    type: 'mutation',
+    ref: api.consents.setPrivacyPreferences,
   },
   'health:check': {
     type: 'query',
@@ -71,6 +91,10 @@ const CONVEX_FUNCTIONS = Object.freeze({
     type: 'mutation',
     ref: api.translations.claimForProcessing,
   },
+  'translations:cleanupExpiredEphemeralContent': {
+    type: 'mutation',
+    ref: api.translations.cleanupExpiredEphemeralContent,
+  },
   'translations:createTranslationJob': {
     type: 'mutation',
     ref: api.translations.createTranslationJob,
@@ -98,6 +122,10 @@ const CONVEX_FUNCTIONS = Object.freeze({
   'translations:markRunning': {
     type: 'mutation',
     ref: api.translations.markRunning,
+  },
+  'translations:markSavedToHistory': {
+    type: 'mutation',
+    ref: api.translations.markSavedToHistory,
   },
   'translations:markSucceeded': {
     type: 'mutation',

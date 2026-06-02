@@ -2,6 +2,7 @@ import OpenAI, { toFile } from 'openai';
 import { env } from './env.mjs';
 import {
   downloadStoredObject,
+  removeStoredObject,
   uploadTranslationArtifact,
 } from './storage.mjs';
 import {
@@ -14,6 +15,7 @@ import {
 } from './artifacts.mjs';
 import {
   claimTranslationJobForProcessing,
+  markTranslationJobAudioDeleted,
   markTranslationJobFailed,
   markTranslationJobSucceeded,
   PROVIDER_OPERATIONS,
@@ -50,6 +52,34 @@ const {
 let openaiClient;
 
 function noop() {}
+
+async function deleteOriginalAudioAfterDownload({
+  traceId,
+  jobId,
+  clerkUserId,
+  storageId,
+  logTrace = noop,
+}) {
+  if (!storageId) {
+    return;
+  }
+
+  try {
+    await removeStoredObject({ storageId });
+    await markTranslationJobAudioDeleted({ jobId, clerkUserId });
+    logTrace(traceId, 'Original user audio deleted after worker download', {
+      jobId,
+      storageId,
+    });
+  } catch (cleanupError) {
+    logTrace(traceId, 'Original user audio deletion after worker download failed', {
+      jobId,
+      storageId,
+      errorName: cleanupError?.name,
+      errorCode: cleanupError?.code || cleanupError?.convex?.code,
+    });
+  }
+}
 
 function httpError(status, message, cause) {
   const error = new Error(message);
@@ -1057,6 +1087,14 @@ export async function processStoredTranslationJob({ jobId, traceId, logTrace = n
       audioBytes: audioBuffer.length,
     });
 
+    await deleteOriginalAudioAfterDownload({
+      traceId,
+      jobId: job.id,
+      clerkUserId: job.clerk_user_id,
+      storageId: job.audio_storage_id,
+      logTrace,
+    });
+
     const pipelineResult = await runTranslationProviderPipeline({
       traceId,
       jobId: job.id,
@@ -1255,6 +1293,14 @@ export async function processStoredResponseAudioJob({
     logTrace(traceId, 'Stored response audio input downloaded', {
       jobId: job.id,
       audioBytes: audioBuffer.length,
+    });
+
+    await deleteOriginalAudioAfterDownload({
+      traceId,
+      jobId: job.id,
+      clerkUserId: job.clerk_user_id,
+      storageId: job.audio_storage_id,
+      logTrace,
     });
 
     const pipelineResult = await runResponseAudioProviderPipeline({

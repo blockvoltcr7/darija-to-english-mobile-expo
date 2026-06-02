@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { callConvexFunction } from './db.mjs';
+import { requiredConsentVersions } from './privacy.mjs';
 
 const DEFAULT_HISTORY_LIMIT = 20;
 const MAX_HISTORY_LIMIT = 50;
@@ -105,6 +106,20 @@ function normalizeHistoryLimit(value) {
   return Math.min(parsed, MAX_HISTORY_LIMIT);
 }
 
+function normalizeCleanupLimit(value) {
+  if (value === undefined || value === null) {
+    return 50;
+  }
+
+  const parsed = Number.parseInt(String(value), 10);
+
+  if (Number.isNaN(parsed) || parsed < 1) {
+    return 50;
+  }
+
+  return Math.min(parsed, 50);
+}
+
 function normalizeCursor(value) {
   if (value === undefined || value === null || value === '') {
     return null;
@@ -163,12 +178,21 @@ function sanitizeJsonValue(value) {
 
 function createTranslationRepositoryError(operation, error) {
   const wrapped = new Error(`Translation repository operation failed: ${operation}.`);
+  const convexCode = error?.data?.code || error?.code;
+  const errorMessage = String(error?.message || '');
 
   wrapped.name = 'TranslationRepositoryError';
-  wrapped.status = error?.status || 500;
+  wrapped.status =
+    convexCode === 'consent_required' || errorMessage.includes('consent_required')
+      ? 403
+      : error?.status || 500;
+  wrapped.code =
+    convexCode ||
+    (errorMessage.includes('consent_required') ? 'consent_required' : undefined);
+  wrapped.reason = wrapped.code;
   wrapped.operation = operation;
   wrapped.convex = {
-    code: error?.data?.code || error?.code,
+    code: wrapped.code,
     name: error?.name,
     status: error?.status,
   };
@@ -200,6 +224,8 @@ export async function createTranslationJob({
   filename,
   audioBytes,
   traceId,
+  saveToHistory = false,
+  ephemeralExpiresAt,
 }) {
   return callTranslationFunction('create_translation_job', 'translations:createTranslationJob', {
     jobId: randomUUID(),
@@ -208,6 +234,11 @@ export async function createTranslationJob({
     filename: normalizeOptionalString(filename),
     audioBytes: normalizeOptionalInteger(audioBytes, 'audioBytes'),
     traceId: normalizeOptionalString(traceId),
+    saveToHistory: Boolean(saveToHistory),
+    ephemeralExpiresAt: saveToHistory
+      ? null
+      : normalizeOptionalTimestamp(ephemeralExpiresAt, 'ephemeralExpiresAt'),
+    ...requiredConsentVersions(),
   });
 }
 
@@ -248,6 +279,31 @@ export async function markTranslationJobAudioDeleted({
       jobId: normalizeRequiredString(jobId, 'jobId'),
       clerkUserId: normalizeRequiredString(clerkUserId, 'clerkUserId'),
       deletedAt: normalizeOptionalTimestamp(deletedAt, 'deletedAt'),
+    },
+  );
+}
+
+export async function markTranslationJobSavedToHistory({ jobId, clerkUserId }) {
+  return callTranslationFunction(
+    'mark_translation_job_saved_to_history',
+    'translations:markSavedToHistory',
+    {
+      jobId: normalizeRequiredString(jobId, 'jobId'),
+      clerkUserId: normalizeRequiredString(clerkUserId, 'clerkUserId'),
+    },
+  );
+}
+
+export async function cleanupExpiredEphemeralContent({
+  before = new Date(),
+  limit = 50,
+} = {}) {
+  return callTranslationFunction(
+    'cleanup_expired_ephemeral_content',
+    'translations:cleanupExpiredEphemeralContent',
+    {
+      before: normalizeOptionalTimestamp(before, 'before'),
+      limit: normalizeCleanupLimit(limit),
     },
   );
 }

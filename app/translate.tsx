@@ -26,9 +26,16 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { EnglishAudioPlayback } from '@/components/EnglishAudioPlayback';
+import { GlassActionBar } from '@/components/GlassActionBar';
+import { GlassIconButton } from '@/components/GlassIconButton';
+import { GlassSurface } from '@/components/GlassSurface';
+import { TaskSegmentedControl } from '@/components/TaskSegmentedControl';
+import type { TaskMode } from '@/components/TaskSegmentedControl';
 import {
   continuePollingTranslationJob,
   createResponseAudioFile,
+  getPrivacyState,
+  saveTranslationToHistory,
   translateAudioFile,
 } from '@/lib/api';
 import { CONFIG } from '@/lib/config';
@@ -149,6 +156,10 @@ function getApiTargetDetails(apiBaseUrl: string) {
   }
 }
 
+function shouldShowDeveloperDiagnostics() {
+  return __DEV__ && CONFIG.SHOW_DIAGNOSTICS;
+}
+
 function isAbortError(error: unknown) {
   return (
     typeof error === 'object' &&
@@ -180,11 +191,14 @@ export default function HomeScreen() {
   const [result, setResult] = useState<TranslationResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [diagnostics, setDiagnostics] = useState<string[]>([]);
+  const [isSavingResult, setIsSavingResult] = useState(false);
   const [isDiagnosticsOpen, setIsDiagnosticsOpen] = useState(false);
   const [recordingMode, setRecordingMode] = useState<RecordingMode>('translate');
+  const [selectedTask, setSelectedTask] = useState<TaskMode>('understand');
   const [recoverableJob, setRecoverableJob] =
     useState<QueuedTranslationJob | null>(null);
   const activeRequestRef = useRef<AbortController | null>(null);
+  const getTokenRef = useRef(getToken);
   const lastUserIdRef = useRef<string | null | undefined>(undefined);
   const recoverableJobRef = useRef<QueuedTranslationJob | null>(null);
   const resultJobIdRef = useRef<string | null>(null);
@@ -205,7 +219,8 @@ export default function HomeScreen() {
     [recorderState.durationMillis],
   );
   const apiTarget = useMemo(() => getApiTargetDetails(CONFIG.API_BASE_URL), []);
-  const accountLabel = 'Account';
+  const selectedRecordingMode: RecordingMode =
+    selectedTask === 'reply' ? 'response' : 'translate';
 
   function appendDiagnostic(message: string, traceId?: string) {
     const timestamp = new Date().toLocaleTimeString();
@@ -216,6 +231,10 @@ export default function HomeScreen() {
   }
 
   useEffect(() => {
+    getTokenRef.current = getToken;
+  }, [getToken]);
+
+  useEffect(() => {
     appendDiagnostic(`${apiTarget.label}: ${CONFIG.API_BASE_URL}`);
 
     if (apiTarget.warning) {
@@ -223,11 +242,57 @@ export default function HomeScreen() {
     }
   }, [apiTarget]);
 
+  useEffect(() => {
+    let isMounted = true;
+
+    async function enforceConsentGate() {
+      try {
+        const accessToken = await getTokenRef.current();
+
+        if (!accessToken) {
+          return;
+        }
+
+        const privacyState = await getPrivacyState({ accessToken });
+
+        if (isMounted && privacyState.consent_required) {
+          router.replace({ pathname: '/consent', params: { next: 'translate' } });
+        }
+      } catch (caughtError) {
+        appendDiagnostic(
+          caughtError instanceof Error
+            ? `Consent check failed: ${caughtError.message}`
+            : 'Consent check failed',
+        );
+      }
+    }
+
+    void enforceConsentGate();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [router]);
+
   function beginTranslationRequest() {
     activeRequestRef.current?.abort();
     const controller = new AbortController();
     activeRequestRef.current = controller;
     return controller;
+  }
+
+  async function getConsentCheckedAccessToken(traceId: string) {
+    const accessToken = await getApiAccessToken(traceId);
+    const privacyState = await getPrivacyState({ accessToken });
+
+    if (privacyState.consent_required) {
+      appendDiagnostic('Consent required before processing audio', traceId);
+      activeRequestRef.current?.abort();
+      router.replace({ pathname: '/consent', params: { next: 'translate' } });
+      throw new Error('AI processing consent is required before using this feature.');
+    }
+
+    return accessToken;
   }
 
   const clearRecoverableJob = useCallback(() => {
@@ -248,7 +313,7 @@ export default function HomeScreen() {
 
   async function attachTtsWhenReady(job: QueuedTranslationJob) {
     try {
-      const accessToken = await getToken();
+      const accessToken = await getTokenRef.current();
 
       if (!accessToken) {
         appendDiagnostic('Skipped TTS refresh because Clerk token was unavailable', job.traceId);
@@ -257,7 +322,7 @@ export default function HomeScreen() {
 
       const completedResult = await continuePollingTranslationJob({
         accessToken,
-        refreshAccessToken: () => getToken(),
+        refreshAccessToken: () => getTokenRef.current(),
         jobId: job.jobId,
         triggerRunId: job.triggerRunId || null,
         traceId: job.traceId,
@@ -333,6 +398,7 @@ export default function HomeScreen() {
     setStatus('idle');
     setError(null);
     setResult(null);
+    setIsSavingResult(false);
     setDiagnostics([]);
     setIsDiagnosticsOpen(false);
   }, [clearRecoverableJob]);
@@ -377,7 +443,7 @@ export default function HomeScreen() {
   async function getApiAccessToken(traceId: string) {
     appendDiagnostic('Loading Clerk session token', traceId);
 
-    const accessToken = await getToken();
+    const accessToken = await getTokenRef.current();
 
     if (!accessToken) {
       throw new Error('Sign in is required before translating audio.');
@@ -454,6 +520,7 @@ export default function HomeScreen() {
       return;
     }
 
+    setSelectedTask(mode === 'response' ? 'reply' : 'understand');
     setRecordingMode(mode);
     setStatus('preparing');
     setError(null);
@@ -493,7 +560,7 @@ export default function HomeScreen() {
 
       appendDiagnostic(`Recording URI ${recordingUri}`, traceId);
       await checkApiHealth(traceId);
-      const accessToken = await getApiAccessToken(traceId);
+      const accessToken = await getConsentCheckedAccessToken(traceId);
 
       const audioBase64 = await FileSystem.readAsStringAsync(recordingUri, {
         encoding: FileSystem.EncodingType.Base64,
@@ -507,7 +574,7 @@ export default function HomeScreen() {
         filename: filenameFromUri(recordingUri),
         audioBase64,
         accessToken,
-        refreshAccessToken: () => getToken(),
+        refreshAccessToken: () => getTokenRef.current(),
         traceId,
         onTrace: (message) => appendDiagnostic(message, traceId),
         onJobStatus: setAsyncJobStatus,
@@ -584,7 +651,7 @@ export default function HomeScreen() {
       );
 
       await checkApiHealth(traceId);
-      const accessToken = await getApiAccessToken(traceId);
+      const accessToken = await getConsentCheckedAccessToken(traceId);
 
       const audioBase64 = await readSelectedAudioAsBase64(selectedAudio);
       appendDiagnostic(`Read upload base64 chars=${audioBase64.length}`, traceId);
@@ -594,7 +661,7 @@ export default function HomeScreen() {
         filename: selectedAudio.name || filenameFromUri(selectedAudio.uri),
         audioBase64,
         accessToken,
-        refreshAccessToken: () => getToken(),
+        refreshAccessToken: () => getTokenRef.current(),
         traceId,
         onTrace: (message) => appendDiagnostic(message, traceId),
         onJobStatus: setAsyncJobStatus,
@@ -649,11 +716,11 @@ export default function HomeScreen() {
 
     try {
       await checkApiHealth(traceId);
-      const accessToken = await getApiAccessToken(traceId);
+      const accessToken = await getConsentCheckedAccessToken(traceId);
       const controller = beginTranslationRequest();
       const translationResult = await continuePollingTranslationJob({
         accessToken,
-        refreshAccessToken: () => getToken(),
+        refreshAccessToken: () => getTokenRef.current(),
         jobId: job.jobId,
         triggerRunId: job.triggerRunId || null,
         traceId,
@@ -689,15 +756,59 @@ export default function HomeScreen() {
     clearUserScopedState();
   }
 
+  async function saveCurrentResult() {
+    const resultId = result?.jobId || result?.translationJobId;
+
+    if (!resultId) {
+      return;
+    }
+
+    setIsSavingResult(true);
+    setError(null);
+
+    try {
+      const accessToken = await getTokenRef.current();
+
+      if (!accessToken) {
+        throw new Error('Sign in is required before saving history.');
+      }
+
+      await saveTranslationToHistory({
+        accessToken,
+        id: resultId,
+      });
+      setResult((current) =>
+        current ? { ...current, saveToHistory: true } : current,
+      );
+      appendDiagnostic(`Saved outputs to history for job ${resultId}`);
+    } catch (caughtError) {
+      setError(
+        caughtError instanceof Error
+          ? caughtError.message
+          : 'Unable to save this result.',
+      );
+    } finally {
+      setIsSavingResult(false);
+    }
+  }
+
   const primaryLabel = isRecording
-    ? recordingMode === 'response'
-      ? 'Stop reply'
-      : 'Stop recording'
+    ? 'Stop Recording'
     : isBusy
       ? 'Working'
-      : 'Record';
+      : selectedTask === 'reply'
+        ? 'Record Reply'
+        : 'Record Darija';
   const primaryIcon = isRecording ? 'stop' : 'mic';
-  const primaryAction = isRecording ? stopAndTranslate : () => startRecording('translate');
+  const primaryAction = isRecording
+    ? stopAndTranslate
+    : () => startRecording(selectedRecordingMode);
+  const taskTitle =
+    selectedTask === 'reply' ? 'Create a Darija voice reply' : 'Understand Darija audio';
+  const taskSubtitle =
+    selectedTask === 'reply'
+      ? 'Speak in English. The app writes a Moroccan Darija reply and generates Arabic/Darija audio you can share.'
+      : 'Record or upload Moroccan Darija audio. The app returns English text and optional English playback.';
   const consolidatedTranscript =
     result?.consolidatedArabicText || result?.transcript || '';
   const englishTranslation = result?.englishText || result?.translation || '';
@@ -709,6 +820,8 @@ export default function HomeScreen() {
     result?.transcripts?.darija ||
     result?.transcripts?.modal ||
     '';
+  const showUploadAction = selectedTask === 'understand';
+  const showDeveloperDiagnostics = shouldShowDeveloperDiagnostics();
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -718,11 +831,11 @@ export default function HomeScreen() {
         contentInsetAdjustmentBehavior="automatic"
         keyboardShouldPersistTaps="handled"
       >
-        <View style={styles.headerCard}>
+        <GlassSurface variant="nav" style={styles.headerCard}>
           <View style={styles.headerTopRow}>
             <View style={styles.brandPill}>
-              <Ionicons name="grid-outline" size={13} color={palette.stone} />
-              <Text style={styles.brandPillText}>Darija Mission Control</Text>
+              <Ionicons name="sparkles-outline" size={13} color={palette.stone} />
+              <Text style={styles.brandPillText}>Glass-inspired iOS UI</Text>
             </View>
             <View style={styles.statusPill}>
               <View
@@ -735,68 +848,35 @@ export default function HomeScreen() {
           </View>
 
           <View style={styles.headerActions}>
-            <Pressable
+            <GlassIconButton
               accessibilityLabel="Translation history"
-              accessibilityRole="button"
+              name="time-outline"
               onPress={() => router.push('/history' as Href)}
-              style={({ pressed }) => [
-                styles.iconButton,
-                pressed ? styles.pressedSoftButton : null,
-              ]}
-            >
-              <Ionicons name="time-outline" size={18} color={palette.text} />
-            </Pressable>
-            <Pressable
+            />
+            <GlassIconButton
               accessibilityHint="Open account settings and sign out"
               accessibilityLabel="Account"
-              accessibilityRole="button"
+              name="person-circle-outline"
               onPress={() => router.push('/account' as Href)}
-              style={({ pressed }) => [
-                styles.accountButton,
-                pressed ? styles.pressedSoftButton : null,
-              ]}
-            >
-              <Ionicons name="person-circle-outline" size={16} color={palette.text} />
-              <Text numberOfLines={1} style={styles.accountButtonText}>
-                {accountLabel}
-              </Text>
-            </Pressable>
+            />
           </View>
 
-          <Text style={styles.title}>Darija to English</Text>
-          <Text style={styles.subtitle}>
-            Translate incoming Darija audio to English, or record an English
-            reply and generate Arabic/Darija audio to send back.
-          </Text>
+          <Text style={styles.title}>{taskTitle}</Text>
+          <Text style={styles.subtitle}>{taskSubtitle}</Text>
 
-          <View style={styles.chipRow}>
-            <View style={styles.chip}>
-              <Text style={styles.chipText}>{apiTarget.label}</Text>
-            </View>
-            <View style={styles.chip}>
-              <Text selectable style={styles.chipValueText}>
-                {CONFIG.API_BASE_URL}
-              </Text>
-            </View>
-            <View style={styles.chip}>
-              <Text style={styles.chipText}>OpenAI + Darija</Text>
-            </View>
-          </View>
+          <TaskSegmentedControl
+            disabled={isRecording || isBusy}
+            onChange={setSelectedTask}
+            value={selectedTask}
+          />
+        </GlassSurface>
 
-          {apiTarget.warning ? (
-            <View style={styles.apiWarningPanel}>
-              <Ionicons name="alert-circle" size={16} color={palette.amber} />
-              <Text selectable style={styles.apiWarningText}>
-                {apiTarget.warning}
-              </Text>
-            </View>
-          ) : null}
-        </View>
-
-        <View style={styles.recorderPanel}>
+        <GlassSurface variant="panel" style={styles.recorderPanel}>
           <View style={styles.recorderHeaderRow}>
             <View>
-              <Text style={styles.sectionKicker}>Audio capture</Text>
+              <Text style={styles.sectionKicker}>
+                {selectedTask === 'reply' ? 'Reply capture' : 'Audio capture'}
+              </Text>
               <Text style={styles.timer}>{durationLabel}</Text>
             </View>
             <View style={styles.liveBadge}>
@@ -820,8 +900,9 @@ export default function HomeScreen() {
             ))}
           </View>
 
-          <View style={styles.actionStack}>
+          <GlassActionBar>
             <Pressable
+              accessibilityLabel={primaryLabel}
               accessibilityRole="button"
               disabled={isPrimaryDisabled}
               onPress={primaryAction}
@@ -851,40 +932,37 @@ export default function HomeScreen() {
               </Text>
             </Pressable>
 
-            <Pressable
-              accessibilityRole="button"
-              disabled={isUploadDisabled}
-              onPress={() => startRecording('response')}
-              style={({ pressed }) => [
-                styles.responseButton,
-                isUploadDisabled && styles.disabledSecondaryButton,
-                pressed && !isUploadDisabled ? styles.pressedButton : null,
-              ]}
-            >
-              <Ionicons
-                name="return-up-forward-outline"
-                size={19}
-                color={palette.stoneText}
-              />
-              <Text style={styles.responseButtonText}>Record Reply</Text>
-            </Pressable>
-
             <View style={styles.secondaryActionRow}>
-              <Pressable
-                accessibilityRole="button"
-                disabled={isUploadDisabled}
-                onPress={uploadAudioFile}
-                style={({ pressed }) => [
-                  styles.uploadButton,
-                  isUploadDisabled && styles.disabledSecondaryButton,
-                  pressed && !isUploadDisabled ? styles.pressedButton : null,
-                ]}
-              >
-                <Ionicons name="cloud-upload-outline" size={19} color={palette.text} />
-                <Text style={styles.uploadButtonText}>Upload Audio</Text>
-              </Pressable>
+              {showUploadAction ? (
+                <Pressable
+                  accessibilityLabel="Upload Darija audio"
+                  accessibilityRole="button"
+                  disabled={isUploadDisabled}
+                  onPress={uploadAudioFile}
+                  style={({ pressed }) => [
+                    styles.uploadButton,
+                    isUploadDisabled && styles.disabledSecondaryButton,
+                    pressed && !isUploadDisabled ? styles.pressedButton : null,
+                  ]}
+                >
+                  <Ionicons name="cloud-upload-outline" size={19} color={palette.text} />
+                  <Text style={styles.uploadButtonText}>Upload Audio</Text>
+                </Pressable>
+              ) : (
+                <View style={styles.replyHint}>
+                  <Ionicons
+                    name="information-circle-outline"
+                    size={18}
+                    color={palette.teal}
+                  />
+                  <Text style={styles.replyHintText}>
+                    Reply mode records your English voice only.
+                  </Text>
+                </View>
+              )}
 
               <Pressable
+                accessibilityLabel="Reset current result"
                 accessibilityRole="button"
                 disabled={isRecording || isBusy || (!result && !error)}
                 onPress={reset}
@@ -898,8 +976,8 @@ export default function HomeScreen() {
                 <Ionicons name="refresh" size={18} color={palette.textMuted} />
               </Pressable>
             </View>
-          </View>
-        </View>
+          </GlassActionBar>
+        </GlassSurface>
 
         {permissionGranted === false ? (
           <View style={styles.alertPanel}>
@@ -932,6 +1010,38 @@ export default function HomeScreen() {
         ) : null}
 
         <View style={styles.outputStack}>
+          {result && !result.saveToHistory ? (
+            <View style={styles.savePanel}>
+              <View style={styles.saveCopy}>
+                <Text style={styles.saveTitle}>Save outputs to history?</Text>
+                <Text style={styles.saveText}>
+                  We will save the translation text and generated audio only. Your
+                  original voice recording is not saved.
+                </Text>
+              </View>
+              <Pressable
+                accessibilityLabel="Save outputs to history"
+                accessibilityRole="button"
+                disabled={isSavingResult}
+                onPress={saveCurrentResult}
+                style={({ pressed }) => [
+                  styles.saveButton,
+                  isSavingResult ? styles.disabledSecondaryButton : null,
+                  pressed && !isSavingResult ? styles.pressedButton : null,
+                ]}
+              >
+                {isSavingResult ? (
+                  <ActivityIndicator color={palette.stoneText} />
+                ) : (
+                  <Ionicons name="bookmark-outline" size={18} color={palette.stoneText} />
+                )}
+                <Text style={styles.saveButtonText}>
+                  {isSavingResult ? 'Saving' : 'Save'}
+                </Text>
+              </Pressable>
+            </View>
+          ) : null}
+
           <View style={[styles.resultPanel, styles.translationPanel]}>
             <View style={styles.panelHeaderRow}>
               <Text style={styles.panelLabel}>
@@ -940,12 +1050,32 @@ export default function HomeScreen() {
               <Ionicons name="language-outline" size={18} color={palette.stone} />
             </View>
             <EnglishAudioPlayback
-              getToken={() => getToken()}
+              getToken={() => getTokenRef.current()}
               tts={result?.tts}
             />
             <Text maxFontSizeMultiplier={1.15} selectable style={styles.translationText}>
               {englishTranslation || 'Waiting for translation.'}
             </Text>
+            {result && !isResponseResult ? (
+              <Pressable
+                accessibilityLabel="Reply in Darija"
+                accessibilityRole="button"
+                disabled={isRecording || isBusy}
+                onPress={() => setSelectedTask('reply')}
+                style={({ pressed }) => [
+                  styles.replyCta,
+                  (isRecording || isBusy) ? styles.disabledSecondaryButton : null,
+                  pressed && !isRecording && !isBusy ? styles.pressedButton : null,
+                ]}
+              >
+                <Ionicons
+                  name="return-up-forward-outline"
+                  size={18}
+                  color={palette.stoneText}
+                />
+                <Text style={styles.replyCtaText}>Reply in Darija</Text>
+              </Pressable>
+            ) : null}
           </View>
 
           <View style={styles.resultPanel}>
@@ -961,7 +1091,7 @@ export default function HomeScreen() {
                 accessibilityPlayLabel="Play Arabic reply audio"
                 disclosure="AI-generated Arabic/Darija voice"
                 failedLabel="Arabic reply voice unavailable"
-                getToken={() => getToken()}
+                getToken={() => getTokenRef.current()}
                 loadingLabel="Preparing Arabic reply voice"
                 playingLabel="Playing Arabic reply"
                 playLabel="Listen to Arabic reply"
@@ -980,7 +1110,7 @@ export default function HomeScreen() {
           </View>
         </View>
 
-        {diagnostics.length > 0 ? (
+        {showDeveloperDiagnostics && diagnostics.length > 0 ? (
           <View style={styles.diagnosticsPanel}>
             <Pressable
               accessibilityRole="button"
@@ -992,8 +1122,8 @@ export default function HomeScreen() {
             >
               <View>
                 <Text style={styles.panelLabel}>Diagnostics</Text>
-                <Text selectable style={styles.diagnosticSummary}>
-                  {diagnostics.length} recent events. {diagnostics[0]}
+                <Text style={styles.diagnosticSummary}>
+                  Developer runtime details
                 </Text>
               </View>
               <Ionicons
@@ -1361,6 +1491,25 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '900',
   },
+  replyHint: {
+    alignItems: 'center',
+    backgroundColor: palette.cardRaised,
+    borderColor: palette.border,
+    borderRadius: 12,
+    borderWidth: 1,
+    flex: 1,
+    flexDirection: 'row',
+    gap: 8,
+    minHeight: 52,
+    paddingHorizontal: 12,
+  },
+  replyHintText: {
+    color: palette.textMuted,
+    flex: 1,
+    fontSize: 12,
+    fontWeight: '800',
+    lineHeight: 17,
+  },
   disabledButton: {
     opacity: 0.38,
   },
@@ -1446,6 +1595,45 @@ const styles = StyleSheet.create({
   outputStack: {
     gap: 14,
   },
+  savePanel: {
+    alignItems: 'center',
+    backgroundColor: palette.cardRaised,
+    borderColor: palette.border,
+    borderRadius: 16,
+    borderWidth: 1,
+    flexDirection: 'row',
+    gap: 12,
+    padding: 14,
+  },
+  saveCopy: {
+    flex: 1,
+    gap: 4,
+  },
+  saveTitle: {
+    color: palette.text,
+    fontSize: 14,
+    fontWeight: '900',
+  },
+  saveText: {
+    color: palette.textMuted,
+    fontSize: 12,
+    fontWeight: '700',
+    lineHeight: 17,
+  },
+  saveButton: {
+    alignItems: 'center',
+    backgroundColor: palette.stone,
+    borderRadius: 12,
+    flexDirection: 'row',
+    gap: 6,
+    minHeight: 42,
+    paddingHorizontal: 13,
+  },
+  saveButtonText: {
+    color: palette.stoneText,
+    fontSize: 13,
+    fontWeight: '900',
+  },
   resultPanel: {
     backgroundColor: palette.card,
     borderColor: palette.border,
@@ -1482,6 +1670,22 @@ const styles = StyleSheet.create({
     fontSize: 17,
     fontWeight: '800',
     lineHeight: 25,
+  },
+  replyCta: {
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    backgroundColor: palette.teal,
+    borderRadius: 12,
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 16,
+    minHeight: 44,
+    paddingHorizontal: 14,
+  },
+  replyCtaText: {
+    color: palette.stoneText,
+    fontSize: 14,
+    fontWeight: '900',
   },
   diagnosticsPanel: {
     backgroundColor: palette.cardRaised,

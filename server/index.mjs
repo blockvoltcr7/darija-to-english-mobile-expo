@@ -1,3 +1,4 @@
+import { timingSafeEqual } from 'node:crypto';
 import { clerkMiddleware, getAuth } from '@clerk/express';
 import { verifyWebhook } from '@clerk/backend/webhooks';
 import cors from 'cors';
@@ -6,6 +7,7 @@ import {
   checkConvexConnection,
   CONVEX_DEPLOYMENT_NAME,
 } from './db.mjs';
+import { deleteAccountForUser } from './account-deletion.mjs';
 import { env } from './env.mjs';
 import {
   getOrCreateProfile,
@@ -28,14 +30,26 @@ import {
 import { runTranslationProviderPipeline } from './translation-pipeline.mjs';
 import {
   createTranslationJob,
+  cleanupExpiredEphemeralContent,
   getTranslationForUser,
   listTranslationsForUser,
+  markTranslationJobAudioDeleted,
   markTranslationJobFailed,
   markTranslationJobRunning,
+  markTranslationJobSavedToHistory,
   markTranslationJobSucceeded,
   updateTranslationJobStorageMetadata,
   updateTranslationJobTriggerRunId,
 } from './translations.mjs';
+import {
+  acceptConsentForUser,
+  ephemeralExpiresAt,
+  getPrivacyStateForUser,
+  isConsentCurrent,
+  publicRequiredConsentVersions,
+  revokeConsentForUser,
+  setPrivacyPreferencesForUser,
+} from './privacy.mjs';
 import { translateAudioJob } from '../trigger/translate-audio-job.mjs';
 import { responseAudioJob } from '../trigger/response-audio-job.mjs';
 
@@ -54,6 +68,8 @@ const {
   OPENAI_TRANSLATION_MODEL: TRANSLATION_MODEL,
   OPENAI_TRANSCRIPTION_MODEL,
   CONVEX_CONFIGURED,
+  RETENTION_CLEANUP_CONFIGURED,
+  RETENTION_CLEANUP_SECRET,
   TRIGGER_CONFIGURED,
 } = env;
 
@@ -164,12 +180,24 @@ function modelsFromResult(result) {
   };
 }
 
+function modeFromResult(result) {
+  const metadata = result?.model_metadata;
+
+  if (!metadata || typeof metadata !== 'object' || Array.isArray(metadata)) {
+    return null;
+  }
+
+  return typeof metadata.mode === 'string' ? metadata.mode : null;
+}
+
 function toTranslationListItem(row) {
   const result = firstRelatedRow(row, 'translation_results');
 
   return {
     id: row.id,
+    mode: modeFromResult(result),
     status: row.status,
+    saveToHistory: row.save_to_history,
     triggerRunId: row.trigger_run_id,
     filename: row.source_filename,
     createdAt: row.created_at,
@@ -240,6 +268,7 @@ function toTranslationDetail(row, ttsArtifact = null, responseAudioArtifact = nu
   return {
     id: row.id,
     status: row.status,
+    saveToHistory: row.save_to_history,
     triggerRunId: row.trigger_run_id,
     filename: row.source_filename,
     sourceAudioBytes: row.source_audio_bytes,
@@ -294,6 +323,69 @@ function validatePayload(body) {
   return { filename, audioBase64 };
 }
 
+function saveToHistoryFromBody(body) {
+  return body?.save_to_history === true;
+}
+
+function secureStringEquals(a, b) {
+  const left = Buffer.from(String(a ?? ''));
+  const right = Buffer.from(String(b ?? ''));
+
+  return left.length === right.length && timingSafeEqual(left, right);
+}
+
+function retentionCleanupLimitFromBody(body) {
+  const rawLimit = body?.limit;
+
+  if (rawLimit === undefined || rawLimit === null) {
+    return 50;
+  }
+
+  const parsed = Number.parseInt(String(rawLimit), 10);
+
+  if (Number.isNaN(parsed) || parsed < 1) {
+    return 50;
+  }
+
+  return Math.min(parsed, 50);
+}
+
+function requireRetentionCleanupSecret(req, res, next) {
+  if (!RETENTION_CLEANUP_CONFIGURED) {
+    return res.status(404).json({ error: 'Not found.' });
+  }
+
+  const submittedSecret = req.get('x-retention-cleanup-secret');
+
+  if (!submittedSecret || !secureStringEquals(submittedSecret, RETENTION_CLEANUP_SECRET)) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+
+  return next();
+}
+
+async function deleteOriginalAudioForJob({ traceId, jobId, clerkUserId, storageId }) {
+  if (!storageId) {
+    return;
+  }
+
+  try {
+    await removeStoredObject({ storageId });
+    await markTranslationJobAudioDeleted({ jobId, clerkUserId });
+    logTrace(traceId, 'Original user audio deleted after processing', {
+      jobId,
+      storageId,
+    });
+  } catch (cleanupError) {
+    logTrace(traceId, 'Original user audio cleanup failed', {
+      jobId,
+      storageId,
+      errorName: cleanupError?.name,
+      errorCode: cleanupError?.code || cleanupError?.convex?.code,
+    });
+  }
+}
+
 function requireTriggerRuntime() {
   if (!TRIGGER_CONFIGURED) {
     throw httpError(
@@ -335,9 +427,64 @@ function requireClerkSession(req, res, next) {
   req.clerkAuth = {
     userId: auth.userId,
     sessionId: auth.sessionId,
+    claims: auth.sessionClaims || {},
   };
 
   next();
+}
+
+function claimString(claims, ...keys) {
+  for (const key of keys) {
+    const value = claims?.[key];
+
+    if (typeof value === 'string' && value.trim()) {
+      return value.trim();
+    }
+  }
+
+  return null;
+}
+
+function displayNameFromClaims(claims) {
+  return (
+    claimString(claims, 'name', 'full_name') ||
+    [claimString(claims, 'first_name'), claimString(claims, 'last_name')]
+      .filter(Boolean)
+      .join(' ') ||
+    null
+  );
+}
+
+async function requireCurrentConsent(req, res, next) {
+  const traceId = traceFromRequest(req);
+
+  try {
+    const privacyState = await getPrivacyStateForUser({
+      clerkUserId: req.clerkAuth.userId,
+    });
+
+    req.privacyState = privacyState;
+
+    if (!isConsentCurrent(privacyState)) {
+      logTrace(traceId, 'Consent gate rejected request', {
+        userId: req.clerkAuth.userId,
+        path: req.originalUrl || req.url,
+        reason: 'consent_required',
+      });
+
+      return res.status(403).json({
+        error: 'AI processing consent is required before using this feature.',
+        reason: 'consent_required',
+        traceId,
+        privacy: privacyState,
+      });
+    }
+
+    next();
+  } catch (error) {
+    error.traceId = traceId;
+    next(error);
+  }
 }
 
 async function ensureProfileForRequest(req, res, next) {
@@ -665,18 +812,239 @@ async function handleGetArabicResponseAudioArtifact(req, res, next) {
   });
 }
 
-app.get('/v1/translations', requireClerkSession, handleListTranslations);
+async function handleGetPrivacyState(req, res, next) {
+  const traceId = traceFromRequest(req);
+
+  try {
+    const privacyState = await getPrivacyStateForUser({
+      clerkUserId: req.clerkAuth.userId,
+    });
+
+    res.json({
+      ...privacyState,
+      required_versions: privacyState.required_versions || publicRequiredConsentVersions(),
+    });
+  } catch (error) {
+    error.traceId = traceId;
+    next(error);
+  }
+}
+
+async function handleAcceptConsent(req, res, next) {
+  const traceId = traceFromRequest(req);
+
+  try {
+    const claims = req.clerkAuth.claims || {};
+    const consent = await acceptConsentForUser({
+      clerkUserId: req.clerkAuth.userId,
+      profileId: req.profile?.id,
+      primaryEmail: claimString(claims, 'email', 'primary_email'),
+      displayName: displayNameFromClaims(claims),
+      source: typeof req.body?.source === 'string' ? req.body.source : undefined,
+      platform: typeof req.body?.platform === 'string' ? req.body.platform : undefined,
+      appVersion:
+        typeof req.body?.app_version === 'string' ? req.body.app_version : undefined,
+      ip: req.ip,
+      userAgent: req.get('User-Agent'),
+    });
+    const privacyState = await getPrivacyStateForUser({
+      clerkUserId: req.clerkAuth.userId,
+    });
+
+    logTrace(traceId, 'Consent accepted', {
+      userId: req.clerkAuth.userId,
+      consentId: consent?.id,
+      source: consent?.source,
+    });
+
+    res.status(201).json({
+      consent,
+      privacy: privacyState,
+    });
+  } catch (error) {
+    error.traceId = traceId;
+    next(error);
+  }
+}
+
+async function handleRevokeConsent(req, res, next) {
+  const traceId = traceFromRequest(req);
+
+  try {
+    const consent = await revokeConsentForUser({
+      clerkUserId: req.clerkAuth.userId,
+    });
+    const privacyState = await getPrivacyStateForUser({
+      clerkUserId: req.clerkAuth.userId,
+    });
+
+    logTrace(traceId, 'Consent revoked', {
+      userId: req.clerkAuth.userId,
+      consentId: consent?.id,
+    });
+
+    res.json({ consent, privacy: privacyState });
+  } catch (error) {
+    error.traceId = traceId;
+    next(error);
+  }
+}
+
+async function handleUpdatePrivacyPreferences(req, res, next) {
+  const traceId = traceFromRequest(req);
+
+  try {
+    const preferences = await setPrivacyPreferencesForUser({
+      clerkUserId: req.clerkAuth.userId,
+      saveHistoryByDefault: req.body?.save_history_by_default === true,
+    });
+
+    res.json({ preferences });
+  } catch (error) {
+    error.traceId = traceId;
+    next(error);
+  }
+}
+
+async function handleDeleteAccount(req, res, next) {
+  const traceId = traceFromRequest(req);
+
+  try {
+    const deletion = await deleteAccountForUser({
+      clerkUserId: req.clerkAuth.userId,
+    });
+
+    logTrace(traceId, 'Account deletion completed', {
+      deletionRequestId: deletion.deletionRequestId,
+      appDataDeletion: deletion.appDataDeletion?.summary,
+    });
+
+    res.json({
+      status: deletion.status,
+      deletion_request_id: deletion.deletionRequestId,
+      app_data: deletion.appDataDeletion?.summary,
+    });
+  } catch (error) {
+    error.traceId = traceId;
+    next(error);
+  }
+}
+
+async function handleSaveTranslationToHistory(req, res, next) {
+  const traceId = traceFromRequest(req);
+
+  try {
+    const translation = await getTranslationForUser({
+      clerkUserId: req.clerkAuth.userId,
+      translationId: req.params.id,
+    });
+
+    if (!translation) {
+      return res.status(404).json({ error: 'Translation not found.' });
+    }
+
+    await markTranslationJobSavedToHistory({
+      jobId: req.params.id,
+      clerkUserId: req.clerkAuth.userId,
+    });
+
+    const savedTranslation = await getTranslationForUser({
+      clerkUserId: req.clerkAuth.userId,
+      translationId: req.params.id,
+    });
+    const ttsArtifact = await getLatestEnglishTtsArtifactForUser({
+      clerkUserId: req.clerkAuth.userId,
+      translationId: req.params.id,
+    });
+    const responseAudioArtifact = await getTtsArtifactForUserByKind({
+      clerkUserId: req.clerkAuth.userId,
+      translationId: req.params.id,
+      kind: TRANSLATION_ARTIFACT_KIND.ARABIC_RESPONSE_TTS_AUDIO,
+    });
+
+    logTrace(traceId, 'Translation saved to history', {
+      userId: req.clerkAuth.userId,
+      translationId: req.params.id,
+      originalAudioDeletedAt: savedTranslation?.audio_deleted_at || null,
+    });
+
+    res.json(toTranslationDetail(savedTranslation, ttsArtifact, responseAudioArtifact));
+  } catch (error) {
+    error.traceId = traceId;
+    next(error);
+  }
+}
+
+async function handleCleanupExpiredEphemeralContent(req, res, next) {
+  const traceId = traceFromRequest(req);
+
+  try {
+    const before = typeof req.body?.before === 'string' ? req.body.before : new Date();
+    const summary = await cleanupExpiredEphemeralContent({
+      before,
+      limit: retentionCleanupLimitFromBody(req.body),
+    });
+
+    logTrace(traceId, 'Expired ephemeral content cleanup completed', summary);
+    res.json({ ok: true, summary });
+  } catch (error) {
+    error.traceId = traceId;
+    next(error);
+  }
+}
+
+app.get('/v1/me/privacy', requireClerkSession, handleGetPrivacyState);
+app.post(
+  '/v1/admin/retention/cleanup',
+  requireRetentionCleanupSecret,
+  handleCleanupExpiredEphemeralContent,
+);
+app.post(
+  '/v1/me/consent',
+  requireClerkSession,
+  ensureProfileForRequest,
+  handleAcceptConsent,
+);
+app.post('/v1/me/consent/revoke', requireClerkSession, handleRevokeConsent);
+app.delete('/v1/account', requireClerkSession, handleDeleteAccount);
+app.delete('/v1/me', requireClerkSession, handleDeleteAccount);
+app.post(
+  '/v1/me/privacy-preferences',
+  requireClerkSession,
+  requireCurrentConsent,
+  handleUpdatePrivacyPreferences,
+);
+
+app.get(
+  '/v1/translations',
+  requireClerkSession,
+  requireCurrentConsent,
+  handleListTranslations,
+);
 app.get(
   '/v1/translations/:id/artifacts/english-audio',
   requireClerkSession,
+  requireCurrentConsent,
   handleGetEnglishAudioArtifact,
 );
 app.get(
   '/v1/translations/:id/artifacts/arabic-response-audio',
   requireClerkSession,
+  requireCurrentConsent,
   handleGetArabicResponseAudioArtifact,
 );
-app.get('/v1/translations/:id', requireClerkSession, handleGetTranslation);
+app.post(
+  '/v1/translations/:id/save',
+  requireClerkSession,
+  requireCurrentConsent,
+  handleSaveTranslationToHistory,
+);
+app.get(
+  '/v1/translations/:id',
+  requireClerkSession,
+  requireCurrentConsent,
+  handleGetTranslation,
+);
 
 function triggerRunIdFromHandle(handle) {
   return (
@@ -718,6 +1086,7 @@ async function handleCreateResponseAudio(req, res, next) {
     requireTriggerRuntime();
 
     const payload = validatePayload(req.body);
+    const saveToHistory = saveToHistoryFromBody(req.body);
     const audio = prepareAudioForStorage(payload);
     const audioBytes = audio.sizeBytes;
     const clerkUserId = req.clerkAuth.userId;
@@ -729,6 +1098,7 @@ async function handleCreateResponseAudio(req, res, next) {
       base64Chars: audio.audioBase64.length,
       audioBytes,
       audioMimeType: audio.mimeType,
+      saveToHistory,
       contentLength: req.get('Content-Length'),
     });
 
@@ -738,6 +1108,8 @@ async function handleCreateResponseAudio(req, res, next) {
       filename: audio.filename,
       audioBytes,
       traceId,
+      saveToHistory,
+      ephemeralExpiresAt: ephemeralExpiresAt(),
     });
 
     storedAudio = await uploadOriginalAudioForJob({
@@ -795,6 +1167,7 @@ async function handleCreateResponseAudio(req, res, next) {
       triggerRunId,
       createdAt: translationJob.created_at,
       detailUrl: `/v1/response-audio/${translationJob.id}`,
+      saveToHistory,
     };
 
     logTrace(traceId, 'Response audio queued', {
@@ -832,12 +1205,14 @@ app.post(
   '/v1/response-audio',
   requireClerkSession,
   ensureProfileForRequest,
+  requireCurrentConsent,
   handleCreateResponseAudio,
 );
 
 app.get(
   '/v1/response-audio/:id',
   requireClerkSession,
+  requireCurrentConsent,
   handleGetTranslation,
 );
 
@@ -851,6 +1226,7 @@ async function handleCreateTranslation(req, res, next) {
     requireTriggerRuntime();
 
     const payload = validatePayload(req.body);
+    const saveToHistory = saveToHistoryFromBody(req.body);
     const audio = prepareAudioForStorage(payload);
     const audioBytes = audio.sizeBytes;
     const clerkUserId = req.clerkAuth.userId;
@@ -862,6 +1238,7 @@ async function handleCreateTranslation(req, res, next) {
       base64Chars: audio.audioBase64.length,
       audioBytes,
       audioMimeType: audio.mimeType,
+      saveToHistory,
       contentLength: req.get('Content-Length'),
     });
 
@@ -871,6 +1248,8 @@ async function handleCreateTranslation(req, res, next) {
       filename: audio.filename,
       audioBytes,
       traceId,
+      saveToHistory,
+      ephemeralExpiresAt: ephemeralExpiresAt(),
     });
 
     storedAudio = await uploadOriginalAudioForJob({
@@ -926,6 +1305,7 @@ async function handleCreateTranslation(req, res, next) {
       triggerRunId,
       createdAt: translationJob.created_at,
       detailUrl: `/v1/translations/${translationJob.id}`,
+      saveToHistory,
     };
 
     logTrace(traceId, 'Async translation queued', {
@@ -963,6 +1343,7 @@ app.post(
   '/v1/translations',
   requireClerkSession,
   ensureProfileForRequest,
+  requireCurrentConsent,
   handleCreateTranslation,
 );
 
@@ -974,6 +1355,7 @@ async function handleTranslateAudio(req, res, next) {
 
   try {
     const payload = validatePayload(req.body);
+    const saveToHistory = saveToHistoryFromBody(req.body);
     const audio = prepareAudioForStorage(payload);
     const providerPayload = {
       filename: audio.filename,
@@ -989,6 +1371,7 @@ async function handleTranslateAudio(req, res, next) {
       base64Chars: audio.audioBase64.length,
       audioBytes,
       audioMimeType: audio.mimeType,
+      saveToHistory,
       contentLength: req.get('Content-Length'),
     });
 
@@ -998,6 +1381,8 @@ async function handleTranslateAudio(req, res, next) {
       filename: audio.filename,
       audioBytes,
       traceId,
+      saveToHistory,
+      ephemeralExpiresAt: ephemeralExpiresAt(),
     });
 
     storedAudio = await uploadOriginalAudioForJob({
@@ -1051,6 +1436,13 @@ async function handleTranslateAudio(req, res, next) {
       },
       logTrace,
     });
+
+    await deleteOriginalAudioForJob({
+      traceId,
+      jobId: translationJob.id,
+      clerkUserId,
+      storageId: storedAudio?.storageId,
+    });
     const {
       openaiAsr,
       darijaAsr,
@@ -1078,6 +1470,7 @@ async function handleTranslateAudio(req, res, next) {
         openai: openaiAsr.text,
       },
       translation: englishText,
+      saveToHistory,
       model: models.translation,
       consolidation_model: models.consolidation,
       asr: {
@@ -1148,12 +1541,14 @@ app.post(
   '/v1/translate-audio',
   requireClerkSession,
   ensureProfileForRequest,
+  requireCurrentConsent,
   handleTranslateAudio,
 );
 app.post(
   '/translate-audio',
   requireClerkSession,
   ensureProfileForRequest,
+  requireCurrentConsent,
   handleTranslateAudio,
 );
 
@@ -1168,7 +1563,11 @@ app.use((error, _req, res, _next) => {
     stack: error.stack,
   });
 
-  res.status(status).json({ error: message });
+  res.status(status).json({
+    error: message,
+    ...(error.reason || error.code ? { reason: error.reason || error.code } : {}),
+    ...(error.traceId ? { traceId: error.traceId } : {}),
+  });
 });
 
 app.listen(PORT, HOST, () => {

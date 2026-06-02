@@ -8,8 +8,11 @@
  * @module
  */
 
+import type * as accountDeletion from "../accountDeletion.js";
 import type * as artifacts from "../artifacts.js";
 import type * as auth from "../auth.js";
+import type * as consents from "../consents.js";
+import type * as crons from "../crons.js";
 import type * as health from "../health.js";
 import type * as model_auth from "../model/auth.js";
 import type * as model_rows from "../model/rows.js";
@@ -24,8 +27,11 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  accountDeletion: typeof accountDeletion;
   artifacts: typeof artifacts;
   auth: typeof auth;
+  consents: typeof consents;
+  crons: typeof crons;
   health: typeof health;
   "model/auth": typeof model_auth;
   "model/rows": typeof model_rows;
