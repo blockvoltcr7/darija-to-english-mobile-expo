@@ -38,8 +38,6 @@ export default function LoginScreen() {
   });
   const { fetchStatus, signIn } = useSignIn();
   const [email, setEmail] = useState(emailParam ?? '');
-  const [password, setPassword] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -58,60 +56,6 @@ export default function LoginScreen() {
 
   if (isSignedIn) {
     return <Redirect href="/translate" />;
-  }
-
-  async function finalizeSignIn() {
-    const result = await signIn?.finalize();
-
-    if (!result) {
-      throw new Error('Clerk sign-in is still loading.');
-    }
-
-    throwIfClerkError(result);
-    router.replace('/translate');
-  }
-
-  async function submitPassword() {
-    if (!signIn) {
-      setError('Clerk sign-in is still loading.');
-      return;
-    }
-
-    if (!normalizedEmail) {
-      setError('Enter your email address.');
-      return;
-    }
-
-    if (!password) {
-      setError('Enter your password.');
-      return;
-    }
-
-    setIsSubmitting(true);
-    setError(null);
-
-    try {
-      const result = await signIn.create({
-        identifier: normalizedEmail,
-        password,
-      });
-      throwIfClerkError(result);
-
-      if (signIn.status !== 'complete') {
-        throw new Error(`Sign in requires another step: ${signIn.status}.`);
-      }
-
-      await finalizeSignIn();
-    } catch (caughtError) {
-      const code = clerkErrorCode(caughtError);
-      setError(
-        code === 'form_identifier_not_found'
-          ? 'No account exists for that email. Create an account to continue.'
-          : clerkErrorMessage(caughtError),
-      );
-    } finally {
-      setIsSubmitting(false);
-    }
   }
 
   async function sendEmailCode() {
@@ -185,44 +129,14 @@ export default function LoginScreen() {
               inputMode="email"
               keyboardType="email-address"
               onChangeText={setEmail}
+              onSubmitEditing={sendEmailCode}
               placeholder="name@example.com"
               placeholderTextColor={palette.textSubtle}
-              returnKeyType="next"
+              returnKeyType="send"
               style={styles.input}
               textContentType="emailAddress"
               value={email}
             />
-
-            <Text style={[styles.label, styles.fieldSpacing]}>Password</Text>
-            <View style={styles.passwordWrap}>
-              <TextInput
-                autoCapitalize="none"
-                autoComplete="password"
-                autoCorrect={false}
-                editable={isReady && !isSubmitting}
-                onChangeText={setPassword}
-                onSubmitEditing={submitPassword}
-                placeholder="Password"
-                placeholderTextColor={palette.textSubtle}
-                returnKeyType="done"
-                secureTextEntry={!showPassword}
-                style={styles.passwordInput}
-                textContentType="password"
-                value={password}
-              />
-              <Pressable
-                accessibilityLabel={showPassword ? 'Hide password' : 'Show password'}
-                accessibilityRole="button"
-                onPress={() => setShowPassword((current) => !current)}
-                style={styles.iconButton}
-              >
-                <Ionicons
-                  name={showPassword ? 'eye-off-outline' : 'eye-outline'}
-                  size={20}
-                  color={palette.textMuted}
-                />
-              </Pressable>
-            </View>
 
             {error ? (
               <View style={styles.errorBox}>
@@ -234,7 +148,7 @@ export default function LoginScreen() {
             <Pressable
               accessibilityRole="button"
               disabled={!isReady || isSubmitting}
-              onPress={submitPassword}
+              onPress={sendEmailCode}
               style={({ pressed }) => [
                 styles.primaryButton,
                 pressed ? styles.pressedButton : null,
@@ -245,22 +159,10 @@ export default function LoginScreen() {
                 <ActivityIndicator color={palette.stoneText} />
               ) : (
                 <>
-                  <Text style={styles.primaryButtonText}>Sign in</Text>
+                  <Text style={styles.primaryButtonText}>Email me a code</Text>
                   <Ionicons name="arrow-forward" size={18} color={palette.stoneText} />
                 </>
               )}
-            </Pressable>
-
-            <Pressable
-              accessibilityRole="button"
-              disabled={!isReady || isSubmitting}
-              onPress={sendEmailCode}
-              style={({ pressed }) => [
-                styles.secondaryButton,
-                pressed ? styles.pressedButton : null,
-              ]}
-            >
-              <Text style={styles.secondaryButtonText}>Email me a code instead</Text>
             </Pressable>
           </View>
 
@@ -341,9 +243,6 @@ const styles = StyleSheet.create({
     marginBottom: 8,
     textTransform: 'uppercase',
   },
-  fieldSpacing: {
-    marginTop: 16,
-  },
   input: {
     backgroundColor: palette.page,
     borderColor: palette.border,
@@ -355,29 +254,6 @@ const styles = StyleSheet.create({
     minHeight: 54,
     paddingHorizontal: 14,
     paddingVertical: 12,
-  },
-  passwordWrap: {
-    alignItems: 'center',
-    backgroundColor: palette.page,
-    borderColor: palette.border,
-    borderRadius: 8,
-    borderWidth: 1,
-    flexDirection: 'row',
-    minHeight: 54,
-  },
-  passwordInput: {
-    color: palette.text,
-    flex: 1,
-    fontSize: 18,
-    fontWeight: '700',
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-  },
-  iconButton: {
-    alignItems: 'center',
-    height: 54,
-    justifyContent: 'center',
-    width: 52,
   },
   errorBox: {
     alignItems: 'flex-start',
@@ -412,21 +288,6 @@ const styles = StyleSheet.create({
     color: palette.stoneText,
     fontSize: 18,
     fontWeight: '900',
-  },
-  secondaryButton: {
-    alignItems: 'center',
-    borderColor: palette.border,
-    borderRadius: 8,
-    borderWidth: 1,
-    justifyContent: 'center',
-    marginTop: 12,
-    minHeight: 50,
-    paddingHorizontal: 16,
-  },
-  secondaryButtonText: {
-    color: palette.text,
-    fontSize: 15,
-    fontWeight: '800',
   },
   switchLink: {
     alignItems: 'center',
