@@ -1,0 +1,51 @@
+{
+  "schemaVersion": 1,
+  "ok": true,
+  "command": "finalize",
+  "status": "pass",
+  "type": "dataflow",
+  "quality": "showcase",
+  "specification": {
+    "path": "/Users/samisabir-idrissi/dev/codex-projects/darija-to-english-mobile-expo/.archify/architecture-codebase-20261107-205314/understand-pipeline.json",
+    "sha256": "ef59eb45d6cb66da838657ae4fe3fb9665304c6c91b951dc504d949a5225d56c",
+    "bytes": 3928
+  },
+  "artifact": {
+    "path": "/Users/samisabir-idrissi/dev/codex-projects/darija-to-english-mobile-expo/ai_docs/html-visuals/codebase-guide/understand-pipeline.html",
+    "sha256": "5a94e29aae265ab71bd834e62f197b4eb5b80ac8a2c061aceb548ccdfddbe763",
+    "bytes": 819242
+  },
+  "gates": {
+    "validate": "pass",
+    "deliver": "pass",
+    "check": "pass",
+    "browser-check": "pass"
+  },
+  "diagnostics": [],
+  "diagnosticSummary": {
+    "total": 0,
+    "shown": 0,
+    "truncated": false
+  },
+  "evidence": {
+    "receipt": "/Users/samisabir-idrissi/dev/codex-projects/darija-to-english-mobile-expo/ai_docs/html-visuals/codebase-guide/understand-pipeline.finalize.json",
+    "summaryReceipt": "/Users/samisabir-idrissi/dev/codex-projects/darija-to-english-mobile-expo/ai_docs/html-visuals/codebase-guide/understand-pipeline.finalize-summary.json",
+    "browserCheckReceipt": "/Users/samisabir-idrissi/dev/codex-projects/darija-to-english-mobile-expo/ai_docs/html-visuals/codebase-guide/understand-pipeline.browser-check.json"
+  },
+  "update": {
+    "status": "current",
+    "installedVersion": "3.2.0",
+    "availableVersion": "3.2.0",
+    "releaseNotes": null,
+    "checkedAt": "2026-11-07T18:13:24.453Z",
+    "source": "cache",
+    "noticeRequired": false,
+    "noticeText": null
+  },
+  "visualReview": "not-requested",
+  "durationMs": 1778,
+  "browserCheck": {
+    "requested": true,
+    "ran": true
+  }
+}

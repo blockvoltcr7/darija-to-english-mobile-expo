@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "receiptId": "d7bdef7b-2f9c-447e-a0d5-9d0a69bcf97a",
+  "status": "current",
+  "command": "deliver",
+  "type": "sequence",
+  "input": "/Users/samisabir-idrissi/dev/codex-projects/darija-to-english-mobile-expo/.archify/architecture-codebase-20261107-205314/async-jobs.json",
+  "output": "/Users/samisabir-idrissi/dev/codex-projects/darija-to-english-mobile-expo/ai_docs/html-visuals/codebase-guide/async-jobs.html",
+  "specification": {
+    "sha256": "44e7fd92c9efa5c7890f76558c49137ad042bf09792e21a213db0c74b4652724",
+    "bytes": 3852
+  },
+  "artifact": {
+    "sha256": "4299d0db4b36b684e986ad06967057d289162618c9acecd647bab144a67a1b85",
+    "bytes": 818420
+  }
+}

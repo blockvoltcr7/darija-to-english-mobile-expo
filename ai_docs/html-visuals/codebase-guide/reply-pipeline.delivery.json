@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "receiptId": "eeb06a0e-8727-4ff2-b520-51c335ef722f",
+  "status": "current",
+  "command": "deliver",
+  "type": "dataflow",
+  "input": "/Users/samisabir-idrissi/dev/codex-projects/darija-to-english-mobile-expo/.archify/architecture-codebase-20261107-205314/reply-pipeline.json",
+  "output": "/Users/samisabir-idrissi/dev/codex-projects/darija-to-english-mobile-expo/ai_docs/html-visuals/codebase-guide/reply-pipeline.html",
+  "specification": {
+    "sha256": "bc3c2c61ee9fc1612faee32c51359311c3c06c2c696220b5db75c0bc6062e9d3",
+    "bytes": 3684
+  },
+  "artifact": {
+    "sha256": "ef20474098d097eee7c5d4b6d13efdb4007e2ddcc2e23223273fcd62b7fda279",
+    "bytes": 818634
+  }
+}

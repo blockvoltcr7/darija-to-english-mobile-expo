@@ -22,6 +22,8 @@ refs/
 .env.*
 !.env.example
 !.env.*.example
+*.p8
+SubscriptionKey_*.p8
 
 # Native/generated local builds
 android/
@@ -29,3 +31,5 @@ ios/
 build/
 coverage/
 .trigger/
+.archify/
+.codex/runtime/

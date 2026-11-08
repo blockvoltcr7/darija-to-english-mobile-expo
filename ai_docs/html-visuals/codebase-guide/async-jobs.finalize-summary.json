@@ -1,0 +1,51 @@
+{
+  "schemaVersion": 1,
+  "ok": true,
+  "command": "finalize",
+  "status": "pass",
+  "type": "sequence",
+  "quality": "showcase",
+  "specification": {
+    "path": "/Users/samisabir-idrissi/dev/codex-projects/darija-to-english-mobile-expo/.archify/architecture-codebase-20261107-205314/async-jobs.json",
+    "sha256": "b3d85346f37f3e410aa35505085ae8dee1ebe6692031eafcb9b21717d1923047",
+    "bytes": 3778
+  },
+  "artifact": {
+    "path": "/Users/samisabir-idrissi/dev/codex-projects/darija-to-english-mobile-expo/ai_docs/html-visuals/codebase-guide/async-jobs.html",
+    "sha256": "662b08a33444c505538b9926ff120fe3bdf466291a5ccaa8766fa4c2483eb0ea",
+    "bytes": 818417
+  },
+  "gates": {
+    "validate": "pass",
+    "deliver": "pass",
+    "check": "pass",
+    "browser-check": "pass"
+  },
+  "diagnostics": [],
+  "diagnosticSummary": {
+    "total": 0,
+    "shown": 0,
+    "truncated": false
+  },
+  "evidence": {
+    "receipt": "/Users/samisabir-idrissi/dev/codex-projects/darija-to-english-mobile-expo/ai_docs/html-visuals/codebase-guide/async-jobs.finalize.json",
+    "summaryReceipt": "/Users/samisabir-idrissi/dev/codex-projects/darija-to-english-mobile-expo/ai_docs/html-visuals/codebase-guide/async-jobs.finalize-summary.json",
+    "browserCheckReceipt": "/Users/samisabir-idrissi/dev/codex-projects/darija-to-english-mobile-expo/ai_docs/html-visuals/codebase-guide/async-jobs.browser-check.json"
+  },
+  "update": {
+    "status": "current",
+    "installedVersion": "3.2.0",
+    "availableVersion": "3.2.0",
+    "releaseNotes": null,
+    "checkedAt": "2026-11-07T18:13:24.453Z",
+    "source": "cache",
+    "noticeRequired": false,
+    "noticeText": null
+  },
+  "visualReview": "not-requested",
+  "durationMs": 1677,
+  "browserCheck": {
+    "requested": true,
+    "ran": true
+  }
+}

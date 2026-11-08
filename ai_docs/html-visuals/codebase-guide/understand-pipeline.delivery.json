@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "receiptId": "9753e7dd-86ed-4fe9-b619-990fd5b7fd88",
+  "status": "current",
+  "command": "deliver",
+  "type": "dataflow",
+  "input": "/Users/samisabir-idrissi/dev/codex-projects/darija-to-english-mobile-expo/.archify/architecture-codebase-20261107-205314/understand-pipeline.json",
+  "output": "/Users/samisabir-idrissi/dev/codex-projects/darija-to-english-mobile-expo/ai_docs/html-visuals/codebase-guide/understand-pipeline.html",
+  "specification": {
+    "sha256": "ef59eb45d6cb66da838657ae4fe3fb9665304c6c91b951dc504d949a5225d56c",
+    "bytes": 3928
+  },
+  "artifact": {
+    "sha256": "5a94e29aae265ab71bd834e62f197b4eb5b80ac8a2c061aceb548ccdfddbe763",
+    "bytes": 819242
+  }
+}

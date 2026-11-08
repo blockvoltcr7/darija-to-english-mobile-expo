@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "receiptId": "3243211b-29ce-463c-bb70-5399913f95c2",
+  "status": "current",
+  "command": "deliver",
+  "type": "workflow",
+  "input": "/Users/samisabir-idrissi/dev/codex-projects/darija-to-english-mobile-expo/.archify/architecture-codebase-20261107-205314/user-flow.json",
+  "output": "/Users/samisabir-idrissi/dev/codex-projects/darija-to-english-mobile-expo/ai_docs/html-visuals/codebase-guide/user-flow.html",
+  "specification": {
+    "sha256": "c130036f09bf42a2f03467f80006baf9dff00e43d0f6315cfab193a358f21a96",
+    "bytes": 4842
+  },
+  "artifact": {
+    "sha256": "c4a6e8147bdce11a4ea28d5b173b9ecfa511a3b7999f9dfd03dba4c420a3cc7f",
+    "bytes": 827982
+  }
+}

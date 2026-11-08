@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "receiptId": "9e8e6ae7-8433-4f6d-b45b-962949a968c8",
+  "status": "current",
+  "command": "deliver",
+  "type": "architecture",
+  "input": "/Users/samisabir-idrissi/dev/codex-projects/darija-to-english-mobile-expo/.archify/architecture-codebase-20261107-205314/architecture.json",
+  "output": "/Users/samisabir-idrissi/dev/codex-projects/darija-to-english-mobile-expo/ai_docs/html-visuals/codebase-guide/architecture.html",
+  "specification": {
+    "sha256": "01638699a4d463f0db24e705ab10ec42dfde50e93e3ae9d5984378f65fc9906e",
+    "bytes": 4196
+  },
+  "artifact": {
+    "sha256": "b57665829b665e422b234df6108e9c51dc1b32d34aeccb3fef7fc841692b768e",
+    "bytes": 824729
+  }
+}
