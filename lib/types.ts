@@ -216,6 +216,34 @@ export interface AccountDeletionResponse {
   app_data?: AccountDeletionSummary;
 }
 
+export type SubscriptionPlan = 'free' | 'pro' | string;
+export type UsageFeature = 'translation' | 'response_audio' | 'history_save' | string;
+
+export interface SubscriptionEntitlementState {
+  active: boolean;
+  entitlement_id: string;
+  plan: SubscriptionPlan;
+  product_id?: string | null;
+  expires_at?: string | null;
+  environment?: string | null;
+  source?: string | null;
+  last_synced_at?: string | null;
+}
+
+export interface UsageAllowance {
+  feature: UsageFeature;
+  period_key: string;
+  limit: number | null;
+  used: number;
+  remaining: number | null;
+}
+
+export interface SubscriptionState {
+  app_user_id: string;
+  entitlement: SubscriptionEntitlementState;
+  usage: UsageAllowance[];
+}
+
 export type WorkStatus =
   | 'idle'
   | 'preparing'

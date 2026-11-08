@@ -97,6 +97,16 @@ function findPublicProviderSecretEnv(rawEnv) {
     .sort();
 }
 
+function findPublicRevenueCatSecretEnv(rawEnv) {
+  const publicEnvPrefix = ['EXPO', 'PUBLIC'].join('_');
+  const publicRevenueCatPrefix = `${publicEnvPrefix}_REVENUECAT_`;
+
+  return Object.keys(rawEnv)
+    .filter((name) => name.startsWith(publicRevenueCatPrefix))
+    .filter((name) => /(?:SECRET|TOKEN|PRIVATE|WEBHOOK|AUTHORIZATION)/.test(name))
+    .sort();
+}
+
 function buildTranscribeUrl(asrBaseUrl) {
   if (!asrBaseUrl) {
     return undefined;
@@ -146,6 +156,8 @@ function loadEnv(rawEnv = process.env) {
   const forbiddenPublicConvexSecretVars = findPublicConvexSecretEnv(rawEnv);
   const forbiddenPublicTriggerSecretVars = findPublicTriggerSecretEnv(rawEnv);
   const forbiddenPublicProviderSecretVars = findPublicProviderSecretEnv(rawEnv);
+  const forbiddenPublicRevenueCatSecretVars =
+    findPublicRevenueCatSecretEnv(rawEnv);
   const port = readNumber(rawEnv, 'PORT', 8787, errors, {
     integer: true,
     min: 0,
@@ -214,6 +226,20 @@ function loadEnv(rawEnv = process.env) {
   const responseTtsFormat = readString(rawEnv, 'RESPONSE_TTS_FORMAT', 'mp3');
   const openaiApiKey = readString(rawEnv, 'OPENAI_API_KEY');
   const retentionCleanupSecret = readString(rawEnv, 'RETENTION_CLEANUP_SECRET');
+  const freeTranslationJobsPerMonth = readNumber(
+    rawEnv,
+    'FREE_TRANSLATION_JOBS_PER_MONTH',
+    5,
+    errors,
+    { integer: true, min: 0 },
+  );
+  const freeResponseAudioJobsPerMonth = readNumber(
+    rawEnv,
+    'FREE_RESPONSE_AUDIO_JOBS_PER_MONTH',
+    5,
+    errors,
+    { integer: true, min: 0 },
+  );
 
   if (forbiddenPublicConvexSecretVars.length > 0) {
     errors.push(
@@ -234,6 +260,14 @@ function loadEnv(rawEnv = process.env) {
   if (forbiddenPublicProviderSecretVars.length > 0) {
     errors.push(
       `Provider server secrets must not use EXPO_PUBLIC_* env names: ${forbiddenPublicProviderSecretVars.join(
+        ', ',
+      )}.`,
+    );
+  }
+
+  if (forbiddenPublicRevenueCatSecretVars.length > 0) {
+    errors.push(
+      `RevenueCat server secrets must not use EXPO_PUBLIC_* env names: ${forbiddenPublicRevenueCatSecretVars.join(
         ', ',
       )}.`,
     );
@@ -323,6 +357,20 @@ function loadEnv(rawEnv = process.env) {
     ),
     RETENTION_CLEANUP_CONFIGURED: Boolean(retentionCleanupSecret),
     RETENTION_CLEANUP_SECRET: retentionCleanupSecret,
+    EXPO_PUBLIC_REVENUECAT_IOS_API_KEY: readString(
+      rawEnv,
+      'EXPO_PUBLIC_REVENUECAT_IOS_API_KEY',
+    ),
+    REVENUECAT_SECRET_API_KEY: readString(rawEnv, 'REVENUECAT_SECRET_API_KEY'),
+    REVENUECAT_WEBHOOK_AUTHORIZATION: readString(
+      rawEnv,
+      'REVENUECAT_WEBHOOK_AUTHORIZATION',
+    ),
+    REVENUECAT_WEBHOOK_CONFIGURED: Boolean(
+      readString(rawEnv, 'REVENUECAT_WEBHOOK_AUTHORIZATION'),
+    ),
+    FREE_TRANSLATION_JOBS_PER_MONTH: freeTranslationJobsPerMonth,
+    FREE_RESPONSE_AUDIO_JOBS_PER_MONTH: freeResponseAudioJobsPerMonth,
     OPENAI_API_KEY: openaiApiKey,
     OPENAI_TRANSCRIPTION_MODEL: readString(
       rawEnv,

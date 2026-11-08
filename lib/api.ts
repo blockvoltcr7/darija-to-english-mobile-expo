@@ -4,6 +4,7 @@ import type {
   AsyncTranslationSubmitResponse,
   QueuedTranslationJob,
   PrivacyState,
+  SubscriptionState,
   TranslationHistoryDetail,
   TranslationHistoryListResponse,
   TranslationResult,
@@ -430,6 +431,45 @@ export async function getPrivacyState({
   }
 
   return (await res.json()) as PrivacyState;
+}
+
+export async function getSubscriptionState({
+  accessToken,
+  signal,
+}: AuthenticatedRequestParams): Promise<SubscriptionState> {
+  const endpoint = `${CONFIG.API_BASE_URL}/v1/me/subscription`;
+  const res = await fetch(endpoint, {
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+    signal,
+  });
+
+  if (!res.ok) {
+    throw new Error(await readError(res));
+  }
+
+  return (await res.json()) as SubscriptionState;
+}
+
+export async function syncSubscriptionState({
+  accessToken,
+  signal,
+}: AuthenticatedRequestParams): Promise<SubscriptionState> {
+  const endpoint = `${CONFIG.API_BASE_URL}/v1/me/subscription/sync`;
+  const res = await fetch(endpoint, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+    signal,
+  });
+
+  if (!res.ok) {
+    throw new Error(await readError(res));
+  }
+
+  return (await res.json()) as SubscriptionState;
 }
 
 export async function acceptPrivacyConsent({

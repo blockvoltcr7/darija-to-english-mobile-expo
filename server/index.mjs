@@ -50,6 +50,14 @@ import {
   revokeConsentForUser,
   setPrivacyPreferencesForUser,
 } from './privacy.mjs';
+import {
+  getSubscriptionStateForUser,
+  releaseUsageReservation,
+  requireRevenueCatWebhookAuthorization,
+  reserveUsageForUser,
+  syncRevenueCatForUser,
+  syncRevenueCatWebhookPayload,
+} from './subscriptions.mjs';
 import { translateAudioJob } from '../trigger/translate-audio-job.mjs';
 import { responseAudioJob } from '../trigger/response-audio-job.mjs';
 
@@ -70,6 +78,9 @@ const {
   CONVEX_CONFIGURED,
   RETENTION_CLEANUP_CONFIGURED,
   RETENTION_CLEANUP_SECRET,
+  REVENUECAT_WEBHOOK_CONFIGURED,
+  FREE_TRANSLATION_JOBS_PER_MONTH,
+  FREE_RESPONSE_AUDIO_JOBS_PER_MONTH,
   TRIGGER_CONFIGURED,
 } = env;
 
@@ -483,7 +494,79 @@ async function requireCurrentConsent(req, res, next) {
     next();
   } catch (error) {
     error.traceId = traceId;
+    await releaseReservedUsageFromRequest(
+      req,
+      safeErrorCode(error, 'history_save_failed'),
+    );
     next(error);
+  }
+}
+
+function requireUsageAllowance(feature) {
+  return async (req, res, next) => {
+    const traceId = traceFromRequest(req);
+
+    try {
+      const reservationId = `${feature}:${req.clerkAuth.userId}:${traceId}`;
+      const reservation = await reserveUsageForUser({
+        clerkUserId: req.clerkAuth.userId,
+        feature,
+        traceId,
+        reservationId,
+      });
+
+      req.usageReservation = reservation;
+
+      if (!reservation.allowed) {
+        logTrace(traceId, 'Subscription usage gate rejected request', {
+          userId: req.clerkAuth.userId,
+          path: req.originalUrl || req.url,
+          feature,
+          reason: reservation.reason,
+        });
+
+        return res.status(402).json({
+          error:
+            feature === 'history_save'
+              ? 'A Pro subscription is required to save outputs to history.'
+              : 'Your free monthly allowance is used. Subscribe to Pro to continue.',
+          reason:
+            reservation.reason === 'quota_exceeded'
+              ? 'subscription_required'
+              : reservation.reason,
+          feature,
+          traceId,
+          subscription: {
+            entitlement: reservation.entitlement,
+            usage: reservation.usage,
+          },
+        });
+      }
+
+      next();
+    } catch (error) {
+      error.traceId = traceId;
+      next(error);
+    }
+  };
+}
+
+async function releaseReservedUsageFromRequest(req, reason) {
+  const reservationId = req.usageReservation?.reservation_id;
+
+  if (!reservationId) {
+    return;
+  }
+
+  try {
+    await releaseUsageReservation({ reservationId, reason });
+  } catch (releaseError) {
+    logTrace(traceFromRequest(req), 'Usage reservation release failed', {
+      reservationId,
+      reason,
+      errorName: releaseError?.name,
+      errorCode: releaseError?.convex?.code || releaseError?.code,
+    });
   }
 }
 
@@ -632,6 +715,12 @@ app.get('/health', (req, res) => {
       darija_asr: Boolean(ASR_BASE_URL && ASR_API_KEY),
       openai: Boolean(OPENAI_API_KEY),
       convex: CONVEX_CONFIGURED,
+      revenuecat_webhook: REVENUECAT_WEBHOOK_CONFIGURED,
+    },
+    billing: {
+      pro_entitlement: 'pro',
+      free_translation_jobs_per_month: FREE_TRANSLATION_JOBS_PER_MONTH,
+      free_response_audio_jobs_per_month: FREE_RESPONSE_AUDIO_JOBS_PER_MONTH,
     },
     models: {
       openai_transcription: OPENAI_TRANSCRIPTION_MODEL,
@@ -906,6 +995,55 @@ async function handleUpdatePrivacyPreferences(req, res, next) {
   }
 }
 
+async function handleGetSubscriptionState(req, res, next) {
+  const traceId = traceFromRequest(req);
+
+  try {
+    const subscription = await getSubscriptionStateForUser({
+      clerkUserId: req.clerkAuth.userId,
+    });
+
+    res.json(subscription);
+  } catch (error) {
+    error.traceId = traceId;
+    next(error);
+  }
+}
+
+async function handleSyncSubscriptionState(req, res, next) {
+  const traceId = traceFromRequest(req);
+
+  try {
+    const subscription = await syncRevenueCatForUser({
+      clerkUserId: req.clerkAuth.userId,
+    });
+
+    res.json(subscription);
+  } catch (error) {
+    error.traceId = traceId;
+    next(error);
+  }
+}
+
+async function handleRevenueCatWebhook(req, res, next) {
+  const traceId = traceFromRequest(req);
+
+  try {
+    const result = await syncRevenueCatWebhookPayload(req.body);
+
+    logTrace(traceId, 'RevenueCat webhook processed', {
+      duplicate: result.duplicate,
+      entitlement: result.entitlement?.entitlement_id,
+      active: result.entitlement?.active,
+    });
+
+    res.json({ ok: true, duplicate: result.duplicate });
+  } catch (error) {
+    error.traceId = traceId;
+    next(error);
+  }
+}
+
 async function handleDeleteAccount(req, res, next) {
   const traceId = traceFromRequest(req);
 
@@ -994,10 +1132,21 @@ async function handleCleanupExpiredEphemeralContent(req, res, next) {
 }
 
 app.get('/v1/me/privacy', requireClerkSession, handleGetPrivacyState);
+app.get('/v1/me/subscription', requireClerkSession, handleGetSubscriptionState);
+app.post(
+  '/v1/me/subscription/sync',
+  requireClerkSession,
+  handleSyncSubscriptionState,
+);
 app.post(
   '/v1/admin/retention/cleanup',
   requireRetentionCleanupSecret,
   handleCleanupExpiredEphemeralContent,
+);
+app.post(
+  '/v1/webhooks/revenuecat',
+  requireRevenueCatWebhookAuthorization,
+  handleRevenueCatWebhook,
 );
 app.post(
   '/v1/me/consent',
@@ -1037,6 +1186,7 @@ app.post(
   '/v1/translations/:id/save',
   requireClerkSession,
   requireCurrentConsent,
+  requireUsageAllowance('history_save'),
   handleSaveTranslationToHistory,
 );
 app.get(
@@ -1179,6 +1329,10 @@ async function handleCreateResponseAudio(req, res, next) {
     res.status(202).json(responsePayload);
   } catch (error) {
     error.traceId = traceId;
+    await releaseReservedUsageFromRequest(
+      req,
+      safeErrorCode(error, 'response_audio_dispatch_failed'),
+    );
 
     if (translationJob?.id && req.clerkAuth?.userId) {
       try {
@@ -1206,6 +1360,7 @@ app.post(
   requireClerkSession,
   ensureProfileForRequest,
   requireCurrentConsent,
+  requireUsageAllowance('response_audio'),
   handleCreateResponseAudio,
 );
 
@@ -1317,6 +1472,10 @@ async function handleCreateTranslation(req, res, next) {
     res.status(202).json(responsePayload);
   } catch (error) {
     error.traceId = traceId;
+    await releaseReservedUsageFromRequest(
+      req,
+      safeErrorCode(error, 'async_dispatch_failed'),
+    );
 
     if (translationJob?.id && req.clerkAuth?.userId) {
       try {
@@ -1344,6 +1503,7 @@ app.post(
   requireClerkSession,
   ensureProfileForRequest,
   requireCurrentConsent,
+  requireUsageAllowance('translation'),
   handleCreateTranslation,
 );
 
@@ -1515,6 +1675,10 @@ async function handleTranslateAudio(req, res, next) {
     });
   } catch (error) {
     error.traceId = traceId;
+    await releaseReservedUsageFromRequest(
+      req,
+      safeErrorCode(error, 'translation_failed'),
+    );
 
     if (translationJob?.id && req.clerkAuth?.userId) {
       try {
@@ -1542,6 +1706,7 @@ app.post(
   requireClerkSession,
   ensureProfileForRequest,
   requireCurrentConsent,
+  requireUsageAllowance('translation'),
   handleTranslateAudio,
 );
 app.post(
@@ -1549,6 +1714,7 @@ app.post(
   requireClerkSession,
   ensureProfileForRequest,
   requireCurrentConsent,
+  requireUsageAllowance('translation'),
   handleTranslateAudio,
 );
 
@@ -1578,6 +1744,9 @@ app.listen(PORT, HOST, () => {
     darijaEndpoint: ASR_TRANSCRIBE_URL || null,
     openaiConfigured: Boolean(OPENAI_API_KEY),
     convexConfigured: CONVEX_CONFIGURED,
+    revenueCatWebhookConfigured: REVENUECAT_WEBHOOK_CONFIGURED,
+    freeTranslationJobsPerMonth: FREE_TRANSLATION_JOBS_PER_MONTH,
+    freeResponseAudioJobsPerMonth: FREE_RESPONSE_AUDIO_JOBS_PER_MONTH,
     models: {
       openai_transcription: OPENAI_TRANSCRIPTION_MODEL,
       consolidation: CONSOLIDATION_MODEL,

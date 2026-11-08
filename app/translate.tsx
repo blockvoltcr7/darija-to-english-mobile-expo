@@ -35,12 +35,16 @@ import {
   continuePollingTranslationJob,
   createResponseAudioFile,
   getPrivacyState,
+  getSubscriptionState,
   saveTranslationToHistory,
+  syncSubscriptionState,
   translateAudioFile,
 } from '@/lib/api';
 import { CONFIG } from '@/lib/config';
+import { presentRevenueCatPaywall } from '@/lib/revenuecat';
 import type {
   QueuedTranslationJob,
+  SubscriptionState,
   TranslationResult,
   WorkStatus,
 } from '@/lib/types';
@@ -48,6 +52,7 @@ import type {
 const HIGHLIGHT_BARS = [18, 38, 58, 30, 48, 72, 40, 62, 24, 44, 66, 34];
 const MAX_DIAGNOSTIC_LINES = 10;
 type RecordingMode = 'translate' | 'response';
+type PaidFeature = 'translation' | 'response_audio' | 'history_save';
 
 const palette = {
   shell: '#242424',
@@ -293,6 +298,53 @@ export default function HomeScreen() {
     }
 
     return accessToken;
+  }
+
+  function hasAllowance(subscription: SubscriptionState, feature: PaidFeature) {
+    if (subscription.entitlement.active) {
+      return true;
+    }
+
+    const usage = subscription.usage.find((item) => item.feature === feature);
+
+    if (!usage) {
+      return false;
+    }
+
+    return usage.remaining === null || usage.remaining > 0;
+  }
+
+  async function ensureBillingAccess({
+    accessToken,
+    feature,
+    traceId,
+  }: {
+    accessToken: string;
+    feature: PaidFeature;
+    traceId: string;
+  }) {
+    const subscription = await getSubscriptionState({ accessToken });
+
+    if (hasAllowance(subscription, feature)) {
+      return;
+    }
+
+    appendDiagnostic(`Billing gate opening RevenueCat paywall for ${feature}`, traceId);
+    const paywallState = await presentRevenueCatPaywall(userId);
+
+    if (paywallState.error) {
+      appendDiagnostic(`RevenueCat paywall error: ${paywallState.error}`, traceId);
+    }
+
+    const syncedSubscription = await syncSubscriptionState({ accessToken });
+
+    if (!hasAllowance(syncedSubscription, feature)) {
+      throw new Error(
+        feature === 'history_save'
+          ? 'A Pro subscription is required to save outputs to history.'
+          : 'Your free monthly allowance is used. Subscribe to Pro to continue.',
+      );
+    }
   }
 
   const clearRecoverableJob = useCallback(() => {
@@ -561,6 +613,11 @@ export default function HomeScreen() {
       appendDiagnostic(`Recording URI ${recordingUri}`, traceId);
       await checkApiHealth(traceId);
       const accessToken = await getConsentCheckedAccessToken(traceId);
+      await ensureBillingAccess({
+        accessToken,
+        feature: mode === 'response' ? 'response_audio' : 'translation',
+        traceId,
+      });
 
       const audioBase64 = await FileSystem.readAsStringAsync(recordingUri, {
         encoding: FileSystem.EncodingType.Base64,
@@ -652,6 +709,7 @@ export default function HomeScreen() {
 
       await checkApiHealth(traceId);
       const accessToken = await getConsentCheckedAccessToken(traceId);
+      await ensureBillingAccess({ accessToken, feature: 'translation', traceId });
 
       const audioBase64 = await readSelectedAudioAsBase64(selectedAudio);
       appendDiagnostic(`Read upload base64 chars=${audioBase64.length}`, traceId);
@@ -773,6 +831,11 @@ export default function HomeScreen() {
         throw new Error('Sign in is required before saving history.');
       }
 
+      await ensureBillingAccess({
+        accessToken,
+        feature: 'history_save',
+        traceId: createTraceId('save'),
+      });
       await saveTranslationToHistory({
         accessToken,
         id: resultId,

@@ -1,9 +1,0 @@
-2026-05-21T19:32:00Z run-tts-after-translation-success nil->open
-2026-05-21T19:32:00Z skip-existing-successful-tts-artifacts nil->open
-2026-05-21T19:32:00Z record-tts-failure-without-failing-text-result nil->open
-2026-05-21T20:56:57Z run-tts-after-translation-success open->in_progress
-2026-05-21T20:56:57Z skip-existing-successful-tts-artifacts open->in_progress
-2026-05-21T20:56:57Z record-tts-failure-without-failing-text-result open->in_progress
-2026-05-21T20:58:42Z run-tts-after-translation-success in_progress->done
-2026-05-21T20:58:42Z skip-existing-successful-tts-artifacts in_progress->done
-2026-05-21T20:58:42Z record-tts-failure-without-failing-text-result in_progress->done

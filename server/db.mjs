@@ -87,6 +87,22 @@ const CONVEX_FUNCTIONS = Object.freeze({
     type: 'query',
     ref: api.storage.getStorageUrl,
   },
+  'subscriptions:checkAndReserveUsage': {
+    type: 'mutation',
+    ref: api.subscriptions.checkAndReserveUsage,
+  },
+  'subscriptions:getSubscriptionState': {
+    type: 'query',
+    ref: api.subscriptions.getSubscriptionState,
+  },
+  'subscriptions:releaseUsageReservation': {
+    type: 'mutation',
+    ref: api.subscriptions.releaseUsageReservation,
+  },
+  'subscriptions:syncRevenueCatEntitlement': {
+    type: 'mutation',
+    ref: api.subscriptions.syncRevenueCatEntitlement,
+  },
   'translations:claimForProcessing': {
     type: 'mutation',
     ref: api.translations.claimForProcessing,

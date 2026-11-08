@@ -3,7 +3,7 @@ import { UserProfileView } from '@clerk/expo/native';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import type { Href } from 'expo-router';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import type { ComponentProps } from 'react';
 import {
   ActivityIndicator,
@@ -16,7 +16,19 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { deleteAccount, revokePrivacyConsent } from '@/lib/api';
+import {
+  deleteAccount,
+  getSubscriptionState,
+  revokePrivacyConsent,
+  syncSubscriptionState,
+} from '@/lib/api';
+import {
+  getRevenueCatState,
+  presentRevenueCatPaywall,
+  restoreRevenueCatPurchases,
+  type RevenueCatState,
+} from '@/lib/revenuecat';
+import type { SubscriptionState } from '@/lib/types';
 
 const palette = {
   shell: '#242424',
@@ -30,6 +42,7 @@ const palette = {
   textSubtle: '#726F69',
   stone: '#C4BBB0',
   stoneText: '#171717',
+  teal: '#74E7C4',
   amber: '#D6B45C',
   red: '#D7625A',
   redDim: '#3A1715',
@@ -45,10 +58,59 @@ export default function AccountScreen() {
   const [isSigningOut, setIsSigningOut] = useState(false);
   const [isRevokingConsent, setIsRevokingConsent] = useState(false);
   const [isDeletingAccount, setIsDeletingAccount] = useState(false);
+  const [isManagingSubscription, setIsManagingSubscription] = useState(false);
+  const [subscriptionState, setSubscriptionState] =
+    useState<SubscriptionState | null>(null);
+  const [revenueCatState, setRevenueCatState] =
+    useState<RevenueCatState | null>(null);
   const [signOutError, setSignOutError] = useState<string | null>(null);
   const email = user?.primaryEmailAddress?.emailAddress || user?.emailAddresses[0]?.emailAddress;
   const displayName = user?.fullName || user?.username || 'Signed in';
   const identityLine = email || user?.id || 'Clerk account';
+  const isPro =
+    subscriptionState?.entitlement.active || revenueCatState?.isPro || false;
+  const subscriptionLabel = isPro ? 'Pro active' : 'Free plan';
+  const subscriptionDescription = isPro
+    ? 'Higher monthly quota and saved history are enabled.'
+    : 'Free monthly allowance. Upgrade for more translation and reply audio.';
+
+  useEffect(() => {
+    let isMounted = true;
+
+    async function loadSubscription() {
+      if (!user?.id) {
+        return;
+      }
+
+      const localState = await getRevenueCatState(user.id);
+
+      if (isMounted) {
+        setRevenueCatState(localState);
+      }
+
+      try {
+        const token = await getToken();
+
+        if (!token) {
+          return;
+        }
+
+        const serverState = await getSubscriptionState({ accessToken: token });
+
+        if (isMounted) {
+          setSubscriptionState(serverState);
+        }
+      } catch {
+        // Account actions surface a user-visible error when the user explicitly interacts.
+      }
+    }
+
+    void loadSubscription();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [getToken, user?.id]);
 
   async function performSignOut() {
     setIsSigningOut(true);
@@ -131,6 +193,63 @@ export default function AccountScreen() {
     }
   }
 
+  async function refreshServerSubscription() {
+    const token = await getToken();
+
+    if (!token) {
+      throw new Error('Sign in is required.');
+    }
+
+    const state = await syncSubscriptionState({ accessToken: token });
+    setSubscriptionState(state);
+  }
+
+  async function openSubscriptionPaywall() {
+    if (isManagingSubscription) {
+      return;
+    }
+
+    setIsManagingSubscription(true);
+    setSignOutError(null);
+
+    try {
+      const state = await presentRevenueCatPaywall(user?.id);
+      setRevenueCatState(state);
+      await refreshServerSubscription();
+    } catch (caughtError) {
+      const message =
+        caughtError instanceof Error
+          ? caughtError.message
+          : 'Unable to open subscription options.';
+      setSignOutError(message);
+    } finally {
+      setIsManagingSubscription(false);
+    }
+  }
+
+  async function restorePurchases() {
+    if (isManagingSubscription) {
+      return;
+    }
+
+    setIsManagingSubscription(true);
+    setSignOutError(null);
+
+    try {
+      const state = await restoreRevenueCatPurchases(user?.id);
+      setRevenueCatState(state);
+      await refreshServerSubscription();
+    } catch (caughtError) {
+      const message =
+        caughtError instanceof Error
+          ? caughtError.message
+          : 'Unable to restore purchases.';
+      setSignOutError(message);
+    } finally {
+      setIsManagingSubscription(false);
+    }
+  }
+
   function confirmRevokeConsent() {
     if (isRevokingConsent) {
       return;
@@ -201,6 +320,38 @@ export default function AccountScreen() {
         </View>
 
         <View style={styles.actionList}>
+          <View style={styles.subscriptionPanel}>
+            <View style={styles.subscriptionHeader}>
+              <Ionicons
+                name={isPro ? 'sparkles-outline' : 'card-outline'}
+                size={20}
+                color={isPro ? palette.teal : palette.stone}
+              />
+              <View style={styles.subscriptionText}>
+                <Text style={styles.subscriptionLabel}>{subscriptionLabel}</Text>
+                <Text style={styles.subscriptionDescription}>
+                  {subscriptionDescription}
+                </Text>
+              </View>
+            </View>
+            {revenueCatState?.error ? (
+              <Text selectable style={styles.subscriptionWarning}>
+                {revenueCatState.error}
+              </Text>
+            ) : null}
+          </View>
+          <AccountAction
+            icon="sparkles-outline"
+            label={isManagingSubscription ? 'Opening subscription...' : 'Upgrade to Pro'}
+            description="View Pro pricing and Apple subscription options"
+            onPress={openSubscriptionPaywall}
+          />
+          <AccountAction
+            icon="refresh-circle-outline"
+            label="Restore purchases"
+            description="Restore an existing App Store subscription"
+            onPress={restorePurchases}
+          />
           <AccountAction
             icon="create-outline"
             label="Manage profile"
@@ -400,6 +551,38 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     borderWidth: 1,
     overflow: 'hidden',
+  },
+  subscriptionPanel: {
+    borderBottomColor: palette.borderSoft,
+    borderBottomWidth: 1,
+    gap: 8,
+    padding: 14,
+  },
+  subscriptionHeader: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 12,
+  },
+  subscriptionText: {
+    flex: 1,
+    gap: 3,
+  },
+  subscriptionLabel: {
+    color: palette.text,
+    fontSize: 15,
+    fontWeight: '900',
+  },
+  subscriptionDescription: {
+    color: palette.textMuted,
+    fontSize: 12,
+    fontWeight: '700',
+    lineHeight: 17,
+  },
+  subscriptionWarning: {
+    color: '#F1D79B',
+    fontSize: 12,
+    fontWeight: '700',
+    lineHeight: 17,
   },
   actionRow: {
     alignItems: 'center',

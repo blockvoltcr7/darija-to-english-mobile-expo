@@ -43,6 +43,18 @@ const artifactStatus = v.union(
   v.literal("canceled"),
 );
 
+const usageFeature = v.union(
+  v.literal("translation"),
+  v.literal("response_audio"),
+  v.literal("history_save"),
+);
+
+const usageReservationStatus = v.union(
+  v.literal("reserved"),
+  v.literal("released"),
+  v.literal("consumed"),
+);
+
 export default defineSchema({
   profiles: defineTable({
     clerkUserId: v.string(),
@@ -86,6 +98,72 @@ export default defineSchema({
     createdAt: timestamp,
     updatedAt: timestamp,
   }).index("by_clerk_user_id", ["clerkUserId"]),
+
+  revenueCatCustomers: defineTable({
+    clerkUserId: v.string(),
+    appUserId: v.string(),
+    createdAt: timestamp,
+    updatedAt: timestamp,
+  })
+    .index("by_clerk_user_id", ["clerkUserId"])
+    .index("by_app_user_id", ["appUserId"]),
+
+  subscriptionEntitlements: defineTable({
+    clerkUserId: v.string(),
+    appUserId: v.string(),
+    entitlementId: v.string(),
+    active: v.boolean(),
+    plan: v.string(),
+    productId: v.optional(v.string()),
+    expiresAt: v.optional(timestamp),
+    environment: v.optional(v.string()),
+    source: v.string(),
+    lastEventId: v.optional(v.string()),
+    lastSyncedAt: timestamp,
+    createdAt: timestamp,
+    updatedAt: timestamp,
+  })
+    .index("by_clerk_user_id_entitlement_id", ["clerkUserId", "entitlementId"])
+    .index("by_app_user_id_entitlement_id", ["appUserId", "entitlementId"]),
+
+  revenueCatWebhookEvents: defineTable({
+    eventId: v.string(),
+    eventType: v.string(),
+    appUserId: v.optional(v.string()),
+    productId: v.optional(v.string()),
+    entitlementIds: v.array(v.string()),
+    environment: v.optional(v.string()),
+    processedAt: v.optional(timestamp),
+    createdAt: timestamp,
+  })
+    .index("by_event_id", ["eventId"])
+    .index("by_app_user_id_created_at", ["appUserId", "createdAt"]),
+
+  usagePeriods: defineTable({
+    clerkUserId: v.string(),
+    periodKey: v.string(),
+    translationCount: v.number(),
+    responseAudioCount: v.number(),
+    historySaveCount: v.number(),
+    createdAt: timestamp,
+    updatedAt: timestamp,
+  }).index("by_clerk_user_id_period_key", ["clerkUserId", "periodKey"]),
+
+  usageReservations: defineTable({
+    reservationId: v.string(),
+    clerkUserId: v.string(),
+    periodKey: v.string(),
+    feature: usageFeature,
+    status: usageReservationStatus,
+    traceId: v.optional(v.string()),
+    jobId: v.optional(v.string()),
+    reason: v.optional(v.string()),
+    createdAt: timestamp,
+    updatedAt: timestamp,
+  })
+    .index("by_reservation_id", ["reservationId"])
+    .index("by_clerk_user_id_period_key", ["clerkUserId", "periodKey"])
+    .index("by_trace_id", ["traceId"]),
 
   clerkWebhookEvents: defineTable({
     eventId: v.string(),

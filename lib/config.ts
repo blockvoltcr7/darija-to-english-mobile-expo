@@ -35,6 +35,9 @@ export const CONFIG = {
   API_BASE_URL: resolveApiBaseUrl(),
   SHOW_DIAGNOSTICS: process.env.EXPO_PUBLIC_SHOW_DIAGNOSTICS === 'true',
   APP_VERSION: process.env.EXPO_PUBLIC_APP_VERSION || '1.0.0',
+  REVENUECAT_IOS_API_KEY: process.env.EXPO_PUBLIC_REVENUECAT_IOS_API_KEY || '',
+  REVENUECAT_PRO_ENTITLEMENT:
+    process.env.EXPO_PUBLIC_REVENUECAT_PRO_ENTITLEMENT || 'pro',
   LEGAL_URLS: {
     privacyPolicy:
       process.env.EXPO_PUBLIC_LEGAL_PRIVACY_URL ||

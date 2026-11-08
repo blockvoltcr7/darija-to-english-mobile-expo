@@ -1,4 +1,4 @@
-import { ClerkProvider, useAuth } from '@clerk/expo';
+import { ClerkProvider, useAuth, useUser } from '@clerk/expo';
 import { tokenCache } from '@clerk/expo/token-cache';
 import { DarkTheme, ThemeProvider } from '@react-navigation/native';
 import { ConvexProviderWithClerk } from 'convex/react-clerk';
@@ -7,6 +7,8 @@ import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect } from 'react';
 import 'react-native-reanimated';
+
+import { configureRevenueCat } from '@/lib/revenuecat';
 
 export { ErrorBoundary } from 'expo-router';
 
@@ -84,6 +86,20 @@ function RootStack() {
   );
 }
 
+function RevenueCatIdentityBridge() {
+  const { isLoaded, user } = useUser();
+
+  useEffect(() => {
+    if (!isLoaded || !user?.id) {
+      return;
+    }
+
+    void configureRevenueCat(user.id);
+  }, [isLoaded, user?.id]);
+
+  return null;
+}
+
 export default function RootLayout() {
   useEffect(() => {
     SplashScreen.hideAsync();
@@ -92,6 +108,7 @@ export default function RootLayout() {
   return (
     <ClerkProvider publishableKey={clerkPublishableKey} tokenCache={tokenCache}>
       <ConvexProviderWithClerk client={convex} useAuth={useAuth}>
+        <RevenueCatIdentityBridge />
         <RootStack />
       </ConvexProviderWithClerk>
     </ClerkProvider>

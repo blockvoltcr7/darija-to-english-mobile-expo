@@ -18,6 +18,7 @@ import type * as model_auth from "../model/auth.js";
 import type * as model_rows from "../model/rows.js";
 import type * as profiles from "../profiles.js";
 import type * as storage from "../storage.js";
+import type * as subscriptions from "../subscriptions.js";
 import type * as translations from "../translations.js";
 
 import type {
@@ -37,6 +38,7 @@ declare const fullApi: ApiFromModules<{
   "model/rows": typeof model_rows;
   profiles: typeof profiles;
   storage: typeof storage;
+  subscriptions: typeof subscriptions;
   translations: typeof translations;
 }>;
 
